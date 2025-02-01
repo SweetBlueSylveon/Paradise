@@ -14,6 +14,7 @@
 		"Freezer" = /obj/machinery/door/airlock/freezer,
 		"Maintenance" = /obj/machinery/door/airlock/maintenance,
 		"Medical" = /obj/machinery/door/airlock/medical,
+		"Virology" = /obj/machinery/door/airlock/virology,
 		"Mining" = /obj/machinery/door/airlock/mining,
 		"Public" = /obj/machinery/door/airlock/public,
 		"Research" = /obj/machinery/door/airlock/research,
@@ -22,7 +23,7 @@
 		"Standard" = /obj/machinery/door/airlock)
 
 /datum/painter/airlock/pick_color(mob/user)
-	var/choice = input(user, "Please select a paintjob.") as null|anything in available_paint_jobs
+	var/choice = tgui_input_list(user, "Please select a paintjob.", "Airlock painter", available_paint_jobs)
 	if(!choice)
 		return
 	paint_setting = choice

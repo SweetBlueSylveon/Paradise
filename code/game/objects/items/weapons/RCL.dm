@@ -1,10 +1,10 @@
-/obj/item/twohanded/rcl
+/obj/item/rcl
 	name = "rapid cable layer (RCL)"
 	desc = "A device used to rapidly deploy cables. It has screws on the side which can be removed to slide off the cables."
 	icon = 'icons/obj/tools.dmi'
 	icon_state = "rcl-0"
 	item_state = "rcl-0"
-	opacity = 0
+	opacity = FALSE
 	force = 5 //Plastic is soft
 	throwforce = 5
 	throw_speed = 1
@@ -12,11 +12,15 @@
 	w_class = WEIGHT_CLASS_NORMAL
 	origin_tech = "engineering=4;materials=2"
 	var/max_amount = 90
-	var/active = 0
+	var/active = FALSE
 	var/obj/structure/cable/last = null
 	var/obj/item/stack/cable_coil/loaded = null
 
-/obj/item/twohanded/rcl/attackby(obj/item/W, mob/user)
+/obj/item/rcl/Initialize(mapload)
+	. = ..()
+	AddComponent(/datum/component/two_handed)
+
+/obj/item/rcl/attackby__legacy__attackchain(obj/item/W, mob/user)
 	if(istype(W, /obj/item/stack/cable_coil))
 		var/obj/item/stack/cable_coil/C = W
 		if(!loaded)
@@ -34,12 +38,12 @@
 				loaded.amount = amount
 			else
 				return
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 		to_chat(user, "<span class='notice'>You add the cables to [src]. It now contains [loaded.amount].</span>")
 	else
 		..()
 
-/obj/item/twohanded/rcl/screwdriver_act(mob/user, obj/item/I)
+/obj/item/rcl/screwdriver_act(mob/user, obj/item/I)
 	if(!loaded)
 		return
 	. = TRUE
@@ -58,20 +62,20 @@
 	loaded.forceMove(user.loc)
 	user.put_in_hands(loaded)
 	loaded = null
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
-/obj/item/twohanded/rcl/examine(mob/user)
+/obj/item/rcl/examine(mob/user)
 	. = ..()
 	if(loaded)
-		. += "<span class='info'>It contains [loaded.amount]/[max_amount] cables.</span>"
+		. += "<span class='notice'>It contains [loaded.amount]/[max_amount] cables.</span>"
 
-/obj/item/twohanded/rcl/Destroy()
+/obj/item/rcl/Destroy()
 	QDEL_NULL(loaded)
 	last = null
-	active = 0
+	active = FALSE
 	return ..()
 
-/obj/item/twohanded/rcl/update_icon()
+/obj/item/rcl/update_icon_state()
 	if(!loaded)
 		icon_state = "rcl-0"
 		item_state = "rcl-0"
@@ -89,29 +93,26 @@
 		else
 			icon_state = "rcl-0"
 			item_state = "rcl-0"
-	..()
 
-/obj/item/twohanded/rcl/proc/is_empty(mob/user, loud = 1)
-	update_icon()
+/obj/item/rcl/proc/is_empty(mob/user, loud = 1)
+	update_icon(UPDATE_ICON_STATE)
 	if(!loaded || !loaded.amount)
 		if(loud)
 			to_chat(user, "<span class='notice'>The last of the cables unreel from [src].</span>")
 		if(loaded)
 			qdel(loaded)
 			loaded = null
-		unwield(user)
-		active = wielded
-		return 1
-	return 0
+		return TRUE
+	return FALSE
 
-/obj/item/twohanded/rcl/dropped(mob/wearer)
+/obj/item/rcl/dropped(mob/wearer)
 	..()
-	active = 0
+	active = FALSE
 	last = null
 
-/obj/item/twohanded/rcl/attack_self(mob/user)
+/obj/item/rcl/attack_self__legacy__attackchain(mob/user)
 	..()
-	active = wielded
+	active = HAS_TRAIT(src, TRAIT_WIELDED)
 	if(!active)
 		last = null
 	else if(!last)
@@ -120,11 +121,11 @@
 				last = C
 				break
 
-/obj/item/twohanded/rcl/on_mob_move(direct, mob/user)
-	if(active)
+/obj/item/rcl/on_mob_move(direct, mob/user)
+	if(active && isturf(user.loc))
 		trigger(user)
 
-/obj/item/twohanded/rcl/proc/trigger(mob/user)
+/obj/item/rcl/proc/trigger(mob/user)
 	if(is_empty(user, 0))
 		to_chat(user, "<span class='warning'>\The [src] is empty!</span>")
 		return
@@ -146,9 +147,9 @@
 	last = loaded.place_turf(get_turf(loc), user, turn(user.dir, 180))
 	is_empty(user) //If we've run out, display message
 
-/obj/item/twohanded/rcl/pre_loaded/New() //Comes preloaded with cable, for testing stuff
+/obj/item/rcl/pre_loaded/New() //Comes preloaded with cable, for testing stuff
 	..()
 	loaded = new()
 	loaded.max_amount = max_amount
 	loaded.amount = max_amount
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)

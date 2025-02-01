@@ -7,10 +7,11 @@
 	icon_state = "syndicate-bomb"
 	desc = "A large and menacing device. Can be bolted down with a wrench."
 
-	anchored = 0
-	density = 0
+	anchored = FALSE
+	density = FALSE
 	layer = BELOW_MOB_LAYER //so people can't hide it and it's REALLY OBVIOUS
 	resistance_flags = FIRE_PROOF | ACID_PROOF
+	flags_2 = CRITICAL_ATOM_2
 
 	var/datum/wires/syndicatebomb/wires = null
 	var/minimum_timer = 90
@@ -31,6 +32,7 @@
 	var/next_beep
 	var/detonation_timer
 	var/explode_now = FALSE
+	var/hide_wires = TRUE
 
 /obj/machinery/syndicatebomb/proc/try_detonate(ignore_active = FALSE)
 	. = (payload in src) && (active || ignore_active) && !defused
@@ -74,7 +76,7 @@
 	if(active && !defused && ((detonation_timer <= world.time) || explode_now))
 		active = FALSE
 		timer_set = initial(timer_set)
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 		try_detonate(TRUE)
 	//Counter terrorists win
 	else if(defused)
@@ -82,13 +84,15 @@
 		if(payload in src)
 			payload.defuse()
 
-/obj/machinery/syndicatebomb/New()
-	wires 	= new(src)
+/obj/machinery/syndicatebomb/Initialize(mapload)
+	. = ..()
+	wires = new(src)
+	if(hide_wires)
+		ADD_TRAIT(src, TRAIT_OBSCURED_WIRES, ROUNDSTART_TRAIT)
 	if(payload)
 		payload = new payload(src)
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 	countdown = new(src)
-	..()
 
 /obj/machinery/syndicatebomb/Destroy()
 	SStgui.close_uis(wires)
@@ -101,7 +105,7 @@
 	. = ..()
 	. += "A digital display on it reads \"[seconds_remaining()]\"."
 
-/obj/machinery/syndicatebomb/update_icon()
+/obj/machinery/syndicatebomb/update_icon_state()
 	icon_state = "[initial(icon_state)][active ? "-active" : "-inactive"][open_panel ? "-wires" : ""]"
 
 /obj/machinery/syndicatebomb/proc/seconds_remaining()
@@ -110,21 +114,24 @@
 	else
 		. = timer_set
 
-/obj/machinery/syndicatebomb/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/assembly/signaler))
+/obj/machinery/syndicatebomb/item_interaction(mob/living/user, obj/item/used, list/modifiers)
+	if(istype(used, /obj/item/assembly/signaler))
 		if(open_panel)
 			wires.Interact(user)
-	else if(istype(I, /obj/item/bombcore))
+
+		return ITEM_INTERACT_COMPLETE
+	else if(istype(used, /obj/item/bombcore))
 		if(!payload)
 			if(!user.drop_item())
-				return
-			payload = I
+				return ITEM_INTERACT_COMPLETE
+			payload = used
 			to_chat(user, "<span class='notice'>You place [payload] into [src].</span>")
 			payload.forceMove(src)
 		else
 			to_chat(user, "<span class='notice'>[payload] is already loaded into [src], you'll have to remove it first.</span>")
-	else
-		return ..()
+		return ITEM_INTERACT_COMPLETE
+
+	return ..()
 
 /obj/machinery/syndicatebomb/wrench_act(mob/user, obj/item/I)
 	if(!can_unanchor)
@@ -152,7 +159,7 @@
 	if(!I.use_tool(src, user, 0, volume = I.tool_volume))
 		return
 	open_panel = !open_panel
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 	to_chat(user, "<span class='notice'>You [open_panel ? "open" : "close"] the wire panel.</span>")
 
 /obj/machinery/syndicatebomb/wirecutter_act(mob/user, obj/item/I)
@@ -246,7 +253,7 @@
 	if(can_interact(user)) //No running off and setting bombs from across the station
 		timer_set = clamp(new_timer, minimum_timer, maximum_timer)
 		loc.visible_message("<span class='notice'>[bicon(src)] timer set for [timer_set] seconds.</span>")
-	if(alert(user,"Would you like to start the countdown now?",,"Yes","No") == "Yes" && can_interact(user))
+	if(tgui_alert(user, "Would you like to start the countdown now?", "Countdown", list("Yes", "No")) == "Yes" && can_interact(user))
 		if(defused || active)
 			if(defused)
 				loc.visible_message("<span class='notice'>[bicon(src)] Device error: User intervention required.</span>")
@@ -254,7 +261,7 @@
 		else
 			loc.visible_message("<span class='danger'>[bicon(src)] [timer_set] seconds until detonation, please clear the area.</span>")
 			activate()
-			update_icon()
+			update_icon(UPDATE_ICON_STATE)
 			add_fingerprint(user)
 
 			var/turf/bombturf = get_turf(src)
@@ -299,8 +306,8 @@
 	open_panel = TRUE
 	timer_set = 120
 
-/obj/machinery/syndicatebomb/empty/New()
-	..()
+/obj/machinery/syndicatebomb/empty/Initialize(mapload)
+	. = ..()
 	wires.cut_all()
 
 
@@ -316,10 +323,10 @@
 	origin_tech = "syndicate=5;combat=6"
 	resistance_flags = FLAMMABLE //Burnable (but the casing isn't)
 	var/adminlog = null
-	var/range_heavy = 3
-	var/range_medium = 9
-	var/range_light = 17
-	var/range_flame = 17
+	var/range_heavy = 5
+	var/range_medium = 10
+	var/range_light = 20
+	var/range_flame = 20
 	var/admin_log = TRUE
 
 /obj/item/bombcore/ex_act(severity) //Little boom can chain a big boom
@@ -340,6 +347,7 @@
 	qdel(src)
 
 /obj/item/bombcore/proc/defuse()
+	return
 //Note: 	Because of how var/defused is used you shouldn't override this UNLESS you intend to set the var to 0 or
 //			otherwise remove the core/reset the wires before the end of defuse(). It will repeatedly be called otherwise.
 
@@ -362,7 +370,7 @@
 		holder.delayedbig = FALSE
 		holder.delayedlittle = FALSE
 		holder.explode_now = FALSE
-		holder.update_icon()
+		holder.update_icon(UPDATE_ICON_STATE)
 		holder.updateDialog()
 
 /obj/item/bombcore/training/detonate()
@@ -395,15 +403,14 @@
 	qdel(src)
 
 /obj/item/bombcore/badmin/summon
-	var/summon_path = /obj/item/reagent_containers/food/snacks/cookie
+	var/summon_path = /obj/item/food/cookie
 	var/amt_summon = 1
 
 /obj/item/bombcore/badmin/summon/detonate()
 	var/obj/machinery/syndicatebomb/B = src.loc
 	for(var/i = 0; i < amt_summon; i++)
-		var/atom/movable/X = new summon_path
+		var/atom/movable/X = new summon_path(get_turf(src))
 		X.admin_spawned = TRUE
-		X.loc = get_turf(src)
 		if(prob(50))
 			for(var/j = 1, j <= rand(1, 3), j++)
 				step(X, pick(NORTH,SOUTH,EAST,WEST))
@@ -418,17 +425,10 @@
 	playsound(src.loc, 'sound/misc/sadtrombone.ogg', 50)
 	..()
 
-/obj/item/bombcore/large
-	name = "large bomb payload"
-	range_heavy = 5
-	range_medium = 10
-	range_light = 20
-	range_flame = 20
-
-/obj/item/bombcore/large/explosive_wall
+/obj/item/bombcore/explosive_wall
 	admin_log = FALSE
 
-/obj/item/bombcore/large/underwall
+/obj/item/bombcore/underwall
 	layer = ABOVE_OPEN_TURF_LAYER
 
 /obj/item/bombcore/miniature
@@ -443,7 +443,7 @@
 	name = "\improper EMP bomb core"
 	var/light_emp = 36
 	var/heavy_emp = 18
-	var/pulse_number = 1 //Since one EMP wont destroy anything other then consoles and IPCS, here is an option to have multiple pulses when dentonating. DO NOT USE THIS WITH REALLY LARGE AREAS
+	var/pulse_number = 3 //Since one EMP wont destroy anything other then consoles and IPCS, here is an option to have multiple pulses when dentonating. DO NOT USE THIS WITH REALLY LARGE AREAS
 	var/adminlogged = FALSE //If it exploded once, don't do it again.
 
 /obj/item/bombcore/emp/ex_act(severity) //It's an EMP bomb, not a chemical explosive
@@ -466,7 +466,7 @@
 		qdel(src)
 	else
 		pulse_number -= 1
-		addtimer(CALLBACK(src, .proc/detonate), 20) // every 2 seconds go off again till pulses run out
+		addtimer(CALLBACK(src, PROC_REF(detonate)), 20) // every 2 seconds go off again till pulses run out
 
 /obj/item/bombcore/chemical
 	name = "chemical payload"
@@ -500,7 +500,7 @@
 		chem_splash(get_turf(src), spread_range, list(reactants), temp_boost)
 
 		// Detonate it again in one second, until it's out of juice.
-		addtimer(CALLBACK(src, .proc/detonate), 10)
+		addtimer(CALLBACK(src, PROC_REF(detonate)), 10)
 
 	// If it's not a time release bomb, do normal explosion
 
@@ -525,15 +525,15 @@
 		message_admins(adminlog)
 		log_game(adminlog)
 
-	playsound(loc, 'sound/effects/bamf.ogg', 75, 1, 5)
+	playsound(loc, 'sound/effects/bamf.ogg', 75, TRUE, 5)
 
 	if(loc && istype(loc, /obj/machinery/syndicatebomb))
 		qdel(loc)
 	qdel(src)
 
-/obj/item/bombcore/chemical/attackby(obj/item/I, mob/user, params)
+/obj/item/bombcore/chemical/attackby__legacy__attackchain(obj/item/I, mob/user, params)
 	if(istype(I, /obj/item/reagent_containers/glass/beaker) || istype(I, /obj/item/reagent_containers/glass/bottle))
-		if(beakers.len < max_beakers)
+		if(length(beakers) < max_beakers)
 			if(!user.drop_item())
 				return
 			beakers += I
@@ -549,7 +549,7 @@
 	. = TRUE
 	if(!I.use_tool(src, user, 0, volume = I.tool_volume))
 		return
-	if(beakers.len == 0)
+	if(length(beakers) == 0)
 		return
 	for(var/obj/item/B in beakers)
 		B.loc = get_turf(src)
@@ -570,7 +570,7 @@
 			spread_range += 2 // Extra range, reduced density.
 			temp_boost += 50 // maximum of +150K blast using only large beakers. Not enough to self ignite.
 			for(var/obj/item/slime_extract/S in LG.beakers) // And slime cores.
-				if(beakers.len < max_beakers)
+				if(length(beakers) < max_beakers)
 					beakers += S
 					S.loc = src
 				else
@@ -587,7 +587,7 @@
 			time_release += 50 // A typical bomb, using basic beakers, will explode over 2-4 seconds. Using two will make the reaction last for less time, but it will be more dangerous overall.
 
 		for(var/obj/item/reagent_containers/glass/B in G)
-			if(beakers.len < max_beakers)
+			if(length(beakers) < max_beakers)
 				beakers += B
 				B.loc = src
 			else
@@ -602,7 +602,7 @@
 	icon_state = "chemcore"
 	var/obj/item/transfer_valve/ttv = null
 
-/obj/item/bombcore/toxins/attackby(obj/item/I, mob/user)
+/obj/item/bombcore/toxins/attackby__legacy__attackchain(obj/item/I, mob/user)
 	if(istype(I, /obj/item/transfer_valve))
 		if(!ttv && !check_attached(I))
 			if(!user.drop_item())
@@ -610,7 +610,7 @@
 			to_chat(user, "<span class='notice'>You load [src] with [I].</span>")
 			ttv = I
 			I.forceMove(src)
-		else if (ttv)
+		else if(ttv)
 			to_chat(user, "<span class='warning'>Another tank transfer valve is already loaded.</span>")
 		else
 			to_chat(user, "<span class='warning'>Remove the attached assembly component first.</span>")
@@ -629,7 +629,7 @@
 
 
 /obj/item/bombcore/toxins/proc/check_attached(obj/item/transfer_valve/ttv)
-	if (ttv.attached_device)
+	if(ttv.attached_device)
 		return TRUE
 	else
 		return FALSE
@@ -658,25 +658,30 @@
 	var/detonated =	0
 	var/existant =	0
 
-/obj/item/syndicatedetonator/attack_self(mob/user)
-	if(timer < world.time)
-		for(var/obj/machinery/syndicatebomb/B in GLOB.machines)
-			if(B.active)
-				B.detonation_timer = world.time + BUTTON_DELAY
-				detonated++
-			existant++
-		playsound(user, 'sound/machines/click.ogg', 20, 1)
-		to_chat(user, "<span class='notice'>[existant] found, [detonated] triggered.</span>")
-		if(detonated)
-			var/turf/T = get_turf(src)
-			var/area/A = get_area(T)
-			detonated--
-			investigate_log("[key_name(user)] has remotely detonated [detonated ? "syndicate bombs" : "a syndicate bomb"] using a [name] at [A.name] ([T.x],[T.y],[T.z])", INVESTIGATE_BOMB)
-			add_attack_logs(user, src, "has remotely detonated [detonated ? "syndicate bombs" : "a syndicate bomb"] using", ATKLOG_FEW)
-			log_game("[key_name(user)] has remotely detonated [detonated ? "syndicate bombs" : "a syndicate bomb"] using a [name] at [A.name] ([T.x],[T.y],[T.z])")
-		detonated =	0
-		existant =	0
-		timer = world.time + BUTTON_COOLDOWN
+/obj/item/syndicatedetonator/attack_self__legacy__attackchain(mob/user)
+	if(timer >= world.time)
+		to_chat(user, "<span class='alert'>Nothing happens.</span>")
+		return
+
+	for(var/obj/machinery/syndicatebomb/B in GLOB.machines)
+		if(B.active)
+			B.detonation_timer = world.time + BUTTON_DELAY
+			detonated++
+		existant++
+
+	playsound(user, 'sound/machines/click.ogg', 20, TRUE)
+	flick("bigred_press", src)
+	to_chat(user, "<span class='notice'>[existant] found, [detonated] triggered.</span>")
+	if(detonated)
+		var/turf/T = get_turf(src)
+		var/area/A = get_area(T)
+		detonated--
+		investigate_log("[key_name(user)] has remotely detonated [detonated ? "syndicate bombs" : "a syndicate bomb"] using a [name] at [A.name] ([T.x],[T.y],[T.z])", INVESTIGATE_BOMB)
+		add_attack_logs(user, src, "has remotely detonated [detonated ? "syndicate bombs" : "a syndicate bomb"] using", ATKLOG_FEW)
+		log_game("[key_name(user)] has remotely detonated [detonated ? "syndicate bombs" : "a syndicate bomb"] using a [name] at [A.name] ([T.x],[T.y],[T.z])")
+	detonated =	0
+	existant = 0
+	timer = world.time + BUTTON_COOLDOWN
 
 #undef BUTTON_COOLDOWN
 #undef BUTTON_DELAY

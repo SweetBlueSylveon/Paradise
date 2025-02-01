@@ -5,20 +5,28 @@
 	var/stopper = TRUE // stops throwers
 	var/mobs_only = FALSE
 	invisibility = INVISIBILITY_ABSTRACT // nope cant see this shit
-	anchored = TRUE
+
+/obj/effect/step_trigger/Initialize(mapload)
+	. = ..()
+	var/static/list/loc_connections = list(
+		COMSIG_ATOM_ENTERED = PROC_REF(on_atom_entered),
+	)
+	AddElement(/datum/element/connect_loc, loc_connections)
 
 /obj/effect/step_trigger/proc/Trigger(atom/movable/A)
 	return FALSE
 
-/obj/effect/step_trigger/Crossed(H, oldloc)
-	. = ..()
-	if(!H)
+/obj/effect/step_trigger/proc/on_atom_entered(datum/source, atom/movable/entered)
+	SIGNAL_HANDLER
+	if(!entered || entered == src)
 		return
-	if(isobserver(H) && !affect_ghosts)
+	if(!ismob(entered) && !isobj(entered))
 		return
-	if(!ismob(H) && mobs_only)
+	if(isobserver(entered) && !affect_ghosts)
 		return
-	Trigger(H)
+	if(!ismob(entered) && mobs_only)
+		return
+	INVOKE_ASYNC(src, PROC_REF(Trigger), entered)
 
 /obj/effect/step_trigger/singularity_act()
 	return
@@ -35,18 +43,16 @@
 
 /obj/effect/step_trigger/message/Trigger(mob/M)
 	if(M.client)
-		to_chat(M, "<span class='info'>[message]</span>")
+		to_chat(M, "<span class='notice'>[message]</span>")
 		if(once)
 			qdel(src)
 
 /* Tosses things in a certain direction */
-
 /obj/effect/step_trigger/thrower
 	var/direction = SOUTH // the direction of throw
 	var/tiles = 3	// if 0: forever until atom hits a stopper
 	var/immobilize = 1 // if nonzero: prevents mobs from moving while they're being flung
 	var/speed = 1	// delay of movement
-	var/facedir = 0 // if 1: atom faces the direction of movement
 	var/nostop = 0 // if 1: will only be stopped by teleporters
 	var/list/affecting = list()
 
@@ -60,10 +66,8 @@
 		if(AM in T.affecting)
 			return
 
-	if(isliving(AM))
-		var/mob/living/M = AM
-		if(immobilize)
-			M.canmove = FALSE
+	if(immobilize)
+		ADD_TRAIT(A, TRAIT_IMMOBILIZED, "[UID()]")
 
 	affecting.Add(AM)
 	while(AM && !stopthrow)
@@ -88,19 +92,9 @@
 					stopthrow = 1
 
 		if(AM)
-			var/predir = AM.dir
 			step(AM, direction)
-			if(!facedir)
-				AM.setDir(predir)
 
-
-
-	affecting.Remove(AM)
-
-	if(isliving(AM))
-		var/mob/living/M = AM
-		if(immobilize)
-			M.canmove = TRUE
+	REMOVE_TRAIT(A, TRAIT_IMMOBILIZED, "[UID()]")
 
 /* Stops things thrown by a thrower, doesn't do anything */
 
@@ -131,7 +125,7 @@
 		if(teleport_x_offset && teleport_y_offset && teleport_z_offset)
 
 			var/turf/T = locate(rand(teleport_x, teleport_x_offset), rand(teleport_y, teleport_y_offset), rand(teleport_z, teleport_z_offset))
-			if (T)
+			if(T)
 				A.forceMove(T)
 
 /* Fancy teleporter, creates sparks and smokes when used */
@@ -160,11 +154,11 @@
 
 	if(entersmoke)
 		var/datum/effect_system/smoke_spread/s = new
-		s.set_up(4, 1, src, 0)
+		s.set_up(4, TRUE, src, 0)
 		s.start()
 	if(exitsmoke)
 		var/datum/effect_system/smoke_spread/s = new
-		s.set_up(4, 1, dest, 0)
+		s.set_up(4, TRUE, dest, 0)
 		s.start()
 
 	uses--

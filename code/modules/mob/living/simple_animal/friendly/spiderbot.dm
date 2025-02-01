@@ -5,8 +5,8 @@
 	icon_state = "spiderbot-chassis"
 	icon_living = "spiderbot-chassis"
 	icon_dead = "spiderbot-smashed"
-	wander = 0
-	universal_speak = 1
+	wander = FALSE
+	universal_speak = TRUE
 	health = 40
 	maxHealth = 40
 	pass_flags = PASSTABLE
@@ -29,12 +29,12 @@
 	minbodytemp = 0
 	maxbodytemp = 500
 
-	can_hide = 1
-	ventcrawler = 2
+	can_hide = TRUE
+	ventcrawler = VENTCRAWLER_ALWAYS
 	loot = list(/obj/effect/decal/cleanable/blood/gibs/robot)
-	del_on_death = 1
+	del_on_death = TRUE
 
-	var/emagged = 0               //is it getting ready to explode?
+	var/emagged = FALSE               //is it getting ready to explode?
 	var/obj/item/mmi/mmi = null
 	var/mob/emagged_master = null //for administrative purposes, to see who emagged the spiderbot; also for a holder for if someone emags an empty frame first then inserts an MMI.
 
@@ -46,7 +46,7 @@
 		eject_brain()
 	return ..()
 
-/mob/living/simple_animal/spiderbot/attackby(obj/item/O, mob/living/user, params)
+/mob/living/simple_animal/spiderbot/attackby__legacy__attackchain(obj/item/O, mob/living/user, params)
 	if(istype(O, /obj/item/mmi))
 		var/obj/item/mmi/B = O
 		if(mmi) //There's already a brain in it.
@@ -63,7 +63,7 @@
 						ghost_can_reenter = 1
 						break
 				for(var/mob/living/simple_animal/S in GLOB.player_list)
-					if(S in GLOB.respawnable_list)
+					if(HAS_TRAIT(S, TRAIT_RESPAWNABLE))
 						ghost_can_reenter = 1
 						break
 			if(!ghost_can_reenter)
@@ -136,7 +136,7 @@
 		to_chat(user, "<span class='warning'>[src] doesn't seem to respond.</span>")
 		return 0
 	else
-		emagged = 1
+		emagged = TRUE
 		to_chat(user, "<span class='notice'>You short out the security protocols and rewrite [src]'s internal memory.</span>")
 		to_chat(src, "<span class='userdanger'>You have been emagged; you are now completely loyal to [user] and [user.p_their()] every order!</span>")
 		emagged_master = user
@@ -146,6 +146,7 @@
 		melee_damage_lower = 15
 		melee_damage_upper = 15
 		attack_sound = 'sound/machines/defib_zap.ogg'
+		return TRUE
 
 /mob/living/simple_animal/spiderbot/proc/transfer_personality(obj/item/mmi/M)
 	mind = M.brainmob.mind
@@ -155,7 +156,7 @@
 	if(emagged)
 		to_chat(src, "<span class='userdanger'>You have been emagged; you are now completely loyal to [emagged_master] and [emagged_master.p_their()] every order!</span>")
 
-/mob/living/simple_animal/spiderbot/proc/update_icon()
+/mob/living/simple_animal/spiderbot/update_icon_state()
 	if(mmi)
 		if(istype(mmi, /obj/item/mmi))
 			icon_state = "spiderbot-chassis-mmi"

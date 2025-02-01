@@ -4,13 +4,13 @@
 /area/template_noop)
 "b" = (
 /turf/simulated/wall/mineral/plastitanium,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "e" = (
 /obj/structure/shuttle/engine/propulsion{
 	dir = 8
 	},
 /turf/simulated/floor/plating/airless,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "f" = (
 /obj/structure/window/reinforced{
 	dir = 4
@@ -19,15 +19,15 @@
 	dir = 8
 	},
 /turf/simulated/floor/plating/airless,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "g" = (
 /obj/structure/table/wood,
-/obj/item/clothing/under/shorts/black,
+/obj/item/clothing/under/pants/shorts/black,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "h" = (
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "i" = (
 /obj/structure/table,
 /obj/item/flashlight/lamp,
@@ -35,72 +35,72 @@
 	dir = 1
 	},
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "j" = (
 /obj/structure/closet,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "k" = (
-/obj/machinery/vending/assist,
+/obj/machinery/economy/vending/assist/free,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "l" = (
 /obj/structure/table/wood,
 /obj/item/clothing/shoes/sandal,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "m" = (
 /obj/machinery/light{
 	dir = 8
 	},
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "n" = (
 /obj/structure/table/wood,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "o" = (
 /obj/structure/table/wood,
-/obj/machinery/computer/library/checkout,
+/obj/machinery/computer/library,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "p" = (
 /obj/effect/spawner/window/reinforced,
 /turf/simulated/floor/plating,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "r" = (
 /obj/structure/table,
 /obj/item/paper_bin,
 /obj/item/pen,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "s" = (
 /obj/machinery/door/poddoor{
 	id_tag = "strange ship";
 	name = "Strange Ship Blast Door"
 	},
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "t" = (
 /obj/machinery/door/airlock/external,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "u" = (
 /obj/machinery/door/airlock/public/glass,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "v" = (
 /obj/structure/chair/comfy/shuttle{
 	dir = 4
 	},
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "w" = (
 /obj/structure/table,
 /obj/item/paper,
 /obj/item/pen,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "x" = (
 /obj/machinery/door_control{
 	id = "strange ship";
@@ -108,26 +108,57 @@
 	pixel_x = 6
 	},
 /turf/simulated/wall/mineral/plastitanium,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "y" = (
 /obj/machinery/light,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "z" = (
 /mob/living/simple_animal/bot/medbot,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "B" = (
 /obj/structure/chair/comfy/shuttle,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
 "D" = (
 /obj/machinery/light,
 /obj/structure/bed,
 /turf/simulated/floor/mineral/titanium/purple,
-/area/ruin/powered)
+/area/ruin/space/powered)
+"Q" = (
+/obj/structure/table/wood,
+/obj/item/blank_tarot_card,
+/turf/simulated/floor/mineral/titanium/purple,
+/area/ruin/space/powered)
+"R" = (
+/obj/structure/table/wood,
+/obj/item/salvage/ruin/tablet,
+/turf/simulated/floor/mineral/titanium/purple,
+/area/ruin/space/powered)
+"U" = (
+/obj/structure/closet,
+/obj/effect/spawner/random/pool/spaceloot/syndicate/mixed,
+/turf/simulated/floor/mineral/titanium/purple,
+/area/ruin/space/powered)
 
 (1,1,1) = {"
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+"}
+(2,1,1) = {"
+a
 a
 a
 a
@@ -139,8 +170,10 @@ b
 a
 a
 a
+a
 "}
-(2,1,1) = {"
+(3,1,1) = {"
+a
 a
 e
 e
@@ -152,8 +185,10 @@ b
 e
 e
 a
+a
 "}
-(3,1,1) = {"
+(4,1,1) = {"
+a
 b
 f
 f
@@ -165,8 +200,10 @@ b
 f
 f
 b
+a
 "}
-(4,1,1) = {"
+(5,1,1) = {"
+a
 b
 g
 l
@@ -178,8 +215,10 @@ b
 B
 n
 b
+a
 "}
-(5,1,1) = {"
+(6,1,1) = {"
+a
 b
 h
 h
@@ -189,10 +228,12 @@ h
 z
 b
 h
-n
+R
 b
+a
 "}
-(6,1,1) = {"
+(7,1,1) = {"
+a
 b
 i
 h
@@ -204,8 +245,10 @@ m
 h
 D
 b
+a
 "}
-(7,1,1) = {"
+(8,1,1) = {"
+a
 b
 j
 h
@@ -217,8 +260,10 @@ h
 h
 h
 b
+a
 "}
-(8,1,1) = {"
+(9,1,1) = {"
+a
 b
 k
 h
@@ -230,8 +275,10 @@ h
 h
 j
 b
+a
 "}
-(9,1,1) = {"
+(10,1,1) = {"
+a
 b
 b
 b
@@ -243,21 +290,25 @@ b
 b
 b
 b
-"}
-(10,1,1) = {"
-a
-a
-b
-m
-h
-h
-h
-m
-b
-a
 a
 "}
 (11,1,1) = {"
+a
+a
+a
+b
+m
+h
+h
+h
+m
+b
+a
+a
+a
+"}
+(12,1,1) = {"
+a
 a
 a
 b
@@ -269,23 +320,27 @@ h
 b
 a
 a
-"}
-(12,1,1) = {"
-a
-a
-b
-j
-r
-w
-n
-j
-b
-a
 a
 "}
 (13,1,1) = {"
 a
 a
+a
+b
+U
+r
+w
+Q
+j
+b
+a
+a
+a
+"}
+(14,1,1) = {"
+a
+a
+a
 b
 b
 b
@@ -293,6 +348,22 @@ b
 b
 b
 b
+a
+a
+a
+"}
+(15,1,1) = {"
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
 a
 a
 "}

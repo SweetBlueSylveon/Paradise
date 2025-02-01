@@ -2,10 +2,6 @@
 //Turret Control Panel//
 ////////////////////////
 
-/area
-	// Turrets use this list to see if individual power/lethal settings are allowed
-	var/list/turret_controls = list()
-
 /obj/machinery/turretid
 	name = "turret control panel"
 	desc = "Used to control a room's automated defenses."
@@ -71,8 +67,8 @@
 			A.turret_controls -= src
 	return ..()
 
-/obj/machinery/turretid/Initialize()
-	..()
+/obj/machinery/turretid/Initialize(mapload)
+	. = ..()
 	if(!control_area)
 		control_area = get_area(src)
 	else if(istext(control_area))
@@ -88,11 +84,11 @@
 		else
 			control_area = null
 
-	power_change() //Checks power and initial settings
-	return
+	updateTurrets()
+	update_icon(UPDATE_ICON_STATE)
 
 /obj/machinery/turretid/proc/isLocked(mob/user)
-	if(isrobot(user) || isAI(user))
+	if(isrobot(user) || is_ai(user))
 		if(ailock)
 			to_chat(user, "<span class='notice'>There seems to be a firewall preventing you from accessing this device.</span>")
 			return TRUE
@@ -110,18 +106,19 @@
 
 	return FALSE
 
-/obj/machinery/turretid/attackby(obj/item/W, mob/user)
+/obj/machinery/turretid/item_interaction(mob/living/user, obj/item/used, list/modifiers)
 	if(stat & BROKEN)
-		return
+		return ITEM_INTERACT_COMPLETE
 
-	if(istype(W, /obj/item/card/id)||istype(W, /obj/item/pda))
+	if(istype(used, /obj/item/card/id)||istype(used, /obj/item/pda))
 		if(src.allowed(usr))
 			if(emagged)
 				to_chat(user, "<span class='notice'>The turret control is unresponsive.</span>")
 			else
 				locked = !locked
 				to_chat(user, "<span class='notice'>You [ locked ? "lock" : "unlock"] the panel.</span>")
-		return
+		return ITEM_INTERACT_COMPLETE
+
 	return ..()
 
 /obj/machinery/turretid/emag_act(user as mob)
@@ -130,7 +127,7 @@
 		emagged = TRUE
 		locked = FALSE
 		ailock = FALSE
-		return
+		return TRUE
 
 /obj/machinery/turretid/attack_ai(mob/user as mob)
 	ui_interact(user)
@@ -141,10 +138,13 @@
 /obj/machinery/turretid/attack_hand(mob/user as mob)
 	ui_interact(user)
 
-/obj/machinery/turretid/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = TRUE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/machinery/turretid/ui_state(mob/user)
+	return GLOB.default_state
+
+/obj/machinery/turretid/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "PortableTurret", name, 500, 400)
+		ui = new(user, src, "PortableTurret", name)
 		ui.open()
 
 /obj/machinery/turretid/ui_data(mob/user)
@@ -168,7 +168,7 @@
 	return data
 
 /obj/machinery/turretid/ui_act(action, params)
-	if (..())
+	if(..())
 		return
 	if(isLocked(usr))
 		return
@@ -215,15 +215,15 @@
 			if(faction == aTurret.faction)
 				aTurret.setState(TC)
 
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
 /obj/machinery/turretid/power_change()
-	..()
+	if(!..())
+		return
 	updateTurrets()
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
-/obj/machinery/turretid/update_icon()
-	..()
+/obj/machinery/turretid/update_icon_state()
 	if(stat & NOPOWER)
 		icon_state = "control_off"
 		set_light(0)
@@ -243,11 +243,11 @@
 		//if the turret is on, the EMP no matter how severe disables the turret for a while
 		//and scrambles its settings, with a slight chance of having an emag effect
 
-		check_arrest = pick(0, 1)
-		check_records = pick(0, 1)
-		check_weapons = pick(0, 1)
-		check_access = pick(0, 0, 0, 0, 1)	// check_access is a pretty big deal, so it's least likely to get turned on
-		check_anomalies = pick(0, 1)
+		check_arrest = prob(50)
+		check_records = prob(50)
+		check_weapons = prob(50)
+		check_access = prob(20)	// check_access is a pretty big deal, so it's least likely to get turned on
+		check_anomalies = prob(50)
 
 		enabled=0
 		updateTurrets()

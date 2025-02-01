@@ -4,7 +4,7 @@
 	origin_tech = "materials=3;magnets=4;syndicate=3"
 	icon = 'icons/obj/grenade.dmi'
 	icon_state = "syndicate"
-	item_state = "flashbang"
+	item_state = "grenade"
 	var/spawn_contents = LINDA_SPAWN_HEAT | LINDA_SPAWN_TOXINS
 	var/spawn_amount = 100
 
@@ -12,7 +12,6 @@
 	var/turf/simulated/target_turf = get_turf(src)
 	if(istype(target_turf))
 		target_turf.atmos_spawn_air(spawn_contents, spawn_amount)
-		target_turf.air_update_turf()
 	qdel(src)
 
 /obj/item/grenade/gas/plasma
@@ -29,13 +28,14 @@
 	icon_state = "oxygen"
 	spawn_contents = LINDA_SPAWN_20C | LINDA_SPAWN_OXYGEN
 	spawn_amount = 500
+	origin_tech = null
 
 /obj/item/grenade/gluon
 	desc = "An advanced grenade that releases a harmful stream of gluons inducing radiation in those nearby. These gluon streams will also make victims feel exhausted, and induce shivering. This extreme coldness will also wet any nearby floors."
 	name = "gluon grenade"
 	icon = 'icons/obj/grenade.dmi'
 	icon_state = "gluon"
-	item_state = "flashbang"
+	item_state = "grenade"
 	var/freeze_range = 4
 	var/rad_damage = 350
 	var/stamina_damage = 30
@@ -47,6 +47,6 @@
 	for(var/turf/simulated/floor/T in view(freeze_range, loc))
 		T.MakeSlippery(TURF_WET_ICE)
 		for(var/mob/living/carbon/L in T)
-			L.adjustStaminaLoss(stamina_damage)
+			L.apply_damage(stamina_damage, STAMINA)
 			L.adjust_bodytemperature(-230)
 	qdel(src)

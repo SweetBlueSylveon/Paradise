@@ -7,16 +7,17 @@
 	icon_state = "closed"
 	face_while_pulling = FALSE
 	layer = SHOWER_CLOSED_LAYER
-	opacity = 1
-	density = 0
+	opacity = TRUE
+	density = FALSE
+	new_attack_chain = TRUE
 
 /obj/structure/curtain/open
 	icon_state = "open"
 	layer = SHOWER_OPEN_LAYER
-	opacity = 0
+	opacity = FALSE
 
 /obj/structure/curtain/attack_hand(mob/user)
-	playsound(get_turf(loc), "rustle", 15, 1, -5)
+	playsound(get_turf(loc), "rustle", 15, TRUE, -5)
 	toggle()
 	..()
 
@@ -39,11 +40,10 @@
 		icon_state = "open"
 		layer = SHOWER_OPEN_LAYER
 
-/obj/structure/curtain/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/toy/crayon))
-		color = input(user, "Choose Color") as color
-		return
-	return ..()
+/obj/structure/curtain/item_interaction(mob/living/user, obj/item/used, list/modifiers)
+	if(istype(used, /obj/item/toy/crayon))
+		color = tgui_input_color(user,"Please choose a color.", "Curtain Color")
+		return ITEM_INTERACT_COMPLETE
 
 /obj/structure/curtain/screwdriver_act(mob/user, obj/item/I)
 	. = TRUE

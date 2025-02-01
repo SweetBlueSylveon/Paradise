@@ -68,7 +68,7 @@
 		var/obj/machinery/door/airlock/A = pick_n_take(airlocks)
 		if(A.locked)
 			continue
-		addtimer(CALLBACK(src, .proc/do_bolt, A), num_bolted++ * rand(5, 7))
+		addtimer(CALLBACK(src, PROC_REF(do_bolt), A), num_bolted++ * rand(5, 7))
 		bolt_amount--
 
 /**
@@ -86,8 +86,8 @@
 	target?.playsound_local(get_turf(A), A.boltDown, 30, FALSE, 3)
 	LAZYSET(bolted, A, bolt_overlay)
 	// Timer and signal to turn it off (only one can happen)
-	RegisterSignal(A, COMSIG_AIRLOCK_OPEN, .proc/do_unbolt)
-	addtimer(CALLBACK(src, .proc/do_unbolt, A, bolt_overlay), bolt_duration)
+	RegisterSignal(A, COMSIG_AIRLOCK_OPEN, PROC_REF(do_unbolt))
+	addtimer(CALLBACK(src, PROC_REF(do_unbolt), A, bolt_overlay), bolt_duration)
 
 /**
   * Called in a timer to fake unbolt the given airlock.
@@ -196,3 +196,21 @@
 	target?.health_hud_override = HEALTH_HUD_OVERRIDE_NONE
 	target?.update_health_hud()
 	return ..()
+
+/**
+ * # Hallucination - Examine Hallucination
+ *
+ * A generic hallucination that causes the target to see unique examine descriptions
+ */
+/obj/effect/hallucination/examine_hallucination
+	var/trait_applied = TRAIT_EXAMINE_HALLUCINATING
+	duration = list(40 SECONDS, 60 SECONDS)
+
+/obj/effect/hallucination/examine_hallucination/Initialize(mapload, mob/living/carbon/hallucination_target)
+	. = ..()
+	ADD_TRAIT(hallucination_target, trait_applied, UNIQUE_TRAIT_SOURCE(src))
+
+/obj/effect/hallucination/examine_hallucination/Destroy()
+	REMOVE_TRAIT(target, trait_applied, UNIQUE_TRAIT_SOURCE(src))
+	return ..()
+

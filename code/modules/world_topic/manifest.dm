@@ -5,13 +5,13 @@
 	var/list/positions = list()
 	var/list/set_names = list(
 		"heads" = GLOB.command_positions,
-		"sec" = GLOB.security_positions,
+		"sec" = GLOB.active_security_positions,
 		"eng" = GLOB.engineering_positions,
 		"med" = GLOB.medical_positions,
 		"sci" = GLOB.science_positions,
 		"car" = GLOB.supply_positions,
 		"srv" = GLOB.service_positions,
-		"civ" = GLOB.civilian_positions,
+		"ast" = GLOB.assistant_positions,
 		"bot" = GLOB.nonhuman_positions
 	)
 

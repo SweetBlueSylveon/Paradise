@@ -1,13 +1,15 @@
 import { createSearch } from 'common/string';
 import { useBackend, useLocalState } from '../backend';
-import { Button, Divider, Flex, Icon, Input, Section } from '../components';
+import { Box, Button, Divider, Icon, Input, Section, Stack } from '../components';
 import { Window } from '../layouts';
+import { classes } from '../../common/react';
 
 const PATTERN_NUMBER = / \(([0-9]+)\)$/;
 
-const searchFor = searchText => createSearch(searchText, thing => thing.name);
+const searchFor = (searchText) =>
+  createSearch(searchText, (thing) => thing.name + (thing.assigned_role !== null ? '|' + thing.assigned_role : ''));
 
-const compareString = (a, b) => a < b ? -1 : a > b;
+const compareString = (a, b) => (a < b ? -1 : a > b);
 
 const compareNumberedText = (a, b) => {
   const aName = a.name;
@@ -22,10 +24,7 @@ const compareNumberedText = (a, b) => {
   const aNumberMatch = aName.match(PATTERN_NUMBER);
   const bNumberMatch = bName.match(PATTERN_NUMBER);
 
-  if (aNumberMatch
-    && bNumberMatch
-    && aName.replace(PATTERN_NUMBER, "") === bName.replace(PATTERN_NUMBER, "")
-  ) {
+  if (aNumberMatch && bNumberMatch && aName.replace(PATTERN_NUMBER, '') === bName.replace(PATTERN_NUMBER, '')) {
     const aNumber = parseInt(aNumberMatch[1], 10);
     const bNumber = parseInt(bNumberMatch[1], 10);
 
@@ -36,21 +35,19 @@ const compareNumberedText = (a, b) => {
 };
 
 const BasicSection = (props, context) => {
-  const { act } = useBackend(context);
-  const { searchText, source, title } = props;
+  const { searchText, source, title, color, sorted } = props;
   const things = source.filter(searchFor(searchText));
-  things.sort(compareNumberedText);
-  return source.length > 0 && (
-    <Section title={`${title} - (${source.length})`}>
-      {things.map(thing => (
-        <Button
-          key={thing.name}
-          content={thing.name}
-          onClick={() => act("orbit", {
-            ref: thing.ref,
-          })} />
-      ))}
-    </Section>
+  if (sorted) {
+    things.sort(compareNumberedText);
+  }
+  return (
+    source.length > 0 && (
+      <Section title={`${title} - (${source.length})`}>
+        {things.map((thing) => (
+          <OrbitedButton key={thing.name} thing={thing} color={color} />
+        ))}
+      </Section>
+    )
   );
 };
 
@@ -61,27 +58,40 @@ const OrbitedButton = (props, context) => {
   return (
     <Button
       color={color}
-      onClick={() => act("orbit", {
-        ref: thing.ref,
-      })}>
+      tooltip={
+        thing.assigned_role ? (
+          <Stack>
+            <Box as="img" mr="0.5em" className={classes(['job_icons16x16', thing.assigned_role_sprite])} />{' '}
+            {thing.assigned_role}
+          </Stack>
+        ) : (
+          ''
+        )
+      }
+      tooltipPosition="bottom"
+      onClick={() =>
+        act('orbit', {
+          ref: thing.ref,
+        })
+      }
+    >
       {thing.name}
+      {thing.orbiters && (
+        <Box inline ml={1}>
+          {'('}
+          {thing.orbiters} <Icon name="eye" />
+          {')'}
+        </Box>
+      )}
     </Button>
   );
 };
 
 export const Orbit = (props, context) => {
   const { act, data } = useBackend(context);
-  const {
-    alive,
-    antagonists,
-    auto_observe,
-    dead,
-    ghosts,
-    misc,
-    npcs,
-  } = data;
+  const { alive, antagonists, highlights, response_teams, tourist, auto_observe, dead, ssd, ghosts, misc, npcs } = data;
 
-  const [searchText, setSearchText] = useLocalState(context, "searchText", "");
+  const [searchText, setSearchText] = useLocalState(context, 'searchText', '');
 
   const collatedAntagonists = {};
   for (const antagonist of antagonists) {
@@ -96,114 +106,92 @@ export const Orbit = (props, context) => {
     return compareString(a[0], b[0]);
   });
 
-  const orbitMostRelevant = searchText => {
+  const orbitMostRelevant = (searchText) => {
     for (const source of [
       sortedAntagonists.map(([_, antags]) => antags),
-      alive, ghosts, dead, npcs, misc,
+      tourist,
+      highlights,
+      alive,
+      ghosts,
+      ssd,
+      dead,
+      npcs,
+      misc,
     ]) {
-      const member = source
-        .filter(searchFor(searchText))
-        .sort(compareNumberedText)[0];
+      const member = source.filter(searchFor(searchText)).sort(compareNumberedText)[0];
       if (member !== undefined) {
-        act("orbit", { ref: member.ref });
+        act('orbit', { ref: member.ref });
         break;
       }
     }
   };
 
   return (
-    <Window resizable>
+    <Window width={700} height={500}>
       <Window.Content scrollable>
         <Section>
-          <Flex>
-            <Flex.Item>
-              <Icon
-                name="search"
-                mr={1} />
-            </Flex.Item>
-            <Flex.Item grow={1}>
+          <Stack>
+            <Stack.Item>
+              <Icon name="search" />
+            </Stack.Item>
+            <Stack.Item grow>
               <Input
                 placeholder="Search..."
                 autoFocus
                 fluid
                 value={searchText}
                 onInput={(_, value) => setSearchText(value)}
-                onEnter={(_, value) => orbitMostRelevant(value)} />
-            </Flex.Item>
-            <Flex.Item>
+                onEnter={(_, value) => orbitMostRelevant(value)}
+              />
+            </Stack.Item>
+            <Stack.Item>
               <Divider vertical />
-            </Flex.Item>
-            <Flex.Item>
+            </Stack.Item>
+            <Stack.Item>
               <Button
                 inline
                 color="transparent"
                 tooltip="Refresh"
-                tooltipPosition="bottom-left"
+                tooltipPosition="bottom-start"
                 icon="sync-alt"
-                onClick={() => act("refresh")} />
-            </Flex.Item>
-          </Flex>
+                onClick={() => act('refresh')}
+              />
+            </Stack.Item>
+          </Stack>
         </Section>
         {antagonists.length > 0 && (
           <Section title="Antagonists">
             {sortedAntagonists.map(([name, antags]) => (
-              <Section key={name} title={name} level={2}>
+              <Section key={name} title={`${name} - (${antags.length})`} level={2}>
                 {antags
                   .filter(searchFor(searchText))
                   .sort(compareNumberedText)
-                  .map(antag => (
-                    <OrbitedButton
-                      key={antag.name}
-                      color="bad"
-                      thing={antag}
-                    />
+                  .map((antag) => (
+                    <OrbitedButton key={antag.name} color="bad" thing={antag} />
                   ))}
               </Section>
             ))}
           </Section>
         )}
+        {highlights.length > 0 && (
+          <BasicSection title="Highlights" source={highlights} searchText={searchText} color={'teal'} />
+        )}
 
-        <Section title={`Alive - (${alive.length})`}>
-          {alive
-            .filter(searchFor(searchText))
-            .sort(compareNumberedText)
-            .map(thing => (
-              <OrbitedButton
-                key={thing.name}
-                color="good"
-                thing={thing} />
-            ))}
-        </Section>
+        <BasicSection title="Response Teams" source={response_teams} searchText={searchText} color={'purple'} />
 
-        <Section title={`Ghosts - (${ghosts.length})`}>
-          {ghosts
-            .filter(searchFor(searchText))
-            .sort(compareNumberedText)
-            .map(thing => (
-              <OrbitedButton
-                key={thing.name}
-                color="grey"
-                thing={thing} />
-            ))}
-        </Section>
+        <BasicSection title="Tourists" source={tourist} searchText={searchText} color={'violet'} />
 
-        <BasicSection
-          title="Dead"
-          source={dead}
-          searchText={searchText}
-        />
+        <BasicSection title="Alive" source={alive} searchText={searchText} color={'good'} />
 
-        <BasicSection
-          title="NPCs"
-          source={npcs}
-          searchText={searchText}
-        />
+        <BasicSection title="Ghosts" source={ghosts} searchText={searchText} color={'grey'} />
 
-        <BasicSection
-          title="Misc"
-          source={misc}
-          searchText={searchText}
-        />
+        <BasicSection title="SSD" source={ssd} searchText={searchText} color={'grey'} />
+
+        <BasicSection title="Dead" source={dead} searchText={searchText} sorted={false} />
+
+        <BasicSection title="NPCs" source={npcs} searchText={searchText} sorted={false} />
+
+        <BasicSection title="Misc" source={misc} searchText={searchText} sorted={false} />
       </Window.Content>
     </Window>
   );

@@ -102,7 +102,7 @@
 				components_of_type = test
 			if(I == our_type)	//exact match, take priority
 				var/inserted = FALSE
-				for(var/J in 1 to components_of_type.len)
+				for(var/J in 1 to length(components_of_type))
 					var/datum/component/C = components_of_type[J]
 					if(C.type != our_type) //but not over other exact matches
 						components_of_type.Insert(J, I)
@@ -127,13 +127,13 @@
 		var/list/components_of_type = dc[I]
 		if(length(components_of_type))	//
 			var/list/subtracted = components_of_type - src
-			if(subtracted.len == 1)	//only 1 guy left
+			if(length(subtracted) == 1)	//only 1 guy left
 				dc[I] = subtracted[1]	//make him special
 			else
 				dc[I] = subtracted
 		else	//just us
 			dc -= I
-	if(!dc.len)
+	if(!length(dc))
 		P.datum_components = null
 
 	UnregisterFromParent()
@@ -163,7 +163,7 @@
   * Register to listen for a signal from the passed in target
   *
   * This sets up a listening relationship such that when the target object emits a signal
-  * the source datum this proc is called upon, will recieve a callback to the given proctype
+  * the source datum this proc is called upon, will receive a callback to the given proctype
   * Return values from procs registered must be a bitfield
   *
   * Arguments:
@@ -176,33 +176,29 @@
 	if(QDELETED(src) || QDELETED(target))
 		return
 
-	var/list/procs = signal_procs
-	if(!procs)
-		signal_procs = procs = list()
-	if(!procs[target])
-		procs[target] = list()
-	var/list/lookup = target.comp_lookup
-	if(!lookup)
-		target.comp_lookup = lookup = list()
+	var/list/procs = (signal_procs ||= list()) // YES, THIS NEEDS TO BE HERE. DO NOT REPLACE `procs` with `signal_procs` or signals will have a FIT
+	var/list/target_procs = (procs[target] ||= list()) // makes ...[target] a list if its null, then holds a reference to it in target_procs
+	var/list/lookup = (target.comp_lookup ||= list())
 
 	var/list/sig_types = islist(sig_type_or_types) ? sig_type_or_types : list(sig_type_or_types)
 	for(var/sig_type in sig_types)
-		if(!override && procs[target][sig_type])
-			stack_trace("[sig_type] overridden. Use override = TRUE to suppress this warning")
+		if(!override && target_procs[sig_type])
+			stack_trace("RegisterSignal overrode a signal without having 'override = TRUE' set.\n \
+						src: [src], signal type: [sig_type], target: [target], new proc: [proctype], previous proc: [target_procs[sig_type]].")
 
-		procs[target][sig_type] = proctype
+		target_procs[sig_type] = proctype
+		var/list/looked_up = lookup[sig_type]
 
-		if(!lookup[sig_type]) // Nothing has registered here yet
-			lookup[sig_type] = src
-		else if(lookup[sig_type] == src) // We already registered here
+		if(!looked_up) // Nothing has registered here yet
+			looked_up = src
+		else if(looked_up == src) // We already registered here
 			continue
-		else if(!length(lookup[sig_type])) // One other thing registered here
-			lookup[sig_type] = list(lookup[sig_type]=TRUE)
-			lookup[sig_type][src] = TRUE
+		else if(!length(looked_up)) // One other thing registered here
+			looked_up = list((looked_up) = TRUE, (src) = TRUE)
 		else // Many other things have registered here
-			lookup[sig_type][src] = TRUE
+			looked_up[src] = TRUE
 
-	signal_enabled = TRUE
+		lookup[sig_type] = looked_up // Gotta save, otherwise it will break
 
 /**
   * Stop listening to a given signal from target
@@ -235,6 +231,8 @@
 						target.comp_lookup = null
 						break
 			if(0)
+				if(lookup[sig] != src)
+					continue
 				lookup -= sig
 				if(!length(lookup))
 					target.comp_lookup = null
@@ -243,8 +241,13 @@
 				lookup[sig] -= src
 
 	signal_procs[target] -= sig_type_or_types
-	if(!signal_procs[target].len)
+	if(!length(signal_procs[target]))
 		signal_procs -= target
+
+/// Registers multiple signals to the same proc.
+/datum/proc/RegisterSignals(datum/target, list/signal_types, proctype, override = FALSE)
+	for(var/signal_type in signal_types)
+		RegisterSignal(target, signal_type, proctype, override)
 
 /**
   * Called on a component when a component of the same type was added to the same parent
@@ -255,20 +258,6 @@
   */
 /datum/component/proc/InheritComponent(datum/component/C, i_am_original)
 	return
-
-
-/**
-  * Called on a component when a component of the same type was added to the same parent with [COMPONENT_DUPE_SELECTIVE]
-  *
-  * See [/datum/component/var/dupe_mode]
-  *
-  * `C`'s type will always be the same of the called component
-  *
-  * return TRUE if you are absorbing the component, otherwise FALSE if you are fine having it exist as a duplicate component
-  */
-/datum/component/proc/CheckDupeComponent(datum/component/C, ...)
-	return
-
 
 /**
   * Callback Just before this component is transferred
@@ -296,7 +285,7 @@
 	var/current_type = parent_type
 	. = list(our_type, current_type)
 	//and since most components are root level + 1, this won't even have to run
-	while (current_type != /datum/component)
+	while(current_type != /datum/component)
 		current_type = type2parent(current_type)
 		. += current_type
 
@@ -310,18 +299,18 @@
 /datum/proc/_SendSignal(sigtype, list/arguments)
 	var/target = comp_lookup[sigtype]
 	if(!length(target))
-		var/datum/C = target
-		if(!C.signal_enabled)
-			return NONE
-		var/proctype = C.signal_procs[src][sigtype]
-		return NONE | CallAsync(C, proctype, arguments)
+		var/datum/listening_datum = target
+		return NONE | CallAsync(listening_datum, listening_datum.signal_procs[src][sigtype], arguments)
+
 	. = NONE
-	for(var/I in target)
-		var/datum/C = I
-		if(!C.signal_enabled)
-			continue
-		var/proctype = C.signal_procs[src][sigtype]
-		. |= CallAsync(C, proctype, arguments)
+	// This exists so that even if one of the signal receivers unregisters the signal,
+	// all the objects that are receiving the signal get the signal this final time.
+	// AKA: No you can't cancel the signal reception of another object by doing an unregister in the same signal.
+	var/list/queued_calls = list()
+	for(var/datum/targets as anything in target)
+		queued_calls[targets] = targets.signal_procs[src][sigtype]
+	for(var/datum/listening_datum as anything in queued_calls)
+		. |= CallAsync(listening_datum, queued_calls[listening_datum], arguments)
 
 // The type arg is casted so initial works, you shouldn't be passing a real instance into this
 /**
@@ -354,17 +343,17 @@
   */
 /datum/proc/GetExactComponent(datum/component/c_type)
 	RETURN_TYPE(c_type)
-	if(initial(c_type.dupe_mode) == COMPONENT_DUPE_ALLOWED || initial(c_type.dupe_mode) == COMPONENT_DUPE_SELECTIVE)
+	var/initial_type_mode = initial(c_type.dupe_mode)
+	if(initial_type_mode == COMPONENT_DUPE_ALLOWED || initial_type_mode == COMPONENT_DUPE_SELECTIVE)
 		stack_trace("GetComponent was called to get a component of which multiple copies could be on an object. This can easily break and should be changed. Type: \[[c_type]\]")
-	var/list/dc = datum_components
-	if(!dc)
+	var/list/all_components = datum_components
+	if(!all_components)
 		return null
-	var/datum/component/C = dc[c_type]
-	if(C)
-		if(length(C))
-			C = C[1]
-		if(C.type == c_type)
-			return C
+	var/datum/component/potential_component
+	if(length(all_components))
+		potential_component = all_components[c_type]
+	if(potential_component?.type == c_type)
+		return potential_component
 	return null
 
 /**
@@ -440,12 +429,6 @@
 					var/list/arguments = raw_args.Copy()
 					arguments[1] = new_comp
 					var/make_new_component = TRUE
-					for(var/i in GetComponents(new_type))
-						var/datum/component/C = i
-						if(C.CheckDupeComponent(arglist(arguments)))
-							make_new_component = FALSE
-							QDEL_NULL(new_comp)
-							break
 					if(!new_comp && make_new_component)
 						new_comp = new nt(raw_args)
 		else if(!new_comp)
@@ -457,6 +440,23 @@
 		SEND_SIGNAL(src, COMSIG_COMPONENT_ADDED, new_comp)
 		return new_comp
 	return old_comp
+
+/**
+  * Removes the component from the datum
+  */
+/datum/proc/DeleteComponent(component_to_nuke)
+	var/datum/component/removing = GetComponent(component_to_nuke)
+	if(istype(removing, component_to_nuke) && !QDELETED(removing))
+		qdel(removing)
+
+/**
+  * Removes all components of a given type from the datum
+  */
+/datum/proc/DeleteComponentsType(component_type_to_nuke)
+	var/list/components = GetComponents(component_type_to_nuke)
+	for(var/datum/component/removing in components)
+		if(!QDELETED(removing))
+			qdel(removing)
 
 /**
   * Get existing component of type, or create it and return a reference to it
@@ -475,7 +475,7 @@
 /**
   * Removes the component from parent, ends up with a null parent
   */
-/datum/component/proc/RemoveComponent()
+/datum/component/proc/UnlinkComponent()
 	if(!parent)
 		return
 	var/datum/old_parent = parent
@@ -483,6 +483,13 @@
 	_RemoveFromParent()
 	parent = null
 	SEND_SIGNAL(old_parent, COMSIG_COMPONENT_REMOVING, src)
+
+/**
+  * Deletes the component and removes it from parent.
+  */
+/datum/component/proc/RemoveComponent() // This really is just a wrapper to pretend that we're using sane procs to fully remove a component
+	if(!QDELETED(src))
+		qdel(src)
 
 /**
   * Transfer this component to another parent
@@ -496,7 +503,7 @@
 	if(!target || target.parent == src)
 		return
 	if(target.parent)
-		target.RemoveComponent()
+		target.UnlinkComponent()
 	target.parent = src
 	var/result = target.PostTransfer()
 	switch(result)
@@ -529,6 +536,28 @@
 		var/datum/component/C = comps
 		if(C.can_transfer)
 			target.TakeComponent(comps)
+
+/**
+  * Transfer a single component from the source datum, to the target.
+  *
+  * Arguments:
+  * * datum/target - the target to move the component to
+  * * component_instance_or_typepath - either an already created component, or a component typepath
+  */
+/datum/proc/TransferComponent(datum/target, component_instance_or_typepath)
+	if(!datum_components)
+		return
+	// If the proc was fed a typepath.
+	var/datum/component/comp = datum_components[component_instance_or_typepath]
+	if(comp?.can_transfer)
+		target.TakeComponent(comp)
+		return
+	// if the proc was fed a component instance.
+	for(var/component in datum_components)
+		var/datum/component/C = datum_components[component]
+		if(istype(C, component_instance_or_typepath) && C.can_transfer)
+			target.TakeComponent(C)
+			return
 
 /**
   * Return the object that is the host of any UI's that this component has

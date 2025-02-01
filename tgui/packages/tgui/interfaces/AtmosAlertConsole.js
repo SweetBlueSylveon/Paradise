@@ -6,37 +6,28 @@ export const AtmosAlertConsole = (props, context) => {
   const { act, data } = useBackend(context);
   const priorityAlerts = data.priority || [];
   const minorAlerts = data.minor || [];
+  const areaModes = data.mode || {};
   return (
-    <Window resizable>
+    <Window width={350} height={300}>
       <Window.Content scrollable>
         <Section title="Alarms">
           <ul>
-            {priorityAlerts.length === 0 && (
-              <li className="color-good">
-                No Priority Alerts
-              </li>
-            )}
-            {priorityAlerts.map(alert => (
-              <li key={alert}>
-                <Button
-                  icon="times"
-                  content={alert}
-                  color="bad"
-                  onClick={() => act('clear', { zone: alert })} />
+            {priorityAlerts.length === 0 && <li className="color-good">No Priority Alerts</li>}
+            {priorityAlerts.map((alert) => (
+              <li key={alert} className="color-bad">
+                {alert}
               </li>
             ))}
-            {minorAlerts.length === 0 && (
-              <li className="color-good">
-                No Minor Alerts
+            {minorAlerts.length === 0 && <li className="color-good">No Minor Alerts</li>}
+            {minorAlerts.map((alert) => (
+              <li key={alert} className="color-average">
+                {alert}
               </li>
-            )}
-            {minorAlerts.map(alert => (
-              <li key={alert}>
-                <Button
-                  icon="times"
-                  content={alert}
-                  color="average"
-                  onClick={() => act('clear', { zone: alert })} />
+            ))}
+            {Object.keys(areaModes).length === 0 && <li className="color-good">All Areas Filtering</li>}
+            {Object.keys(areaModes).map((label) => (
+              <li key={alert} className="color-good">
+                {label} mode is {areaModes[label]}
               </li>
             ))}
           </ul>

@@ -13,7 +13,7 @@ GLOBAL_LIST_EMPTY(GPS_list)
 	icon = 'icons/obj/telescience.dmi'
 	icon_state = "gps-c"
 	w_class = WEIGHT_CLASS_SMALL
-	slot_flags = SLOT_BELT
+	slot_flags = ITEM_SLOT_BELT
 	origin_tech = "materials=2;magnets=1;bluespace=2"
 	/// Whether the GPS is on.
 	var/tracking = TRUE
@@ -34,34 +34,43 @@ GLOBAL_LIST_EMPTY(GPS_list)
 	GLOB.poi_list.Add(src)
 	if(name == initial(name))
 		name = "global positioning system ([gpstag])"
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 
 /obj/item/gps/Destroy()
 	GLOB.GPS_list.Remove(src)
 	GLOB.poi_list.Remove(src)
 	return ..()
 
-/obj/item/gps/update_icon()
-	cut_overlays()
+/obj/item/gps/update_overlays()
+	. = ..()
 	if(emped)
-		add_overlay("emp")
+		. += "emp"
 	else if(tracking)
-		add_overlay("working")
+		. += "working"
+
+/obj/item/gps/pickup(mob/user)
+	..()
+	ADD_TRAIT(user, TRAIT_HAS_GPS, "GPS[UID()]")
+
+/obj/item/gps/dropped(mob/user, silent)
+	REMOVE_TRAIT(user, TRAIT_HAS_GPS, "GPS[UID()]")
+	REMOVE_TRAIT(user, TRAIT_CAN_VIEW_HEALTH, "HEALTH[UID()]")
+	return ..()
 
 /obj/item/gps/emp_act(severity)
 	emped = TRUE
-	update_icon()
-	addtimer(CALLBACK(src, .proc/reboot), EMP_DISABLE_TIME)
+	update_icon(UPDATE_OVERLAYS)
+	addtimer(CALLBACK(src, PROC_REF(reboot)), EMP_DISABLE_TIME)
 
-/obj/item/gps/AltClick(mob/user)
-	if(ui_status(user, GLOB.inventory_state) != STATUS_INTERACTIVE)
+/obj/item/gps/AltClick(mob/user, state)
+	if(ui_status(user, state) != UI_INTERACTIVE)
 		return //user not valid to use gps
 	if(emped)
 		to_chat(user, "<span class='warning'>It's busted!</span>")
 		return
 
 	tracking = !tracking
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 	if(tracking)
 		to_chat(user, "[src] is now tracking, and visible to other GPS devices.")
 	else
@@ -109,16 +118,19 @@ GLOBAL_LIST_EMPTY(GPS_list)
 
 	return data
 
-/obj/item/gps/attack_self(mob/user)
+/obj/item/gps/attack_self__legacy__attackchain(mob/user)
 	ui_interact(user)
 
-/obj/item/gps/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.inventory_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/item/gps/ui_state(mob/user)
+	return GLOB.inventory_state
+
+/obj/item/gps/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "GPS", "GPS", 450, 700)
+		ui = new(user, src, "GPS", "GPS")
 		ui.open()
 
-/obj/item/gps/ui_act(action, list/params)
+/obj/item/gps/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
 	if(..())
 		return
 
@@ -126,13 +138,13 @@ GLOBAL_LIST_EMPTY(GPS_list)
 	switch(action)
 		if("tag")
 			var/newtag = params["newtag"] || ""
-			newtag = uppertext(paranoid_sanitize(copytext(newtag, 1, 5)))
+			newtag = uppertext(paranoid_sanitize(copytext_char(newtag, 1, 5)))
 			if(!length(newtag) || gpstag == newtag)
 				return
 			gpstag = newtag
 			name = "global positioning system ([gpstag])"
 		if("toggle")
-			AltClick(usr)
+			AltClick(usr, state)
 			return FALSE
 		if("same_z")
 			same_z = !same_z
@@ -144,7 +156,13 @@ GLOBAL_LIST_EMPTY(GPS_list)
   */
 /obj/item/gps/proc/reboot()
 	emped = FALSE
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
+
+/obj/item/gps/security
+	icon_state = "gps-sec"
+	gpstag = "SEC0"
+	desc = "A positioning system helpful for monitoring prisoners that are implanted with a tracking implant."
+	local = TRUE
 
 /obj/item/gps/science
 	icon_state = "gps-s"
@@ -158,6 +176,15 @@ GLOBAL_LIST_EMPTY(GPS_list)
 	icon_state = "gps-m"
 	gpstag = "MINE0"
 	desc = "A positioning system helpful for rescuing trapped or injured miners, keeping one on you at all times while mining might just save your life."
+
+/obj/item/gps/mod
+	icon_state = "gps-m"
+	gpstag = "MOD0"
+	desc = "A positioning system helpful for rescuing trapped or injured miners, after you have become lost from rolling around at the speed of sound."
+	tracking = FALSE
+
+/obj/item/gps/mod/ui_state()
+	return GLOB.deep_inventory_state
 
 /obj/item/gps/cyborg
 	icon_state = "gps-b"
@@ -205,7 +232,7 @@ GLOBAL_LIST_EMPTY(GPS_list)
 		tagged |= T
 
 /obj/item/gps/visible_debug/proc/clear()
-	while(tagged.len)
+	while(length(tagged))
 		var/turf/T = pop(tagged)
 		T.color = initial(T.color)
 		T.maptext = initial(T.maptext)

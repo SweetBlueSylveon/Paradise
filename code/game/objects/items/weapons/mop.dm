@@ -1,8 +1,12 @@
+#define MOP_SOUND_CD 2 SECONDS // How many seconds before the mopping sound triggers again
+
 /obj/item/mop
 	desc = "The world of janitalia wouldn't be complete without a mop."
 	name = "mop"
 	icon = 'icons/obj/janitor.dmi'
 	icon_state = "mop"
+	lefthand_file = 'icons/mob/inhands/equipment/custodial_lefthand.dmi'
+	righthand_file = 'icons/mob/inhands/equipment/custodial_righthand.dmi'
 	force = 3
 	throwforce = 5
 	throw_speed = 3
@@ -10,10 +14,10 @@
 	w_class = WEIGHT_CLASS_NORMAL
 	attack_verb = list("mopped", "bashed", "bludgeoned", "whacked")
 	resistance_flags = FLAMMABLE
-	var/mopping = 0
-	var/mopcount = 0
-	var/mopcap = 5
+	var/mopcap = 6
 	var/mopspeed = 30
+	/// The cooldown between each mopping sound effect
+	var/mop_sound_cooldown
 
 /obj/item/mop/New()
 	..()
@@ -24,46 +28,53 @@
 	GLOB.janitorial_equipment -= src
 	return ..()
 
-/obj/item/mop/proc/clean(turf/simulated/A)
-	if(reagents.has_reagent("water", 1) || reagents.has_reagent("cleaner", 1) || reagents.has_reagent("holywater", 1))
-		A.clean_blood()
-		for(var/obj/effect/O in A)
-			if(O.is_cleanable())
-				qdel(O)
-	reagents.reaction(A, REAGENT_TOUCH, 10)	//10 is the multiplier for the reaction effect. probably needed to wet the floor properly.
-	reagents.remove_any(1)			//reaction() doesn't use up the reagents
+/obj/item/mop/proc/wet_mop(obj/O, mob/user)
+	if(O.reagents.total_volume < 1)
+		to_chat(user, "<span class='notice'>[O] is empty!</span>")
+		if(istype(O, /obj/structure/mopbucket))
+			var/obj/structure/mopbucket/mopbucket = O
+			mopbucket.mopbucket_insert(user, O)
+		if(istype(O, /obj/structure/janitorialcart))
+			var/obj/structure/janitorialcart/janicart = O
+			if(!janicart.mymop)
+				janicart.mymop = src
+				janicart.put_in_cart(user, src)
+		return
 
-/obj/item/mop/afterattack(atom/A, mob/user, proximity)
-	if(!proximity) return
+	O.reagents.trans_to(src, 6)
+	to_chat(user, "<span class='notice'>You wet [src] in [O].</span>")
+	playsound(loc, 'sound/effects/slosh.ogg', 25, TRUE)
 
+/obj/item/mop/afterattack__legacy__attackchain(atom/A, mob/user, proximity)
+	if(!proximity)
+		return
+	if(istype(A, /obj/item/reagent_containers/glass/bucket) || istype(A, /obj/structure/janitorialcart) || istype(A, /obj/structure/mopbucket))
+		return
 	if(reagents.total_volume < 1)
 		to_chat(user, "<span class='warning'>Your mop is dry!</span>")
 		return
+	if(world.time > mop_sound_cooldown)
+		playsound(loc, pick('sound/weapons/mopping1.ogg', 'sound/weapons/mopping2.ogg'), 30, TRUE, -1)
+		mop_sound_cooldown = world.time + MOP_SOUND_CD
+	A.cleaning_act(user, src, mopspeed, text_verb = "mop", text_description = ".")
 
-	var/turf/simulated/T = get_turf(A)
+/obj/item/mop/can_clean()
+	if(reagents.has_reagent("water", 1) || reagents.has_reagent("cleaner", 1) || reagents.has_reagent("holywater", 1))
+		return TRUE
+	else
+		return FALSE
 
-	if(istype(A, /obj/item/reagent_containers/glass/bucket) || istype(A, /obj/structure/janitorialcart))
-		return
+/obj/item/mop/post_clean(atom/target, mob/user)
+	var/turf/T = get_turf(target)
+	if(issimulatedturf(T))
+		reagents.reaction(T, REAGENT_TOUCH, 10)	//10 is the multiplier for the reaction effect. probably needed to wet the floor properly.
+	reagents.remove_any(1)			//reaction() doesn't use up the reagents
 
-	if(istype(T))
-		user.visible_message("[user] begins to clean [T] with [src].", "<span class='notice'>You begin to clean [T] with [src]...</span>")
-
-		if(do_after(user, src.mopspeed, target = T))
-			to_chat(user, "<span class='notice'>You finish mopping.</span>")
-			clean(T)
-
-
-/obj/effect/attackby(obj/item/I, mob/user, params)
+/obj/effect/attackby__legacy__attackchain(obj/item/I, mob/user, params)
 	if(istype(I, /obj/item/mop) || istype(I, /obj/item/soap))
 		return
 	else
 		return ..()
-
-
-/obj/item/mop/proc/janicart_insert(mob/user, obj/structure/janitorialcart/J)
-	J.put_in_cart(src, user)
-	J.mymop=src
-	J.update_icon()
 
 /obj/item/mop/wash(mob/user, atom/source)
 	reagents.add_reagent("water", 5)
@@ -76,7 +87,6 @@
 	name = "advanced mop"
 	mopcap = 10
 	icon_state = "advmop"
-	item_state = "mop"
 	origin_tech = "materials=3;engineering=3"
 	force = 6
 	throwforce = 8
@@ -90,7 +100,7 @@
 	..()
 	START_PROCESSING(SSobj, src)
 
-/obj/item/mop/advanced/attack_self(mob/user)
+/obj/item/mop/advanced/attack_self__legacy__attackchain(mob/user)
 	refill_enabled = !refill_enabled
 	if(refill_enabled)
 		START_PROCESSING(SSobj, src)
@@ -113,8 +123,6 @@
 		STOP_PROCESSING(SSobj, src)
 	return ..()
 
-
 /obj/item/mop/advanced/cyborg
 
-/obj/item/mop/advanced/cyborg/janicart_insert(mob/user, obj/structure/janitorialcart/J)
-	return
+#undef MOP_SOUND_CD

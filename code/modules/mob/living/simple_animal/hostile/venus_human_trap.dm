@@ -1,28 +1,30 @@
 
 
-/obj/structure/alien/resin/flower_bud_enemy //inheriting basic attack/damage stuff from alien structures
+/// inheriting basic attack/damage stuff from alien structures
+/obj/structure/alien/resin/flower_bud_enemy
 	name = "flower bud"
 	desc = "A large pulsating plant..."
 	icon = 'icons/effects/spacevines.dmi'
 	icon_state = "flower_bud"
 	layer = MOB_LAYER + 0.9
-	opacity = 0
-	canSmoothWith = list()
-	smooth = SMOOTH_FALSE
-	var/growth_time = 1200
+	opacity = FALSE
+	canSmoothWith = null
+	smoothing_flags = NONE
+	var/growth_time = 120 SECONDS
+	is_alien = FALSE
 
-/obj/structure/alien/resin/flower_bud_enemy/New()
-	..()
+/obj/structure/alien/resin/flower_bud_enemy/Initialize(mapload)
+	. = ..()
 	var/list/anchors = list()
-	anchors += locate(x-2,y+2,z)
-	anchors += locate(x+2,y+2,z)
-	anchors += locate(x-2,y-2,z)
-	anchors += locate(x+2,y-2,z)
+	anchors += locate(x - 2, y + 2, z)
+	anchors += locate(x + 2, y + 2, z)
+	anchors += locate(x - 2, y - 2, z)
+	anchors += locate(x + 2, y - 2, z)
 
 	for(var/turf/T in anchors)
 		var/datum/beam/B = Beam(T, "vine", time=INFINITY, maxdistance=5, beam_type=/obj/effect/ebeam/vine)
 		B.sleep_time = 10 //these shouldn't move, so let's slow down updates to 1 second (any slower and the deletion of the vines would be too slow)
-	addtimer(CALLBACK(src, .proc/bear_fruit), growth_time)
+	addtimer(CALLBACK(src, PROC_REF(bear_fruit)), growth_time)
 
 /obj/structure/alien/resin/flower_bud_enemy/proc/bear_fruit()
 	visible_message("<span class='danger'>the plant has borne fruit!</span>")
@@ -35,15 +37,13 @@
 	mouse_opacity = MOUSE_OPACITY_ICON
 	desc = "A thick vine, painful to the touch."
 
-
-/obj/effect/ebeam/vine/Crossed(atom/movable/AM, oldloc)
-	if(isliving(AM))
-		var/mob/living/L = AM
-		if(!("vines" in L.faction))
-			L.adjustBruteLoss(5)
-			to_chat(L, "<span class='alert'>You cut yourself on the thorny vines.</span>")
-
-
+/obj/effect/ebeam/vine/on_atom_entered(datum/source, atom/movable/entered)
+	if(!isliving(entered))
+		return
+	var/mob/living/L = entered
+	if(!("vines" in L.faction))
+		L.adjustBruteLoss(5)
+		to_chat(L, "<span class='alert'>You cut yourself on the thorny vines.</span>")
 
 /mob/living/simple_animal/hostile/venus_human_trap
 	name = "venus human trap"
@@ -54,7 +54,7 @@
 	layer = MOB_LAYER + 0.9
 	health = 50
 	maxHealth = 50
-	ranged = 1
+	ranged = TRUE
 	harm_intent_damage = 5
 	obj_damage = 60
 	melee_damage_lower = 25
@@ -63,13 +63,13 @@
 	attack_sound = 'sound/weapons/bladeslice.ogg'
 	atmos_requirements = list("min_oxy" = 0, "max_oxy" = 0, "min_tox" = 0, "max_tox" = 0, "min_co2" = 0, "max_co2" = 0, "min_n2" = 0, "max_n2" = 0)
 	unsuitable_atmos_damage = 0
-	faction = list("hostile","vines","plants")
+	faction = list("hostile", "vines", "plants", "jungle")
 	var/list/grasping = list()
 	var/max_grasps = 4
 	var/grasp_chance = 20
 	var/grasp_pull_chance = 85
 	var/grasp_range = 4
-	del_on_death = 1
+	del_on_death = TRUE
 
 /mob/living/simple_animal/hostile/venus_human_trap/handle_automated_action()
 	if(..())
@@ -87,14 +87,14 @@
 				if(prob(grasp_pull_chance))
 					dir = get_dir(src,L) //staaaare
 					step(L,get_dir(L,src)) //reel them in
-					L.Weaken(3) //you can't get away now~
+					L.Weaken(6 SECONDS) //you can't get away now~
 
-		if(grasping.len < max_grasps)
+		if(length(grasping) < max_grasps)
 			grasping:
 				for(var/mob/living/L in view(grasp_range, src))
 					if(L == src || faction_check_mob(L) || (L in grasping) || L == target)
 						continue
-					for(var/t in getline(src,L))
+					for(var/t in get_line(src,L))
 						for(var/a in t)
 							var/atom/A = a
 							if(A.density && A != L)
@@ -107,13 +107,14 @@
 
 
 /mob/living/simple_animal/hostile/venus_human_trap/OpenFire(atom/the_target)
-	for(var/turf/T in getline(src,target))
-		if (T.density)
+	for(var/turf/T in get_line(src, target))
+		if(T.density)
 			return
 		for(var/obj/O in T)
 			if(O.density)
 				return
 	var/dist = get_dist(src,the_target)
+	changeNext_move(CLICK_CD_MELEE)
 	Beam(the_target, "vine", time=dist*2, maxdistance=dist+2, beam_type=/obj/effect/ebeam/vine)
 	the_target.attack_animal(src)
 

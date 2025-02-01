@@ -12,18 +12,19 @@
 	var/charges = 0
 	var/recharge_rate = 4
 	var/charge_tick = 0
-	var/can_charge = 1
+	var/can_charge = TRUE
 	var/ammo_type
 	var/no_den_usage
+	var/antimagic_flags = MAGIC_RESISTANCE
 	origin_tech = null
-	clumsy_check = 0
+	clumsy_check = FALSE
 	trigger_guard = TRIGGER_GUARD_ALLOW_ALL // Has no trigger at all, uses magic instead
 	can_holster = FALSE // Nothing here is a gun, and therefore shouldn't really fit into a holster
 
 	lefthand_file = 'icons/mob/inhands/items_lefthand.dmi' //not really a gun and some toys use these inhands
 	righthand_file = 'icons/mob/inhands/items_righthand.dmi'
 
-/obj/item/gun/magic/afterattack(atom/target, mob/living/user, flag)
+/obj/item/gun/magic/afterattack__legacy__attackchain(atom/target, mob/living/user, flag)
 	if(no_den_usage)
 		var/area/A = get_area(user)
 		if(istype(A, /area/wizard_station))
@@ -31,6 +32,9 @@
 			return
 		else
 			no_den_usage = 0
+	if(!user.can_cast_magic(antimagic_flags))
+		to_chat(user, "<span class='warning'>[src] whizzles quietly.</span>")
+		return FALSE
 	..()
 
 /obj/item/gun/magic/can_shoot()
@@ -50,8 +54,8 @@
 		charges--//... drain a charge
 	return
 
-/obj/item/gun/magic/New()
-	..()
+/obj/item/gun/magic/Initialize(mapload)
+	. = ..()
 	charges = max_charges
 	chambered = new ammo_type(src)
 	if(can_charge)
@@ -65,14 +69,20 @@
 
 
 /obj/item/gun/magic/process()
-	charge_tick++
-	if(charge_tick < recharge_rate || charges >= max_charges)
-		return 0
-	charge_tick = 0
-	charges++
-	return 1
+	// Don't start recharging until we lose a charge
+	if(charges >= max_charges)
+		charge_tick = 0
+		return FALSE
 
-/obj/item/gun/magic/update_icon()
+	charge_tick++
+	if(charge_tick >= recharge_rate)
+		charge_tick = 0
+		charges++
+		return TRUE
+	else
+		return FALSE
+
+/obj/item/gun/magic/update_icon_state()
 	return
 
 /obj/item/gun/magic/shoot_with_empty_chamber(mob/living/user as mob|obj)
@@ -80,6 +90,6 @@
 	return
 
 /obj/item/gun/magic/suicide_act(mob/user)
-	user.visible_message("<span class='suicide'>[user] is twisting [src] above [user.p_their()] head, releasing a magical blast! It looks like [user.p_theyre()] trying to commit suicide.</span>")
-	playsound(loc, fire_sound, 50, 1, -1)
+	user.visible_message("<span class='suicide'>[user] is twisting [src] above [user.p_their()] head, releasing a magical blast! It looks like [user.p_theyre()] trying to commit suicide!</span>")
+	playsound(loc, fire_sound, 50, TRUE, -1)
 	return FIRELOSS

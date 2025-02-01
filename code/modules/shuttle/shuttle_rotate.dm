@@ -11,8 +11,8 @@ If ever any of these procs are useful for non-shuttles, rename it to proc/rotate
 		setDir(angle2dir(rotation+dir2angle(dir)))
 
 	//resmooth if need be.
-	if(smooth && (params & ROTATE_SMOOTH))
-		queue_smooth(src)
+	if(params & ROTATE_SMOOTH && smoothing_flags & (SMOOTH_CORNERS|SMOOTH_BITMASK))
+		QUEUE_SMOOTH(src)
 
 	//rotate the pixel offsets too.
 	if((pixel_x || pixel_y) && (params & ROTATE_OFFSET))
@@ -23,6 +23,19 @@ If ever any of these procs are useful for non-shuttles, rename it to proc/rotate
 			var/oldPY = pixel_y
 			pixel_x = oldPY
 			pixel_y = (oldPX*(-1))
+
+
+/atom/movable/shuttleRotate(rotation, params)
+	. = ..()
+	//rotate the physical bounds and offsets for multitile atoms too. Override base "rotate the pixel offsets" for multitile atoms.
+	//Override non zero bound_x, bound_y, pixel_x, pixel_y to zero.
+	//Dont take in account starting bound_x, bound_y, pixel_x, pixel_y.
+	//So it can unintentionally shift physical bounds of things that starts with non zero bound_x, bound_y.
+	if((bound_height != world.icon_size || bound_width != world.icon_size) && (bound_x == 0) && (bound_y == 0)) //Dont shift things that have non zero bound_x and bound_y, or it move somewhere.
+		pixel_x = dir & (NORTH|EAST) ? (world.icon_size - bound_width) : 0
+		pixel_y = dir & (NORTH|WEST) ? (world.icon_size - bound_width) : 0
+		bound_x = pixel_x
+		bound_y = pixel_y
 
 /************************************Turf rotate procs************************************/
 
@@ -54,10 +67,7 @@ If ever any of these procs are useful for non-shuttles, rename it to proc/rotate
 		var/temp = d1
 		d1 = d2
 		d2 = temp
-	update_icon()
-
-/obj/structure/shuttle/engine/shuttleRotate(rotation, params)
-	setDir(angle2dir(rotation+dir2angle(dir)))
+	update_icon(UPDATE_ICON_STATE)
 
 //Fixes dpdir on shuttle rotation
 /obj/structure/disposalpipe/shuttleRotate(rotation, params)
@@ -82,11 +92,6 @@ If ever any of these procs are useful for non-shuttles, rename it to proc/rotate
 	return ..()
 
 /************************************Machine rotate procs************************************/
-
-//prevents shuttles attempting to rotate this since it messes up sprites
-/obj/machinery/gateway/shuttleRotate(rotation, params)
-	params = NONE
-	return ..()
 
 //prevents shuttles attempting to rotate this since it messes up sprites
 /obj/machinery/gravity_generator/shuttleRotate(rotation, params)

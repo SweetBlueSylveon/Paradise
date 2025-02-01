@@ -61,6 +61,13 @@
 	glass_type = /obj/machinery/door/airlock/medical/glass
 	airlock_type = /obj/machinery/door/airlock/medical
 
+/obj/structure/door_assembly/door_assembly_viro
+	name = "virology airlock assembly"
+	icon = 'icons/obj/doors/airlocks/station/virology.dmi'
+	base_name = "virology airlock"
+	glass_type = /obj/machinery/door/airlock/virology/glass
+	airlock_type = /obj/machinery/door/airlock/virology
+
 /obj/structure/door_assembly/door_assembly_mai
 	name = "maintenance airlock assembly"
 	icon = 'icons/obj/doors/airlocks/station/maintenance.dmi'
@@ -130,7 +137,7 @@
 	base_name = "large airlock"
 	overlays_file = 'icons/obj/doors/airlocks/glass_large/overlays.dmi'
 	dir = EAST
-	var/width = 1
+	var/width = 2
 	airlock_type = /obj/machinery/door/airlock/multi_tile
 	glass_type = /obj/machinery/door/airlock/multi_tile/glass
 	material_amt = 8
@@ -163,8 +170,8 @@
 
 /obj/structure/door_assembly/door_assembly_cult/Initialize(mapload)
 	. = ..()
-	icon = SSticker.cultdat?.airlock_runed_icon_file
-	overlays_file = SSticker.cultdat?.airlock_runed_overlays_file
+	icon = GET_CULT_DATA(airlock_runed_icon_file, initial(icon))
+	overlays_file = GET_CULT_DATA(airlock_runed_overlays_file, initial(overlays_file))
 	update_icon()
 
 /obj/structure/door_assembly/door_assembly_cult/unruned
@@ -175,9 +182,15 @@
 
 /obj/structure/door_assembly/door_assembly_cult/unruned/Initialize(mapload)
 	. = ..()
-	icon = SSticker.cultdat?.airlock_unruned_icon_file
-	overlays_file = SSticker.cultdat?.airlock_unruned_overlays_file
+	icon = GET_CULT_DATA(airlock_unruned_icon_file, initial(icon))
+	overlays_file = GET_CULT_DATA(airlock_unruned_overlays_file, initial(overlays_file))
 	update_icon()
+
+/obj/structure/door_assembly/door_assembly_clockwork
+	icon = 'icons/obj/doors/airlocks/clockwork/clockwork.dmi'
+	overlays_file = 'icons/obj/doors/airlocks/clockwork/clockwork-overlays.dmi'
+	airlock_type = /obj/machinery/door/airlock/clockwork
+	glass_type = /obj/machinery/door/airlock/clockwork/glass
 
 /obj/structure/door_assembly/door_assembly_centcom
 	icon = 'icons/obj/doors/airlocks/centcom/centcom.dmi'
@@ -192,6 +205,7 @@
 	airlock_type = /obj/machinery/door/airlock/gold
 	mineral = "gold"
 	glass_type = /obj/machinery/door/airlock/gold/glass
+	mineral_type = /obj/item/stack/sheet/mineral/gold
 
 /obj/structure/door_assembly/door_assembly_silver
 	name = "silver airlock assembly"
@@ -200,6 +214,7 @@
 	airlock_type = /obj/machinery/door/airlock/silver
 	mineral = "silver"
 	glass_type = /obj/machinery/door/airlock/silver/glass
+	mineral_type = /obj/item/stack/sheet/mineral/silver
 
 /obj/structure/door_assembly/door_assembly_diamond
 	name = "diamond airlock assembly"
@@ -208,6 +223,7 @@
 	airlock_type = /obj/machinery/door/airlock/diamond
 	mineral = "diamond"
 	glass_type = /obj/machinery/door/airlock/diamond/glass
+	mineral_type = /obj/item/stack/sheet/mineral/diamond
 
 /obj/structure/door_assembly/door_assembly_uranium
 	name = "uranium airlock assembly"
@@ -216,6 +232,7 @@
 	airlock_type = /obj/machinery/door/airlock/uranium
 	mineral = "uranium"
 	glass_type = /obj/machinery/door/airlock/uranium/glass
+	mineral_type = /obj/item/stack/sheet/mineral/uranium
 
 /obj/structure/door_assembly/door_assembly_plasma
 	name = "plasma airlock assembly"
@@ -224,6 +241,7 @@
 	airlock_type = /obj/machinery/door/airlock/plasma
 	mineral = "plasma"
 	glass_type = /obj/machinery/door/airlock/plasma/glass
+	mineral_type = /obj/item/stack/sheet/mineral/plasma
 
 /obj/structure/door_assembly/door_assembly_bananium
 	name = "bananium airlock assembly"
@@ -233,6 +251,7 @@
 	airlock_type = /obj/machinery/door/airlock/bananium
 	mineral = "bananium"
 	glass_type = /obj/machinery/door/airlock/bananium/glass
+	mineral_type = /obj/item/stack/sheet/mineral/bananium
 
 /obj/structure/door_assembly/door_assembly_tranquillite
 	name = "tranquillite airlock assembly"
@@ -241,6 +260,7 @@
 	airlock_type = /obj/machinery/door/airlock/tranquillite
 	mineral = "tranquillite"
 	noglass = TRUE
+	mineral_type = /obj/item/stack/sheet/mineral/tranquillite
 
 /obj/structure/door_assembly/door_assembly_sandstone
 	name = "sandstone airlock assembly"
@@ -249,6 +269,7 @@
 	airlock_type = /obj/machinery/door/airlock/sandstone
 	mineral = "sandstone"
 	glass_type = /obj/machinery/door/airlock/sandstone/glass
+	mineral_type = /obj/item/stack/sheet/mineral/sandstone
 
 /obj/structure/door_assembly/door_assembly_titanium
 	name = "titanium airlock assembly"
@@ -258,6 +279,7 @@
 	glass_type = /obj/machinery/door/airlock/titanium/glass
 	airlock_type = /obj/machinery/door/airlock/titanium
 	mineral = "titanium"
+	mineral_type = /obj/item/stack/sheet/mineral/titanium
 
 /obj/structure/door_assembly/door_assembly_wood
 	name = "wooden airlock assembly"
@@ -266,3 +288,4 @@
 	airlock_type = /obj/machinery/door/airlock/wood
 	mineral = "wood"
 	glass_type = /obj/machinery/door/airlock/wood/glass
+	mineral_type = /obj/item/stack/sheet/wood

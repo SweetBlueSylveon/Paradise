@@ -13,9 +13,9 @@
 
 /datum/design/bag_holding
 	name = "Bag of Holding"
-	desc = "A backpack that opens into a localized pocket of Blue Space."
+	desc = "A backpack that opens into a localized pocket of Bluespace."
 	id = "bag_holding"
-	req_tech = list("bluespace" = 7, "materials" = 5, "engineering" = 5, "plasmatech" = 6)
+	req_tech = list("bluespace" = 7, "materials" = 5, "engineering" = 7, "plasmatech" = 6)
 	build_type = PROTOLATHE
 	materials = list(MAT_GOLD = 3000, MAT_DIAMOND = 1500, MAT_URANIUM = 250, MAT_BLUESPACE = 2000)
 	build_path = /obj/item/storage/backpack/holding
@@ -23,9 +23,9 @@
 
 /datum/design/bluespace_belt
 	name = "Belt of Holding"
-	desc = "An astonishingly complex belt popularized by a rich blue-space technology magnate."
+	desc = "A bleeding-edge storage medium that brings the principles first used in the Bag of Holding to belt form."
 	id = "bluespace_belt"
-	req_tech = list("bluespace" = 7, "materials" = 5, "engineering" = 5, "plasmatech" = 6)
+	req_tech = list("bluespace" = 7, "materials" = 5, "engineering" = 6, "plasmatech" = 6)
 	build_type = PROTOLATHE
 	materials = list(MAT_GOLD = 1500, MAT_DIAMOND = 3000, MAT_URANIUM = 1000)
 	build_path = /obj/item/storage/belt/bluespace
@@ -53,7 +53,7 @@
 
 /datum/design/bluespace_belt_holder
 	name = "Bluespace Conveyor Belt Placer"
-	desc = "This device facilitates the rapid deployment of conveyor belts. This one is powered by bluespace."
+	desc = "This device facilitates the rapid deployment of conveyor belts via the incorporation of experimental Bluespace technology."
 	id = "bluespace_belt_holder"
 	req_tech = list("materials" = 1, "engineering" = 3, "bluespace" = 3)
 	build_type = PROTOLATHE
@@ -73,12 +73,12 @@
 
 /datum/design/beacon
 	name = "Tracking Beacon"
-	desc = "A blue space tracking beacon."
+	desc = "A bluespace tracking beacon."
 	id = "beacon"
 	req_tech = list("bluespace" = 1)
 	build_type = PROTOLATHE
-	materials = list(MAT_METAL = 150, MAT_GLASS = 100)
-	build_path = /obj/item/radio/beacon
+	materials = list(MAT_METAL = 300, MAT_GLASS = 200)
+	build_path = /obj/item/beacon
 	category = list("Bluespace")
 
 /datum/design/brpd
@@ -89,4 +89,14 @@
 	build_type = PROTOLATHE
 	materials = list(MAT_METAL = 75000, MAT_GLASS = 37500, MAT_SILVER = 3000)
 	build_path = /obj/item/rpd/bluespace
+	category = list("Bluespace")
+
+/datum/design/bluespaceshotglass
+	name = "Bluespace Shot Glass"
+	desc = "For when you need to make the Bartender's life extra hell."
+	req_tech = list("bluespace" = 5, "materials" = 3, "plasmatech" = 4)
+	id = "bluespaceshotglass"
+	build_type = PROTOLATHE
+	materials = list(MAT_METAL = 1000, MAT_BLUESPACE = 500)
+	build_path = /obj/item/reagent_containers/drinks/drinkingglass/shotglass/bluespace
 	category = list("Bluespace")

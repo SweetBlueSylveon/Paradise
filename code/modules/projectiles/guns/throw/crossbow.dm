@@ -7,6 +7,8 @@
 /obj/item/gun/throw/crossbow
 	name = "powered crossbow"
 	desc = "A modern twist on an old classic. Pick up that can."
+	lefthand_file = 'icons/mob/inhands/weapons_lefthand.dmi'
+	righthand_file = 'icons/mob/inhands/weapons_righthand.dmi'
 	icon_state = "crossbow"
 	item_state = "crossbow-solid"
 	fire_sound_text = "a solid thunk"
@@ -27,9 +29,9 @@
 
 /obj/item/gun/throw/crossbow/emp_act(severity)
 	if(cell && severity)
-		emp_act(severity)
+		cell.emp_act(severity)
 
-/obj/item/gun/throw/crossbow/update_icon()
+/obj/item/gun/throw/crossbow/update_icon_state()
 	if(!tension)
 		if(!to_launch)
 			icon_state = "[initial(icon_state)]"
@@ -44,6 +46,7 @@
 		. += "<span class='notice'>\A [cell] is mounted onto [src]. Battery cell charge: [cell.charge]/[cell.maxcharge]"
 	else
 		. += "<span class='notice'>It has an empty mount for a battery cell.</span>"
+	. += "<span class='notice'><b>Alt-Click</b> [src] to adjust it's tension.</span>"
 
 /obj/item/gun/throw/crossbow/modify_projectile(obj/item/I, on_chamber = 0)
 	if(cell && on_chamber && istype(I, /obj/item/arrow/rod))
@@ -63,9 +66,9 @@
 	..()
 	if(to_launch)
 		modify_projectile(to_launch, 1)
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
-/obj/item/gun/throw/crossbow/attack_self(mob/living/user)
+/obj/item/gun/throw/crossbow/attack_self__legacy__attackchain(mob/living/user)
 	if(tension)
 		if(to_launch)
 			user.visible_message("<span class='notice'>[user] relaxes the tension on [src]'s string and removes [to_launch].</span>","<span class='notice'>You relax the tension on [src]'s string and remove [to_launch].</span>")
@@ -77,7 +80,7 @@
 		else
 			user.visible_message("<span class='notice'>[user] relaxes the tension on [src]'s string.</span>","<span class='notice'>You relax the tension on [src]'s string.</span>")
 		tension = 0
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 	else
 		draw(user)
 
@@ -92,9 +95,9 @@
 	if(do_after(user, 25 * drawtension, target = user))
 		tension = drawtension
 		user.visible_message("[usr] draws back the string of [src]!","[src] clunks as you draw the string to its maximum tension!!")
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 
-/obj/item/gun/throw/crossbow/attackby(obj/item/I, mob/user, params)
+/obj/item/gun/throw/crossbow/attackby__legacy__attackchain(obj/item/I, mob/user, params)
 	if(!istype(I, /obj/item/stock_parts/cell))
 		return ..()
 
@@ -118,15 +121,19 @@
 	to_chat(user, "<span class='notice'>You jimmy [cell] out of [src] with [I].</span>")
 	cell = null
 
-/obj/item/gun/throw/crossbow/verb/set_tension()
-	set name = "Adjust Tension"
-	set category = "Object"
-	set src in range(0)
+/obj/item/gun/throw/crossbow/notify_ammo_count()
+	if(get_ammocount() >= 1)
+		return "<span class='notice'>[src] is loaded.</span>"
+	return "<span class='notice'>[src] is not loaded.</span>"
 
-	var/mob/user = usr
-	if(user.incapacitated())
+/obj/item/gun/throw/crossbow/Destroy()
+	. = ..()
+	QDEL_NULL(cell)
+
+/obj/item/gun/throw/crossbow/AltClick(mob/user)
+	if(user.stat || HAS_TRAIT(user, TRAIT_HANDS_BLOCKED) || !Adjacent(user))
 		return
-	var/choice = input("Select tension to draw to:", "[src]", XBOW_TENSION_FULL) as null|anything in possible_tensions
+	var/choice = tgui_input_list(user, "Select tension to draw to:", "[src]", possible_tensions)
 	if(!choice)
 		return
 
@@ -145,11 +152,12 @@
 /obj/item/gun/throw/crossbow/process_fire(atom/target as mob|obj|turf, mob/living/user as mob|obj, message = 1, params, zone_override)
 	..()
 	tension = 0
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
+
 /obj/item/gun/throw/crossbow/french
 	name = "french powered crossbow"
 	icon_state = "fcrossbow"
-	valid_projectile_type = /obj/item/reagent_containers/food/snacks/baguette
+	valid_projectile_type = /obj/item/food/baguette
 
 /obj/item/gun/throw/crossbow/french/modify_projectile(obj/item/I, on_chamber = 0)
 	return
@@ -161,7 +169,7 @@
 	item_state = "bolt"
 	throwforce = 20
 	w_class = WEIGHT_CLASS_NORMAL
-	sharp = 1
+	sharp = TRUE
 
 /obj/item/arrow/proc/removed() //Helper for metal rods falling apart.
 	return

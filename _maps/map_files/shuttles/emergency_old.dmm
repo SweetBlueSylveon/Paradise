@@ -77,7 +77,9 @@
 /turf/simulated/floor/mineral/titanium/blue,
 /area/shuttle/escape)
 "as" = (
-/obj/machinery/computer/robotics,
+/obj/machinery/computer/robotics{
+	dir = 4
+	},
 /turf/simulated/floor/mineral/titanium/blue,
 /area/shuttle/escape)
 "at" = (
@@ -90,17 +92,11 @@
 /obj/machinery/light/spot,
 /turf/simulated/floor/mineral/titanium/blue,
 /area/shuttle/escape)
-"av" = (
-/obj/structure/chair/comfy/shuttle{
-	dir = 4
-	},
-/turf/simulated/floor/mineral/titanium/blue,
-/area/shuttle/escape)
 "ay" = (
 /obj/machinery/door/airlock/command/glass{
-	name = "Escape Shuttle Cockpit";
-	req_access_txt = "19"
+	name = "Escape Shuttle Cockpit"
 	},
+/obj/effect/mapping_helpers/airlock/access/all/command/general,
 /turf/simulated/floor/mineral/titanium/blue,
 /area/shuttle/escape)
 "aA" = (
@@ -195,14 +191,12 @@
 /obj/machinery/door/airlock/titanium{
 	aiControlDisabled = 1;
 	hackProof = 1;
-	id_tag = null;
 	name = "Shuttle Cargo Hatch"
 	},
 /turf/simulated/floor/mineral/titanium/blue,
 /area/shuttle/escape)
 "aV" = (
 /obj/machinery/door/airlock/medical/glass{
-	id_tag = null;
 	name = "Escape Shuttle Infirmary"
 	},
 /turf/simulated/floor/mineral/titanium/blue,
@@ -284,9 +278,9 @@
 /area/shuttle/escape)
 "db" = (
 /obj/machinery/door/airlock/security/glass{
-	name = "Escape Shuttle Cell";
-	req_access_txt = "63"
+	name = "Escape Shuttle Cell"
 	},
+/obj/effect/mapping_helpers/airlock/access/all/security/doors,
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "ev" = (
@@ -332,12 +326,11 @@
 /obj/structure/chair/comfy/shuttle,
 /turf/simulated/floor/mineral/plastitanium/red/brig,
 /area/shuttle/escape)
+"nt" = (
+/turf/simulated/wall/indestructible/titanium/nodiagonal,
+/area/shuttle/escape)
 "rj" = (
-/obj/machinery/vending/wallmed{
-	layer = 3.3;
-	name = "Emergency NanoMed";
-	pixel_x = 28
-	},
+/obj/machinery/economy/vending/wallmed/directional/east,
 /obj/structure/bed/roller,
 /turf/simulated/floor/mineral/titanium,
 /area/shuttle/escape)
@@ -405,7 +398,7 @@ ab
 DZ
 bb
 bf
-ab
+nt
 ab
 "}
 (3,1,1) = {"
@@ -439,7 +432,7 @@ aa
 aa
 ab
 ac
-ab
+nt
 as
 ab
 aZ
@@ -463,7 +456,7 @@ bo
 (5,1,1) = {"
 aa
 ab
-ab
+nt
 al
 ap
 at
@@ -488,7 +481,7 @@ bo
 "}
 (6,1,1) = {"
 ab
-ab
+nt
 ah
 ai
 an
@@ -540,7 +533,7 @@ aa
 "}
 (8,1,1) = {"
 ab
-ab
+nt
 aj
 ai
 an
@@ -567,10 +560,10 @@ ab
 (9,1,1) = {"
 aa
 ab
-ab
+nt
 ao
 aq
-av
+an
 ab
 ac
 ac
@@ -595,8 +588,8 @@ aa
 aa
 ab
 ac
-ab
-an
+nt
+at
 ab
 aA
 aA
@@ -665,7 +658,7 @@ ac
 rj
 be
 aI
-ab
+nt
 ab
 "}
 (13,1,1) = {"

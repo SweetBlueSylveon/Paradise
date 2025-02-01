@@ -15,8 +15,8 @@
 	var/parent_organ = "chest"
 
 	var/list/datum/autopsy_data/autopsy_data = list()
-	var/list/trace_chemicals = list() // traces of chemicals in the organ,
-									  // links chemical IDs to number of ticks for which they'll stay in the blood
+	var/list/trace_chemicals = list()	// traces of chemicals in the organ,
+										// links chemical IDs to number of ticks for which they'll stay in the blood
 	germ_level = 0
 	var/datum/dna/dna
 
@@ -30,12 +30,23 @@
 	var/emp_proof = FALSE //is the organ immune to EMPs?
 	var/hidden_pain = FALSE //will it skip pain messages?
 	var/requires_robotic_bodypart = FALSE
+	/// When this variable is true, it can only be installed on the machine person species.
+	var/requires_machine_person = FALSE
 
+	///Should this organ be destroyed on removal?
+	var/destroy_on_removal = FALSE
+
+	/// What was the last pain message that was sent?
+	var/last_pain_message
+	/// When can we get the next pain message?
+	var/next_pain_time
+	/// What level of upgrades are needed to detect this. Level 0 is default. 1 is hidden from health analysers. 2 is hidden from cyborg analysers, and the body scanner at level 1. 4 is the highest level the body scanner can reach.
+	var/stealth_level = 0
 
 /obj/item/organ/Destroy()
 	STOP_PROCESSING(SSobj, src)
 	if(owner)
-		remove(owner, 1)
+		remove(owner, TRUE)
 	QDEL_LIST_ASSOC_VAL(autopsy_data)
 	QDEL_NULL(dna)
 	return ..()
@@ -47,23 +58,20 @@
 	..(holder)
 	if(!max_damage)
 		max_damage = min_broken_damage * 2
-	if(istype(holder))
+	if(ishuman(holder))
 		if(holder.dna)
 			dna = holder.dna.Clone()
+			if(!blood_DNA)
+				blood_DNA = list()
+			blood_DNA[dna.unique_enzymes] = dna.blood_type
 		else
-			log_runtime(EXCEPTION("[holder] spawned without a proper DNA."), holder)
-		var/mob/living/carbon/human/H = holder
-		if(istype(H))
-			if(dna)
-				if(!blood_DNA)
-					blood_DNA = list()
-				blood_DNA[dna.unique_enzymes] = dna.blood_type
+			stack_trace("[holder] spawned without a proper DNA.")
 	else
 		dna = new /datum/dna(null)
 		if(species_override)
 			dna.species = new species_override
 
-/obj/item/organ/attackby(obj/item/I, mob/user, params)
+/obj/item/organ/attackby__legacy__attackchain(obj/item/I, mob/user, params)
 	if(is_robotic() && istype(I, /obj/item/stack/nanopaste))
 		var/obj/item/stack/nanopaste/nano = I
 		nano.use(1)
@@ -81,7 +89,7 @@
 			blood_DNA = list()
 		blood_DNA[dna.unique_enzymes] = dna.blood_type
 
-/obj/item/organ/proc/necrotize(update_sprite = TRUE)
+/obj/item/organ/proc/necrotize(update_sprite = TRUE, ignore_vital_death = FALSE)
 	damage = max_damage
 	status |= ORGAN_DEAD
 	STOP_PROCESSING(SSobj, src)
@@ -96,15 +104,14 @@
 	if(status & ORGAN_DEAD)
 		return
 
-	if(is_preserved())
-		return
-
 	//Process infections
 	if(is_robotic() || sterile || (owner && HAS_TRAIT(owner, TRAIT_NOGERMS)))
 		germ_level = 0
 		return
 
-	if(!owner)
+	if(!owner || ((status & ORGAN_BURNT) && !(status & ORGAN_SALVED)))
+		if(is_preserved())
+			return
 		// Maybe scale it down a bit, have it REALLY kick in once past the basic infection threshold
 		// Another mercy for surgeons preparing transplant organs
 		germ_level++
@@ -125,9 +132,14 @@
 	if(istype(loc,/obj/item/mmi))
 		germ_level = max(0, germ_level - 1) // So a brain can slowly recover from being left out of an MMI
 		return TRUE
+	if(istype(loc, /mob/living/simple_animal/hostile/headslug) || istype(loc, /obj/item/organ/internal/body_egg/changeling_egg))
+		germ_level = 0 // weird stuff might happen, best to be safe
+		return TRUE
 	if(is_found_within(/obj/structure/closet/crate/freezer))
 		return TRUE
 	if(is_found_within(/obj/machinery/clonepod))
+		return TRUE
+	if(is_found_within(/obj/item/organ_extractor))
 		return TRUE
 	if(isturf(loc))
 		if(world.time - last_freezer_update_time > freezer_update_period)
@@ -209,12 +221,13 @@
 	if(tough)
 		return
 	damage = clamp(damage + amount, 0, max_damage)
+	damage = round_health(damage)
 
 	//only show this if the organ is not robotic
 	if(owner && parent_organ && amount > 0)
 		var/obj/item/organ/external/parent = owner.get_organ(parent_organ)
 		if(parent && !silent)
-			owner.custom_pain("Something inside your [parent.name] hurts a lot.")
+			custom_pain("Something inside your [parent.name] hurts a lot.")
 
 		//check if we've hit max_damage
 	if(damage >= max_damage)
@@ -230,22 +243,42 @@
 	status &= ~ORGAN_SPLINTED
 	status |= ORGAN_ROBOT
 
+/*
+  * remove
+  *
+  * Removes the organ from the user properly.
+  * If the organ is vital, it will kill the user.
+  * The proc returns the organ removed (i.e. `src`) assuming it was removed successfully;
+* otherwise, or if the organ gets destroyed in the process, it returns null.
+*/
 /obj/item/organ/proc/remove(mob/living/user, special = 0)
 	if(!istype(owner))
 		return
+
+	SEND_SIGNAL(owner, COMSIG_CARBON_LOSE_ORGAN, src)
 
 	owner.internal_organs -= src
 
 	var/obj/item/organ/external/affected = owner.get_organ(parent_organ)
 	if(affected) affected.internal_organs -= src
 
-	forceMove(get_turf(owner))
+	// In-game, organs will be moved to their parent turf.
+	// During ghost-mob creation, we toss the organs
+	// after we're done generating the sprite with them,
+	// so to nullspace they go.
+	if(get_turf(owner))
+		forceMove(get_turf(owner))
+	else
+		moveToNullspace()
 	START_PROCESSING(SSobj, src)
 
 	if(owner && vital && is_primary_organ()) // I'd do another check for species or whatever so that you couldn't "kill" an IPC by removing a human head from them, but it doesn't matter since they'll come right back from the dead
 		add_attack_logs(user, owner, "Removed vital organ ([src])", !!user ? ATKLOG_FEW : ATKLOG_ALL)
 		owner.death()
 	owner = null
+	if(destroy_on_removal && !QDELETED(src))
+		qdel(src)
+		return
 	return src
 
 /obj/item/organ/proc/replaced(mob/living/carbon/human/target)
@@ -278,13 +311,8 @@ I use this so that this can be made better once the organ overhaul rolls out -- 
 
 /obj/item/organ/serialize()
 	var/data = ..()
-	if(status != 0)
+	if(status)
 		data["status"] = status
-
-	// Save the DNA datum if: The owner doesn't exist, or the dna doesn't match
-	// the owner
-	if(!(owner && dna.unique_enzymes == owner.dna.unique_enzymes))
-		data["dna"] = dna.serialize()
 	return data
 
 /obj/item/organ/deserialize(data)
@@ -292,8 +320,17 @@ I use this so that this can be made better once the organ overhaul rolls out -- 
 		if(data["status"] & ORGAN_ROBOT)
 			robotize()
 		status = data["status"]
-	if(islist(data["dna"]))
-		// The only thing the official proc does is
-	 	//instantiate the list and call this proc
-		dna.deserialize(data["dna"])
-		..()
+	..()
+
+// A proc to send a pain message to the owner.
+/obj/item/organ/proc/custom_pain(message)
+	if(!owner.can_feel_pain() || !message)
+		return
+
+	var/msg = "<span class='userdanger'>[message]</span>"
+
+	// Anti message spam checks
+	if(msg != last_pain_message || world.time >= next_pain_time)
+		last_pain_message = msg
+		to_chat(owner, msg)
+		next_pain_time = world.time + 10 SECONDS
