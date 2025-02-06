@@ -11,7 +11,7 @@
 /obj/item/grab
 	name = "grab"
 	flags = NOBLUDGEON | ABSTRACT | DROPDEL
-	var/obj/screen/grab/hud = null
+	var/atom/movable/screen/grab/hud = null
 	var/mob/living/affecting = null
 	var/mob/living/assailant = null
 	var/state = GRAB_PASSIVE
@@ -45,8 +45,11 @@
 		return
 
 	affecting.grabbed_by += src
+	RegisterSignal(affecting, COMSIG_MOVABLE_MOVED, PROC_REF(grab_moved))
+	RegisterSignal(assailant, COMSIG_MOVABLE_MOVED, PROC_REF(pull_grabbed))
+	RegisterSignal(assailant, COMSIG_MOVABLE_UPDATED_GLIDE_SIZE, PROC_REF(on_updated_glide_size))
 
-	hud = new /obj/screen/grab(src)
+	hud = new /atom/movable/screen/grab(src)
 	hud.icon_state = "reinforce"
 	icon_state = "grabbed"
 	hud.name = "reinforce grab"
@@ -61,6 +64,98 @@
 
 	clean_grabbed_by(assailant, affecting)
 	adjust_position()
+
+/obj/item/grab/Destroy()
+	if(affecting)
+		UnregisterSignal(affecting, COMSIG_MOVABLE_MOVED)
+		if(!affecting.buckled)
+			affecting.pixel_x = 0
+			affecting.pixel_y = 0 //used to be an animate, not quick enough for qdel'ing
+			affecting.layer = initial(affecting.layer)
+		affecting.grabbed_by -= src
+		affecting = null
+	if(assailant)
+		UnregisterSignal(assailant, list(
+			COMSIG_MOVABLE_MOVED,
+			COMSIG_MOVABLE_UPDATED_GLIDE_SIZE,
+		))
+		if(assailant.client)
+			assailant.client.screen -= hud
+		assailant = null
+
+	QDEL_NULL(hud)
+	return ..()
+
+/obj/item/grab/proc/on_updated_glide_size(mob/living/grabber, old_size)
+	SIGNAL_HANDLER  // COMSIG_MOVABLE_UPDATED_GLIDE_SIZE
+	if(affecting && grabber == assailant && affecting != assailant)
+		affecting.set_glide_size(grabber.glide_size)
+
+/obj/item/grab/proc/pull_grabbed(mob/user, turf/old_turf, direct, forced)
+	SIGNAL_HANDLER
+	if(assailant.moving_diagonally == FIRST_DIAG_STEP) //we dont want to do anything in the middle of diagonal step
+		return
+	if(!assailant.Adjacent(old_turf))
+		qdel(src)
+		return
+
+	if(get_turf(affecting) != old_turf)
+		var/possible_dest = list()
+		var/list/mobs_do_not_move = list() // those are mobs we shouldnt move while we're going to new position
+		var/list/dest_1_sort = list() // just better dest to be picked first
+		var/list/dest_2_sort = list()
+		if(old_turf.Adjacent(affecting))
+			possible_dest |= old_turf
+		for(var/turf/dest in orange(1, assailant))
+			if(assailant.loc == dest) // orange(1) is broken and returning central turf
+				continue
+			if(!dest.Adjacent(affecting))
+				continue
+			if(dest.Adjacent(old_turf))
+				dest_1_sort |= dest
+				continue
+			dest_2_sort |= dest
+		possible_dest |= dest_1_sort
+		possible_dest |= dest_2_sort
+		if(istype(assailant.l_hand, /obj/item/grab))
+			var/obj/item/grab/grab = assailant.l_hand
+			mobs_do_not_move |= grab.affecting
+		if(istype(assailant.r_hand, /obj/item/grab))
+			var/obj/item/grab/grab = assailant.r_hand
+			mobs_do_not_move |= grab.affecting
+		mobs_do_not_move |= assailant
+		mobs_do_not_move -= affecting
+		if(assailant.pulling)
+			possible_dest -= old_turf // pull code just WANTS THAT old_loc and wont allow anyone else in it
+			mobs_do_not_move |= assailant.pulling
+		for(var/mob/mob as anything in mobs_do_not_move)
+			possible_dest -= get_turf(mob)
+		affecting.grab_do_not_move = mobs_do_not_move
+		var/success_move = FALSE
+		for(var/turf/dest as anything in possible_dest)
+			if(QDELETED(src))
+				return
+			if(get_turf(affecting) == dest)
+				success_move = TRUE
+				continue
+			if(affecting.Move(dest, get_dir(affecting, dest), glide_size))
+				success_move = TRUE
+				break
+			continue
+		affecting.grab_do_not_move = initial(affecting.grab_do_not_move)
+		if(!success_move)
+			qdel(src)
+			return
+	if(state == GRAB_NECK)
+		assailant.setDir(turn(direct, 180))
+	adjust_position()
+
+/obj/item/grab/proc/grab_moved()
+	SIGNAL_HANDLER
+	if(affecting.moving_diagonally == FIRST_DIAG_STEP) //we dont want to do anything in the middle of diagonal step
+		return
+	if(!assailant.Adjacent(affecting))
+		qdel(src)
 
 /obj/item/grab/proc/clean_grabbed_by(mob/user, mob/victim) //Cleans up any nulls in the grabbed_by list.
 	if(istype(user))
@@ -142,50 +237,24 @@
 			affecting.drop_r_hand()
 			affecting.drop_l_hand()
 
-
-		//var/announce = 0
-		//(hit_zone != last_hit_zone)
-			//announce = 1
-	/*	if(ishuman(affecting))
-			switch(hit_zone)
-				/*if("mouth")
-					if(announce)
-						assailant.visible_message("<span class='warning'>[assailant] covers [affecting]'s mouth!</span>")
-					if(affecting.silent < 3)
-						affecting.silent = 3
-				if("eyes")
-					if(announce)
-						assailant.visible_message("<span class='warning'>[assailant] covers [affecting]'s eyes!</span>")
-					if(affecting.eye_blind < 3)
-						affecting.eye_blind = 3*///These are being left in the code as an example for adding new hit-zone based things.
-
-		if(force_down)
-			if(affecting.loc != assailant.loc)
-				force_down = 0
-			else
-				affecting.Weaken(3) //This is being left in the code as an example of adding a new variable to do something in grab code.
-
-*/
-
 	var/breathing_tube = affecting.get_organ_slot("breathing_tube")
 
 	if(state >= GRAB_NECK)
-		affecting.Stun(5)  //It will hamper your voice, being choked and all.
-		if(isliving(affecting) && !breathing_tube)
+		affecting.Stun(3 SECONDS)
+		if(isliving(affecting) && !breathing_tube) //It will hamper your breathing, being choked and all.
 			var/mob/living/L = affecting
 			L.adjustOxyLoss(1)
 
 	if(state >= GRAB_KILL)
-		//affecting.apply_effect(STUTTER, 5) //would do this, but affecting isn't declared as mob/living for some stupid reason.
-		affecting.Stuttering(5) //It will hamper your voice, being choked and all.
-		affecting.Weaken(5)	//Should keep you down unless you get help.
+		affecting.Stuttering(10 SECONDS) //It will hamper your voice, being choked and all.
+		affecting.Weaken(10 SECONDS)	//Should keep you down unless you get help.
 		if(!breathing_tube)
-			affecting.AdjustLoseBreath(2, bound_lower = 0, bound_upper = 3)
+			affecting.AdjustLoseBreath(4 SECONDS, bound_lower = 0, bound_upper = 6 SECONDS)
 
 	adjust_position()
 
 
-/obj/item/grab/attack_self(mob/user)
+/obj/item/grab/attack_self__legacy__attackchain(mob/user)
 	s_click(hud)
 
 //Updating pixelshift, position and direction
@@ -195,11 +264,6 @@
 		return
 	if(!assailant.Adjacent(affecting)) // To prevent teleportation via grab
 		return
-	if(affecting.lying && state != GRAB_KILL)
-		animate(affecting, pixel_x = 0, pixel_y = 0, 5, 1, LINEAR_EASING)
-		return //KJK
-	/*	if(force_down) //THIS GOES ABOVE THE RETURN LABELED KJK
-			affecting.setDir(SOUTH)*///This shows how you can apply special directions based on a variable. //face up
 
 	var/shift = 0
 	var/adir = get_dir(assailant, affecting)
@@ -234,7 +298,7 @@
 		if(EAST)
 			animate(affecting, pixel_x =-shift, pixel_y = 0, 5, 1, LINEAR_EASING)
 
-/obj/item/grab/proc/s_click(obj/screen/S)
+/obj/item/grab/proc/s_click(atom/movable/screen/S)
 	if(!affecting)
 		return
 	if(state >= GRAB_AGGRESSIVE && HAS_TRAIT(assailant, TRAIT_PACIFISM))
@@ -246,7 +310,7 @@
 		return
 	if(world.time < (last_upgrade + UPGRADE_COOLDOWN))
 		return
-	if(!assailant.canmove || assailant.lying)
+	if(HAS_TRAIT(assailant, TRAIT_HANDS_BLOCKED) || IS_HORIZONTAL(assailant))
 		qdel(src)
 		return
 
@@ -260,7 +324,7 @@
 		/* else
 			assailant.visible_message("<span class='warning'>[assailant] pins [affecting] down to the ground (now hands)!</span>")
 			force_down = 1
-			affecting.Weaken(3)
+			affecting.Weaken(6 SECONDS)
 			step_to(assailant, affecting)
 			assailant.setDir(EAST) //face the victim
 			affecting.setDir(SOUTH) //face up  //This is an example of a new feature based on the context of the location of the victim.
@@ -285,7 +349,7 @@
 			affecting.LAssailant = assailant
 		hud.icon_state = "kill"
 		hud.name = "kill"
-		affecting.Stun(10) //10 ticks of ensured grab
+		affecting.Stun(3 SECONDS) // Ensures the grab is able to be secured
 	else if(state < GRAB_UPGRADING)
 		assailant.visible_message("<span class='danger'>[assailant] starts to tighten [assailant.p_their()] grip on [affecting]'s neck!</span>")
 		hud.icon_state = "kill1"
@@ -296,7 +360,7 @@
 
 		assailant.next_move = world.time + 10
 		if(!affecting.get_organ_slot("breathing_tube"))
-			affecting.AdjustLoseBreath(1)
+			affecting.AdjustLoseBreath(2 SECONDS)
 
 	adjust_position()
 
@@ -307,13 +371,13 @@
 		return 0
 
 	if(affecting)
-		if(!isturf(assailant.loc) || ( !isturf(affecting.loc) || assailant.loc != affecting.loc && get_dist(assailant, affecting) > 1) )
+		if(!isturf(assailant.loc) || ( !isturf(affecting.loc) || assailant.loc != affecting.loc && get_dist(assailant, affecting) > 1))
 			qdel(src)
 			return 0
 	return 1
 
 
-/obj/item/grab/attack(mob/living/M, mob/living/carbon/user)
+/obj/item/grab/attack__legacy__attackchain(mob/living/M, mob/living/carbon/user)
 	if(!affecting)
 		return
 
@@ -334,8 +398,10 @@
 					return
 
 				if(INTENT_HARM) //This checks that the user is on harm intent.
+					if(HAS_TRAIT(user, TRAIT_PACIFISM))
+						return
 					if(last_hit_zone == "head") //This checks the hitzone the user has selected. In this specific case, they have the head selected.
-						if(affecting.lying)
+						if(IS_HORIZONTAL(affecting))
 							return
 						assailant.visible_message("<span class='danger'>[assailant] thrusts [assailant.p_their()] head into [affecting]'s skull!</span>") //A visible message for what is going on.
 						var/damage = 5
@@ -343,7 +409,7 @@
 						if(istype(hat))
 							damage += hat.force * 3
 						affecting.apply_damage(damage*rand(90, 110)/100, BRUTE, "head", affected.run_armor_check(affecting, MELEE))
-						playsound(assailant.loc, "swing_hit", 25, 1, -1)
+						playsound(assailant.loc, "swing_hit", 25, TRUE, -1)
 						add_attack_logs(assailant, affecting, "Headbutted")
 						return
 
@@ -377,7 +443,7 @@
 					if(!force_down)
 						assailant.visible_message("<span class='danger'>[user] is forcing [affecting] to the ground!</span>")
 						force_down = 1
-						affecting.Weaken(3)
+						affecting.Weaken(6 SECONDS)
 						affecting.lying = 1
 						step_to(assailant, affecting)
 						assailant.setDir(EAST) //face the victim
@@ -408,7 +474,16 @@
 			user.visible_message("<span class='danger'>[user] devours \the [affecting]!</span>")
 			if(affecting.mind)
 				add_attack_logs(attacker, affecting, "Devoured")
-
+			if(istype(affecting, /mob/living/simple_animal/hostile/poison/bees)) //Eating a bee will end up damaging you
+				var/obj/item/organ/external/mouth = user.get_organ(BODY_ZONE_PRECISE_MOUTH)
+				var/mob/living/simple_animal/hostile/poison/bees/B = affecting
+				mouth.receive_damage(1)
+				if(B.beegent)
+					B.beegent.reaction_mob(assailant, REAGENT_INGEST)
+					assailant.reagents.add_reagent(B.beegent.id, rand(1, 5))
+				else
+					assailant.reagents.add_reagent("spidertoxin", 5)
+				user.visible_message("<span class='warning'>[user]'s mouth became bloated.</span>", "<span class='danger'>Your mouth has been stung, it's now bloating!</span>")
 			affecting.forceMove(user)
 			LAZYADD(attacker.stomach_contents, affecting)
 			qdel(src)
@@ -432,23 +507,10 @@
 
 	return EAT_TIME_FAT //if it doesn't fit into the above, it's probably a fat guy, take EAT_TIME_FAT to do it
 
-/obj/item/grab/Destroy()
-	if(affecting)
-		if(!affecting.buckled)
-			affecting.pixel_x = 0
-			affecting.pixel_y = 0 //used to be an animate, not quick enough for qdel'ing
-			affecting.layer = initial(affecting.layer)
-		affecting.grabbed_by -= src
-		affecting = null
-	if(assailant)
-		if(assailant.client)
-			assailant.client.screen -= hud
-		assailant = null
-	QDEL_NULL(hud)
-	return ..()
-
-
 #undef EAT_TIME_XENO
 #undef EAT_TIME_FAT
 
 #undef EAT_TIME_ANIMAL
+
+#undef UPGRADE_COOLDOWN
+#undef UPGRADE_KILL_TIMER

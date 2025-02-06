@@ -6,12 +6,11 @@ import { Window } from '../layouts';
 const MIN_BAR_VALUE = 0;
 const MAX_BAR_VALUE = 1013;
 
-
 /* Definition of pressure threshold. 95 - 110 is considered good. 80 - 95 and 110 - 120 is considered average.
 Everything else bad.
 */
 
-const getStatusColor = val => {
+const getStatusColor = (val) => {
   let statusColor = 'good';
   const BAD_LOWER_THRESHOLD = 80;
   const AVG_LOWER_THRESHOLD = 95;
@@ -31,14 +30,9 @@ const getStatusColor = val => {
 
 export const ExternalAirlockController = (props, context) => {
   const { act, data } = useBackend(context);
-  const {
-    chamber_pressure,
-    exterior_status,
-    interior_status,
-    processing,
-  } = data;
+  const { chamber_pressure, exterior_status, interior_status, processing } = data;
   return (
-    <Window>
+    <Window width={330} height={205}>
       <Window.Content>
         <Section title="Information">
           <LabeledList>
@@ -47,44 +41,50 @@ export const ExternalAirlockController = (props, context) => {
                 color={getStatusColor(chamber_pressure)}
                 value={chamber_pressure}
                 minValue={MIN_BAR_VALUE}
-                maxValue={MAX_BAR_VALUE}>
+                maxValue={MAX_BAR_VALUE}
+              >
                 {chamber_pressure} kPa
               </ProgressBar>
             </LabeledList.Item>
           </LabeledList>
         </Section>
-        <Section title="Actions">
+        <Section
+          title="Actions"
+          buttons={
+            <Button content={'Abort'} icon={'ban'} color={'red'} disabled={!processing} onClick={() => act('abort')} />
+          }
+        >
           <Box>
             <Button
-              content={"Cycle to Exterior"}
-              icon={"arrow-circle-left"}
+              width="49%"
+              content={'Cycle to Exterior'}
+              icon={'arrow-circle-left'}
               disabled={processing}
-              onClick={() => act("cycle_ext")} />
+              onClick={() => act('cycle_ext')}
+            />
             <Button
-              content={"Cycle to Interior"}
-              icon={"arrow-circle-right"}
+              width="50%"
+              content={'Cycle to Interior'}
+              icon={'arrow-circle-right'}
               disabled={processing}
-              onClick={() => act("cycle_int")} />
+              onClick={() => act('cycle_int')}
+            />
           </Box>
           <Box>
             <Button
-              content={"Force Exterior Door"}
-              icon={"exclamation-triangle"}
-              color={interior_status === "open" ? "red" : processing ? "yellow": null}
-              onClick={() => act("force_ext")} />
+              width="49%"
+              content={'Force Exterior Door'}
+              icon={'exclamation-triangle'}
+              color={interior_status === 'open' ? 'red' : processing ? 'yellow' : null}
+              onClick={() => act('force_ext')}
+            />
             <Button
-              content={"Force Interior Door"}
-              icon={"exclamation-triangle"}
-              color={interior_status === "open" ? "red" : processing ? "yellow": null}
-              onClick={() => act("force_int")} />
-          </Box>
-          <Box>
-            <Button
-              content={"Abort"}
-              icon={"ban"}
-              color={"red"}
-              disabled={!processing}
-              onClick={() => act("abort")} />
+              width="50%"
+              content={'Force Interior Door'}
+              icon={'exclamation-triangle'}
+              color={interior_status === 'open' ? 'red' : processing ? 'yellow' : null}
+              onClick={() => act('force_int')}
+            />
           </Box>
         </Section>
       </Window.Content>

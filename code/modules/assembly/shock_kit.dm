@@ -4,8 +4,8 @@
 	icon = 'icons/obj/assemblies.dmi'
 	icon_state = "shock_kit"
 	var/obj/item/clothing/head/helmet/part1 = null
-	var/obj/item/radio/electropack/part2 = null
-	var/status = 0
+	var/obj/item/electropack/part2 = null
+	var/status = FALSE
 	w_class = WEIGHT_CLASS_HUGE
 	flags = CONDUCT
 
@@ -14,33 +14,34 @@
 	QDEL_NULL(part2)
 	return ..()
 
-/obj/item/assembly/shock_kit/attackby(obj/item/W as obj, mob/user as mob, params)
-	if(istype(W, /obj/item/wrench) && !status)
-		var/turf/T = loc
-		if(ismob(T))
-			T = T.loc
-		part1.loc = T
-		part2.loc = T
-		part1.master = null
-		part2.master = null
-		part1 = null
-		part2 = null
-		qdel(src)
+/obj/item/assembly/shock_kit/wrench_act(mob/living/user, obj/item/I)
+	if(status)
 		return
-	if(istype(W, /obj/item/screwdriver))
-		status = !status
-		to_chat(user, "<span class='notice'>[src] is now [status ? "secured" : "unsecured"]!</span>")
+	. = TRUE
+	var/turf/T = get_turf(src)
+	part1?.forceMove(T)
+	part2?.forceMove(T)
+	part1?.master = null
+	part2?.master = null
+	part1 = null
+	part2 = null
+	visible_message("<span class='notice'>[user] disassembles [src].</span>")
+	qdel(src)
+	return TRUE
+
+/obj/item/assembly/shock_kit/screwdriver_act(mob/user, obj/item/I)
+	status = !status
+	to_chat(user, "<span class='notice'>[src] is now [status ? "secured" : "unsecured"]!</span>")
+	add_fingerprint(user)
+	return TRUE
+
+/obj/item/assembly/shock_kit/attack_self__legacy__attackchain(mob/user as mob)
+	part1.attack_self__legacy__attackchain(user, status)
+	part2.attack_self__legacy__attackchain(user, status)
 	add_fingerprint(user)
 	return
 
-/obj/item/assembly/shock_kit/attack_self(mob/user as mob)
-	part1.attack_self(user, status)
-	part2.attack_self(user, status)
-	add_fingerprint(user)
-	return
-
-/obj/item/assembly/shock_kit/receive_signal()
+/obj/item/assembly/shock_kit/proc/shock_invoke()
 	if(istype(loc, /obj/structure/chair/e_chair))
 		var/obj/structure/chair/e_chair/C = loc
 		C.shock()
-	return

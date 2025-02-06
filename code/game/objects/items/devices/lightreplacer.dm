@@ -31,87 +31,78 @@
 // access to them, and only one of them can emag their device.
 //
 // The explosion cannot insta-kill anyone with 30% or more health.
-
-#define LIGHT_OK 0
-#define LIGHT_EMPTY 1
-#define LIGHT_BROKEN 2
-#define LIGHT_BURNED 3
-
-
 /obj/item/lightreplacer
-
 	name = "light replacer"
 	desc = "A device to automatically replace lights. Refill with broken or working light bulbs, or sheets of glass."
-
 	icon = 'icons/obj/janitor.dmi'
 	icon_state = "lightreplacer0"
 	item_state = "electronic"
+	belt_icon = "light_replacer"
 	w_class = WEIGHT_CLASS_SMALL
 	flags = CONDUCT
-	slot_flags = SLOT_BELT
+	slot_flags = ITEM_SLOT_BELT
 	origin_tech = "magnets=3;engineering=4"
 	force = 8
-
 	var/max_uses = 20
 	var/uses = 10
-	// How much to increase per each glass?
+	/// How much to increase per each glass?
 	var/increment = 5
-	// How much to take from the glass?
+	/// How much to take from the glass?
 	var/decrement = 1
 	var/charge = 1
-
-	// Eating used bulbs gives us bulb shards
+	/// Eating used bulbs gives us bulb shards
 	var/bulb_shards = 0
-	// when we get this many shards, we get a free bulb.
+	/// when we get this many shards, we get a free bulb.
 	var/shards_required = 4
-
+	/// It can replace lights at a distance?
+	var/bluespace_toggle = FALSE
 
 /obj/item/lightreplacer/examine(mob/user)
 	. = ..()
 	. += status_string()
 
-/obj/item/lightreplacer/attackby(obj/item/I, mob/user, params)
+/obj/item/lightreplacer/attackby__legacy__attackchain(obj/item/I, mob/user)
+	if(uses >= max_uses)
+		to_chat(user, "<span class='warning'>[src] is full.</span>")
+		return
+
 	if(istype(I, /obj/item/stack/sheet/glass))
 		var/obj/item/stack/sheet/glass/G = I
-		if(uses >= max_uses)
-			to_chat(user, "<span class='warning'>[src] is full.</span>")
-			return
-		else if(G.use(decrement))
+
+		if(G.use(decrement))
 			AddUses(increment)
-			to_chat(user, "<span class='notice'>You insert a piece of glass into [src]. You have [uses] light\s remaining.</span>")
-			return
+			to_chat(user, "<span class='notice'>You insert some glass into [src]. You have [uses] light\s remaining.</span>")
 		else
 			to_chat(user, "<span class='warning'>You need one sheet of glass to replace lights!</span>")
 		return
 
 	if(istype(I, /obj/item/shard))
-		if(uses >= max_uses)
-			to_chat(user, "<span class='warning'>[src] is full.</span>")
+		if(!user.drop_item_to_ground(I))
+			to_chat(user, "<span class='warning'>[I] is stuck to your hand!</span>")
 			return
-		if(!user.unEquip(I))
-			return
-		AddUses(round(increment * 0.75))
+
+		AddUses(increment)
 		to_chat(user, "<span class='notice'>You insert a shard of glass into [src]. You have [uses] light\s remaining.</span>")
 		qdel(I)
 		return
 
 	if(istype(I, /obj/item/light))
 		var/obj/item/light/L = I
-		if(L.status == 0) // LIGHT OKAY
-			if(uses < max_uses)
-				if(!user.unEquip(L))
-					return
-				AddUses(1)
-				qdel(L)
-		else
-			if(!user.unEquip(L))
-				return
-			to_chat(user, "<span class='notice'>You insert [L] into [src].</span>")
-			AddShards(1, user)
+		if(!user.drop_item_to_ground(L))
+			to_chat(user, "<span class='warning'>[L] is stuck to your hand!</span>")
+			return
+
+		if(L.status == LIGHT_OK)
+			AddUses(1)
+			to_chat(user, "<span class='notice'>You insert [L] into [src]. You have [uses] light\s remaining.</span>")
 			qdel(L)
+		else
+			AddShards(1, user)
+			to_chat(user, "<span class='notice'>You insert [L] into [src]. You have [uses] light\s remaining.</span>")
+		qdel(L)
 		return
 
-	if(istype(I, /obj/item/storage))
+	if(isstorage(I))
 		var/obj/item/storage/S = I
 		var/found_lightbulbs = FALSE
 		var/replaced_something = TRUE
@@ -146,14 +137,24 @@
 
 /obj/item/lightreplacer/emag_act(user as mob)
 	if(!emagged)
-		Emag()
+		emagged = !emagged
+		playsound(loc, "sparks", 100, TRUE, SHORT_RANGE_SOUND_EXTRARANGE)
+		update_appearance(UPDATE_NAME|UPDATE_ICON_STATE)
+		return TRUE
 
-/obj/item/lightreplacer/attack_self(mob/user)
+/obj/item/lightreplacer/attack_self__legacy__attackchain(mob/user)
 	for(var/obj/machinery/light/target in user.loc)
 		ReplaceLight(target, user)
 	to_chat(user, status_string())
 
-/obj/item/lightreplacer/update_icon()
+/obj/item/lightreplacer/update_name()
+	. = ..()
+	if(emagged)
+		name = "shortcircuited [initial(name)]"
+	else
+		name = initial(name)
+
+/obj/item/lightreplacer/update_icon_state()
 	icon_state = "lightreplacer[emagged]"
 
 /obj/item/lightreplacer/proc/status_string()
@@ -190,21 +191,10 @@
 		if(CanUse(U))
 			if(!Use(U))
 				return
-			to_chat(U, "<span class='notice'>You replace the light [target.fitting] with [src].</span>")
-
 			if(target.status != LIGHT_EMPTY)
 				AddShards(1, U)
 				target.status = LIGHT_EMPTY
-
-			var/obj/item/light/replacement = target.light_type
-			target.status = LIGHT_OK
-			target.switchcount = 0
-			target.rigged = emagged
-			target.brightness_range = initial(replacement.brightness_range)
-			target.brightness_power = initial(replacement.brightness_power)
-			target.brightness_color = initial(replacement.brightness_color)
-			target.on = target.has_power()
-			target.update(TRUE, TRUE, FALSE)
+			target.fix(U, src, emagged)
 
 		else
 			to_chat(U, "[src]'s refill light blinks red.")
@@ -213,15 +203,6 @@
 		to_chat(U, "<span class='warning'>There is a working [target.fitting] already inserted!</span>")
 		return
 
-/obj/item/lightreplacer/proc/Emag()
-	emagged = !emagged
-	playsound(loc, "sparks", 100, TRUE, SHORT_RANGE_SOUND_EXTRARANGE)
-	if(emagged)
-		name = "shortcircuited [initial(name)]"
-	else
-		name = initial(name)
-	update_icon()
-
 /obj/item/lightreplacer/proc/CanUse(mob/living/user)
 	add_fingerprint(user)
 	if(uses > 0)
@@ -229,37 +210,45 @@
 	else
 		return 0
 
-/obj/item/lightreplacer/afterattack(atom/T, mob/U, proximity)
+/obj/item/lightreplacer/afterattack__legacy__attackchain(atom/target, mob/U, proximity)
 	. = ..()
-	if(!proximity)
+	if(isitem(target))
+		attackby__legacy__attackchain(target, U)
 		return
-	if(!isturf(T))
+
+	if(!proximity && !bluespace_toggle)
+		return
+
+	var/turf/replace_turf = get_turf(target)
+	if(!istype(replace_turf))
+		return
+
+	if(get_dist(src, target) >= (U.client.maxview() + 2)) // To prevent people from using it over cameras
 		return
 
 	var/used = FALSE
-	for(var/atom/A in T)
+	for(var/atom/A in replace_turf)
 		if(!CanUse(U))
 			break
 		used = TRUE
 		if(istype(A, /obj/machinery/light))
+			if(!proximity)  // only beams if at a distance
+				U.Beam(A, icon_state = "rped_upgrade", icon = 'icons/effects/effects.dmi', time = 5)
+				playsound(src, 'sound/items/pshoom.ogg', 40, 1)
 			ReplaceLight(A, U)
 
 	if(!used)
 		to_chat(U, "[src]'s refill light blinks red.")
 
-/obj/item/lightreplacer/proc/janicart_insert(mob/user, obj/structure/janitorialcart/J)
-	J.put_in_cart(src, user)
-	J.myreplacer = src
-	J.update_icon()
-
-/obj/item/lightreplacer/cyborg/janicart_insert(mob/user, obj/structure/janitorialcart/J)
-	return
-
 /obj/item/lightreplacer/cyborg/cyborg_recharge(coeff, emagged)
 	for(var/I in 1 to coeff)
 		Charge()
 
-#undef LIGHT_OK
-#undef LIGHT_EMPTY
-#undef LIGHT_BROKEN
-#undef LIGHT_BURNED
+/obj/item/lightreplacer/bluespace
+	name = "bluespace light replacer"
+	desc = "A modified light replacer that zaps lights into place. Refill with broken or working light bulbs, or sheets of glass."
+	icon_state = "lightreplacer_blue0"
+	bluespace_toggle = TRUE
+
+/obj/item/lightreplacer/bluespace/emag_act()
+	return  // long range explosions are stupid

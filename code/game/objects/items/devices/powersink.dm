@@ -7,7 +7,7 @@
 /obj/item/powersink
 	name = "power sink"
 	desc = "A nulling power sink which drains energy from electrical systems."
-	icon = 'icons/obj/device.dmi'
+	icon = 'icons/goonstation/objects/powersink.dmi'
 	icon_state = "powersink0"
 	item_state = "electronic"
 	w_class = WEIGHT_CLASS_BULKY
@@ -30,7 +30,7 @@
 	attached = null
 	return ..()
 
-/obj/item/powersink/update_icon()
+/obj/item/powersink/update_icon_state()
 	icon_state = "powersink[mode == OPERATING]"
 
 /obj/item/powersink/proc/set_mode(value)
@@ -60,7 +60,7 @@
 			density = TRUE
 
 	mode = value
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 	set_light(0)
 
 /obj/item/powersink/screwdriver_act(mob/user, obj/item/I)
@@ -77,7 +77,7 @@
 			else
 				set_mode(CLAMPED_OFF)
 				visible_message("<span class='notice'>[user] attaches [src] to the cable!</span>")
-				message_admins("Power sink activated by [key_name_admin(user)] at ([x],[y],[z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>)")
+				message_admins("Power sink activated by [key_name_admin(user)] at ([x],[y],[z] - <A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>)")
 				log_game("Power sink activated by [key_name(user)] at ([x],[y],[z])")
 		else
 			to_chat(user, "Device must be placed over an exposed cable to attach to it.")
@@ -99,6 +99,7 @@
 				"<span class='italics'>You hear a click.</span>")
 			message_admins("Power sink activated by [ADMIN_LOOKUPFLW(user)] at [ADMIN_VERBOSEJMP(src)]")
 			log_game("Power sink activated by [key_name(user)] at [AREACOORD(src)]")
+			notify_ghosts("[user] has activated a [name]!", title = "An electrifying occurrence! (Click to follow)", source = src, flashwindow = FALSE, action = NOTIFY_FOLLOW)
 			set_mode(OPERATING)
 
 		if(OPERATING)
@@ -113,14 +114,14 @@
 		set_mode(DISCONNECTED)
 		return
 
-	var/datum/powernet/PN = attached.powernet
+	var/datum/regional_powernet/PN = attached.powernet
 	if(PN)
 		set_light(5)
 
 		// found a powernet, so drain up to max power from it
 
-		var/drained = min (drain_rate, attached.newavail())
-		attached.add_delayedload(drained)
+		var/drained = min(drain_rate, attached.get_queued_surplus())
+		attached.add_queued_power_demand(drained)
 		power_drained += drained
 
 		// if tried to drain more than available on powernet
@@ -132,16 +133,17 @@
 					if(A.operating && A.cell)
 						A.cell.charge = max(0, A.cell.charge - 50)
 						power_drained += 50
-						if(A.charging == 2) // If the cell was full
-							A.charging = 1 // It's no longer full
+						if(A.charging == APC_FULLY_CHARGED) // If the cell was full
+							A.charging = APC_IS_CHARGING // It's no longer full
 				if(drained >= drain_rate)
 					break
 
 	if(power_drained > max_power * 0.98)
-		if (!admins_warned)
+		if(!admins_warned)
 			admins_warned = TRUE
-			message_admins("Power sink at ([x],[y],[z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>) is 95% full. Explosion imminent.")
-		playsound(src, 'sound/effects/screech.ogg', 100, 1, 1)
+			message_admins("Power sink at ([x],[y],[z] - <A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>) is 95% full. Explosion imminent.")
+			notify_ghosts("A [name] is almost at max capacity, and is about to explode!", title = "An electrifying occurrence! (Click to follow)", source = src, flashwindow = FALSE, action = NOTIFY_FOLLOW)
+		playsound(src, 'sound/effects/screech.ogg', 100, TRUE, 1)
 
 	if(power_drained >= max_power)
 		STOP_PROCESSING(SSobj, src)

@@ -1,9 +1,10 @@
 // SUIT STORAGE UNIT /////////////////
 /obj/machinery/suit_storage_unit
 	name = "suit storage unit"
-	desc = "An industrial U-Stor-It Storage unit designed to accomodate all kinds of space suits. Its on-board equipment also allows the user to decontaminate the contents through a UV-ray purging cycle. There's a warning label dangling from the control pad, reading \"STRICTLY NO BIOLOGICALS IN THE CONFINES OF THE UNIT\"."
+	desc = "An industrial U-Stor-It Storage unit designed to accommodate all kinds of space suits. Its on-board equipment also allows the user to decontaminate the contents through a UV-ray purging cycle. There's a warning label dangling from the control pad, reading \"STRICTLY NO BIOLOGICALS IN THE CONFINES OF THE UNIT\"."
 	icon = 'icons/obj/machines/suit_storage.dmi'
-	icon_state = "close"
+	icon_state = "classic"
+	base_icon_state = "classic"
 	anchored = TRUE
 	density = TRUE
 	max_integrity = 250
@@ -47,70 +48,95 @@
 	/// If set, turned into typecache in Initialize, other wise, defaults to mob/living typecache
 	var/list/occupant_typecache
 	var/atom/movable/occupant = null
+	var/board_type = /obj/item/circuitboard/suit_storage_unit
 
+/obj/machinery/suit_storage_unit/industrial
+	name = "industrial suit storage unit"
+	icon_state = "industrial"
+	base_icon_state = "industrial"
+	board_type = /obj/item/circuitboard/suit_storage_unit/industrial
 
 /obj/machinery/suit_storage_unit/standard_unit
-	suit_type	= /obj/item/clothing/suit/space/eva
-	helmet_type	= /obj/item/clothing/head/helmet/space/eva
-	mask_type	= /obj/item/clothing/mask/breath
+	suit_type = /obj/item/clothing/suit/space/eva
+	helmet_type = /obj/item/clothing/head/helmet/space/eva
+	mask_type = /obj/item/clothing/mask/breath
 
 /obj/machinery/suit_storage_unit/standard_unit/secure
 	secure = TRUE	//start with ID lock enabled
 
 /obj/machinery/suit_storage_unit/captain
 	name = "captain's suit storage unit"
-	desc = "An industrial U-Stor-It Storage unit designed to accomodate all kinds of space suits. Its on-board equipment also allows the user to decontaminate the contents through a UV-ray purging cycle. There's a warning label dangling from the control pad, reading \"STRICTLY NO BIOLOGICALS IN THE CONFINES OF THE UNIT\". This one looks kind of fancy."
-	suit_type	= /obj/item/clothing/suit/space/captain
-	helmet_type	= /obj/item/clothing/head/helmet/space/capspace
-	mask_type	= /obj/item/clothing/mask/gas
-	storage_type = /obj/item/tank/jetpack/oxygen/captain
-	req_access	= list(ACCESS_CAPTAIN)
+	desc = "An U-Stor-It Storage unit designed to accommodate all kinds of space suits. Its on-board equipment also allows the user to decontaminate the contents through a UV-ray purging cycle. There's a warning label dangling from the control pad, reading \"STRICTLY NO BIOLOGICALS IN THE CONFINES OF THE UNIT\". This one looks kind of fancy."
+	helmet_type = /obj/item/clothing/head/helmet/space/capspace //Looks like they couldn't handle the Neutron Style
+	mask_type = /obj/item/clothing/mask/gas
+	suit_type = /obj/item/mod/control/pre_equipped/magnate
+	req_access = list(ACCESS_CAPTAIN)
 
 /obj/machinery/suit_storage_unit/captain/secure
 	secure = TRUE
 
-/obj/machinery/suit_storage_unit/engine
-	name = "engineering suit storage unit"
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/engine
-	mask_type	= /obj/item/clothing/mask/breath
-	boots_type = /obj/item/clothing/shoes/magboots
-	req_access	= list(ACCESS_ENGINE_EQUIP)
+/obj/machinery/suit_storage_unit/blueshield
+	name = "blueshield's suit storage unit"
+	mask_type = /obj/item/clothing/mask/gas
+	suit_type = /obj/item/mod/control/pre_equipped/praetorian
+	req_access = list(ACCESS_BLUESHIELD)
 
-/obj/machinery/suit_storage_unit/engine/secure
+/obj/machinery/suit_storage_unit/blueshield/secure
 	secure = TRUE
 
-/obj/machinery/suit_storage_unit/ce
-	name = "chief engineer's suit storage unit"
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/engine/elite
-	mask_type	= /obj/item/clothing/mask/gas
-	boots_type = /obj/item/clothing/shoes/magboots/advance
-	req_access	= list(ACCESS_CE)
+/obj/machinery/suit_storage_unit/industrial/engine
+	name = "engineering suit storage unit"
+	mask_type = /obj/item/clothing/mask/breath
+	boots_type = /obj/item/clothing/shoes/magboots
+	suit_type = /obj/item/mod/control/pre_equipped/engineering
+	req_access = list(ACCESS_ENGINE_EQUIP)
+	board_type = /obj/item/circuitboard/suit_storage_unit/industrial
 
-/obj/machinery/suit_storage_unit/ce/secure
+/obj/machinery/suit_storage_unit/industrial/engine/secure
+	secure = TRUE
+
+/obj/machinery/suit_storage_unit/industrial/ce
+	name = "chief engineer's suit storage unit"
+	mask_type = /obj/item/clothing/mask/gas
+	boots_type = /obj/item/clothing/shoes/magboots/advance
+	suit_type = /obj/item/mod/control/pre_equipped/advanced
+	req_access = list(ACCESS_CE)
+	board_type = /obj/item/circuitboard/suit_storage_unit/industrial
+
+/obj/machinery/suit_storage_unit/industrial/ce/secure
 	secure = TRUE
 
 /obj/machinery/suit_storage_unit/rd
 	name = "research director's suit storage unit"
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/rd
-	mask_type	= /obj/item/clothing/mask/gas
-	req_access	= list(ACCESS_RD)
+	suit_type = /obj/item/mod/control/pre_equipped/research
+	mask_type = /obj/item/clothing/mask/gas
+	req_access = list(ACCESS_RD)
 
 /obj/machinery/suit_storage_unit/rd/secure
 	secure = TRUE
 
+/obj/machinery/suit_storage_unit/qm
+	name = "quartermaster's suit storage unit"
+	suit_type = /obj/item/mod/control/pre_equipped/loader
+	mask_type = /obj/item/clothing/mask/breath
+	req_access = list(ACCESS_QM)
+
+/obj/machinery/suit_storage_unit/qm/secure
+	secure = TRUE
+
 /obj/machinery/suit_storage_unit/security
 	name = "security suit storage unit"
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/security
-	mask_type	= /obj/item/clothing/mask/gas/sechailer
-	req_access	= list(ACCESS_SECURITY)
+	mask_type = /obj/item/clothing/mask/gas/sechailer
+	suit_type = /obj/item/mod/control/pre_equipped/security
+	req_access = list(ACCESS_SECURITY)
 
 /obj/machinery/suit_storage_unit/security/secure
 	secure = TRUE
 
 /obj/machinery/suit_storage_unit/security/hos
 	name = "Head of Security's suit storage unit"
-	suit_type = /obj/item/clothing/suit/space/hardsuit/security/hos
-	mask_type = /obj/item/clothing/mask/gas/sechailer/hos
+	mask_type = /obj/item/clothing/mask/gas/sechailer/swat/hos
+	suit_type = /obj/item/mod/control/pre_equipped/safeguard
 	req_access = list(ACCESS_HOS)
 
 /obj/machinery/suit_storage_unit/security/hos/secure
@@ -118,7 +144,7 @@
 
 /obj/machinery/suit_storage_unit/gamma
 	name = "gamma shielded suit storage unit"
-	suit_type = /obj/item/clothing/suit/space/hardsuit/shielded/gamma
+	suit_type = /obj/item/mod/control/pre_equipped/safeguard/gamma
 	mask_type = /obj/item/clothing/mask/gas/sechailer/swat
 	req_access = list(ACCESS_SECURITY)
 
@@ -127,19 +153,19 @@
 
 /obj/machinery/suit_storage_unit/atmos
 	name = "atmospherics suit storage unit"
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/engine/atmos
-	mask_type	= /obj/item/clothing/mask/gas
+	mask_type = /obj/item/clothing/mask/gas
 	boots_type = /obj/item/clothing/shoes/magboots/atmos
-	req_access	= list(ACCESS_ATMOSPHERICS)
+	suit_type = /obj/item/mod/control/pre_equipped/atmospheric
+	req_access = list(ACCESS_ATMOSPHERICS)
 
 /obj/machinery/suit_storage_unit/atmos/secure
 	secure = TRUE
 
 /obj/machinery/suit_storage_unit/mining
 	name = "mining suit storage unit"
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/mining
-	mask_type	= /obj/item/clothing/mask/breath
-	req_access	= list(ACCESS_MINING_STATION)
+	mask_type = /obj/item/clothing/mask/breath
+	suit_type = /obj/item/mod/control/pre_equipped/mining/asteroid
+	req_access = list(ACCESS_MINING_STATION)
 
 /obj/machinery/suit_storage_unit/mining/secure
 	secure = TRUE
@@ -148,25 +174,43 @@
 	name = "mining suit storage unit"
 	suit_type = /obj/item/clothing/suit/hooded/explorer
 	mask_type = /obj/item/clothing/mask/gas/explorer
+	boots_type = /obj/item/clothing/shoes/workboots/mining
+	storage_type = /obj/item/gps/mining
 	req_access = list(ACCESS_MINING_STATION)
 
+/obj/machinery/suit_storage_unit/gulag
+	name = "gulag suit storage unit"
+	suit_type = /obj/item/clothing/suit/space/prisoner_gulag
+	helmet_type = /obj/item/clothing/head/helmet/space/prisoner_gulag
+	mask_type = /obj/item/clothing/mask/breath
+
+/obj/machinery/suit_storage_unit/expedition
+	name = "explorer modsuit storage unit"
+	mask_type = /obj/item/clothing/mask/gas/explorer
+	suit_type = /obj/item/mod/control/pre_equipped/standard/explorer
+	req_access = list(ACCESS_EXPEDITION)
+
 /obj/machinery/suit_storage_unit/cmo
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/medical
-	mask_type	= /obj/item/clothing/mask/breath
-	req_access	= list(ACCESS_CMO)
+	name = "chief medical officer's suit storage unit"
+	mask_type = /obj/item/clothing/mask/breath
+	suit_type = /obj/item/mod/control/pre_equipped/medical
+	req_access = list(ACCESS_CMO)
 
 /obj/machinery/suit_storage_unit/cmo/secure
 	secure = TRUE
 
-//version of the SSU for medbay secondary storage. Includes magboots.
-/obj/machinery/suit_storage_unit/cmo/secure/sec_storage
+//version of the SSU for medbay secondary storage. Includes magboots. //no it doesn't, it aint have shit for magboots
+/obj/machinery/suit_storage_unit/cmo/sec_storage
 	name = "medical suit storage unit"
 	mask_type = /obj/item/clothing/mask/gas
+
+/obj/machinery/suit_storage_unit/cmo/sec_storage/secure
+	secure = TRUE
 
 /obj/machinery/suit_storage_unit/clown
 	name = "clown suit storage unit"
 	suit_type = /obj/item/clothing/suit/space/eva/clown
-	helmet_type  = /obj/item/clothing/head/helmet/space/eva/clown
+	helmet_type = /obj/item/clothing/head/helmet/space/eva/clown
 	req_access = list(ACCESS_CLOWN)
 
 /obj/machinery/suit_storage_unit/clown/secure
@@ -175,7 +219,7 @@
 /obj/machinery/suit_storage_unit/mime
 	name = "mime suit storage unit"
 	suit_type = /obj/item/clothing/suit/space/eva/mime
-	helmet_type  = /obj/item/clothing/head/helmet/space/eva/mime
+	helmet_type = /obj/item/clothing/head/helmet/space/eva/mime
 	req_access = list(ACCESS_MIME)
 
 /obj/machinery/suit_storage_unit/mime/secure
@@ -183,95 +227,45 @@
 
 /obj/machinery/suit_storage_unit/syndicate
 	name = "syndicate suit storage unit"
-	suit_type		= /obj/item/clothing/suit/space/hardsuit/syndi
-	mask_type		= /obj/item/clothing/mask/gas/syndicate
-	storage_type	= /obj/item/tank/internals/oxygen/red
+	icon_state = "syndicate"
+	base_icon_state = "syndicate"
+	mask_type = /obj/item/clothing/mask/gas/syndicate
+	suit_type = /obj/item/mod/control/pre_equipped/nuclear
 	req_access = list(ACCESS_SYNDICATE)
 	safeties = FALSE	//in a syndicate base, everything can be used as a murder weapon at a moment's notice.
 
 /obj/machinery/suit_storage_unit/syndicate/secure
 	secure = TRUE
 
-/obj/machinery/suit_storage_unit/ert
-	req_access = list(ACCESS_CENT_GENERAL)
-
-/obj/machinery/suit_storage_unit/ert/command
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/ert/commander
-	mask_type	= /obj/item/clothing/mask/breath
-	storage_type = /obj/item/tank/internals/emergency_oxygen/double
-
-/obj/machinery/suit_storage_unit/ert/command/secure
-	secure = TRUE
-
-/obj/machinery/suit_storage_unit/ert/security
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/ert/security
-	mask_type	= /obj/item/clothing/mask/breath
-	storage_type = /obj/item/tank/internals/emergency_oxygen/double
-
-/obj/machinery/suit_storage_unit/ert/security/secure
-	secure = TRUE
-
-/obj/machinery/suit_storage_unit/ert/engineer
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/ert/engineer
-	mask_type	= /obj/item/clothing/mask/breath
-	storage_type = /obj/item/tank/internals/emergency_oxygen/double
-
-/obj/machinery/suit_storage_unit/ert/engineer/secure
-	secure = TRUE
-
-/obj/machinery/suit_storage_unit/ert/medical
-	suit_type	= /obj/item/clothing/suit/space/hardsuit/ert/medical
-	mask_type	= /obj/item/clothing/mask/breath
-	storage_type = /obj/item/tank/internals/emergency_oxygen/double
-
-/obj/machinery/suit_storage_unit/ert/medical/secure
-	secure = TRUE
-
-//telecoms NASA SSU. Suits themselves are assigned in Initialize
-/obj/machinery/suit_storage_unit/telecoms
-	mask_type	= /obj/item/clothing/mask/breath
-	storage_type = /obj/item/tank/jetpack/void
-	req_access	= list(ACCESS_TCOMSAT)
-
-/obj/machinery/suit_storage_unit/telecoms/secure
-	secure = TRUE
-
 /obj/machinery/suit_storage_unit/radsuit
 	name = "radiation suit storage unit"
-	suit_type	= /obj/item/clothing/suit/radiation
-	helmet_type	= /obj/item/clothing/head/radiation
+	suit_type = /obj/item/clothing/suit/radiation
+	helmet_type = /obj/item/clothing/head/radiation
 	storage_type = /obj/item/geiger_counter
 
-//copied from /obj/effect/nasavoidsuitspawner
-/obj/machinery/suit_storage_unit/telecoms/Initialize()
-	switch(pick(list("red", "green", "ntblue", "purple", "yellow", "ltblue")))
-		if("red")
-			helmet_type = /obj/item/clothing/head/helmet/space/nasavoid
-			suit_type = /obj/item/clothing/suit/space/nasavoid
-		if("green")
-			helmet_type =  /obj/item/clothing/head/helmet/space/nasavoid/green
-			suit_type = /obj/item/clothing/suit/space/nasavoid/green
-		if("ntblue")
-			helmet_type =  /obj/item/clothing/head/helmet/space/nasavoid/ntblue
-			suit_type = /obj/item/clothing/suit/space/nasavoid/ntblue
-		if("purple")
-			helmet_type = /obj/item/clothing/head/helmet/space/nasavoid/purple
-			suit_type = /obj/item/clothing/suit/space/nasavoid/purple
-		if("yellow")
-			helmet_type =  /obj/item/clothing/head/helmet/space/nasavoid/yellow
-			suit_type = /obj/item/clothing/suit/space/nasavoid/yellow
-		if("ltblue")
-			helmet_type =  /obj/item/clothing/head/helmet/space/nasavoid/ltblue
-			suit_type = /obj/item/clothing/suit/space/nasavoid/ltblue
-	..()
-
-
-/obj/machinery/suit_storage_unit/New()
-	..()
-	wires = new(src)
-
-/obj/machinery/suit_storage_unit/Initialize()
+/obj/machinery/suit_storage_unit/Initialize(mapload)
 	. = ..()
+
+	component_parts = list()
+	component_parts += new board_type(null)
+	component_parts += new /obj/item/stock_parts/matter_bin(null)
+	component_parts += new /obj/item/stock_parts/micro_laser(null)
+	component_parts += new /obj/item/stack/cable_coil(null, 3)
+	if(board_type == /obj/item/circuitboard/suit_storage_unit/industrial)
+		component_parts += new /obj/item/stack/sheet/plasteel(null)
+		component_parts += new /obj/item/stack/sheet/plasteel(null)
+		component_parts += new /obj/item/stack/sheet/plasteel(null)
+		component_parts += new /obj/item/stack/sheet/plasteel(null)
+		component_parts += new /obj/item/stack/sheet/plasteel(null)
+	else
+		component_parts += new /obj/item/stack/sheet/rglass(null)
+		component_parts += new /obj/item/stack/sheet/rglass(null)
+		component_parts += new /obj/item/stack/sheet/rglass(null)
+		component_parts += new /obj/item/stack/sheet/rglass(null)
+		component_parts += new /obj/item/stack/sheet/rglass(null)
+	RefreshParts()
+
+	wires = new(src)
 	if(suit_type)
 		suit = new suit_type(src)
 	if(helmet_type)
@@ -282,45 +276,51 @@
 		boots = new boots_type(src)
 	if(storage_type)
 		storage = new storage_type(src)
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 
 	//move this into machinery eventually...
 	if(occupant_typecache)
 		occupant_typecache = typecacheof(occupant_typecache)
 
-/obj/machinery/suit_storage_unit/Destroy()
+/obj/machinery/suit_storage_unit/Destroy(force)
+	if(!force)
+		dump_contents()
 	SStgui.close_uis(wires)
 	QDEL_NULL(wires)
 	return ..()
 
-/obj/machinery/suit_storage_unit/update_icon()
-	cut_overlays()
+/obj/machinery/suit_storage_unit/update_overlays()
+	. = ..()
+	if(panel_open)
+		. += "[base_icon_state]_panel"
 
 	if(uv)
 		if(uv_super)
-			add_overlay("super")
-		else if(occupant)
-			add_overlay("uvhuman")
+			. += "[base_icon_state]_super"
+			. += "[base_icon_state]_[occupant ? "body" : "uvstrong"]"
 		else
-			add_overlay("uv")
-	else if(state_open)
-		if(stat & BROKEN)
-			add_overlay("broken")
-		else
-			add_overlay("open")
-			if(suit)
-				add_overlay("suit")
-			if(helmet)
-				add_overlay("helm")
-			if(storage)
-				add_overlay("storage")
-	else if(occupant)
-		add_overlay("human")
+			. += "[base_icon_state]_[occupant ? "body" : "uv"]"
+		. += "[base_icon_state]_lights_red"
+		return
 
-/obj/machinery/suit_storage_unit/attackby(obj/item/I, mob/user, params)
+	if(state_open)
+		. += "[base_icon_state]_open"
+		. += "[base_icon_state]_lights_open"
+		if(suit)
+			. += "[base_icon_state]_suit"
+		if(helmet)
+			. += "[base_icon_state]_helm"
+		if(storage)
+			. += "[base_icon_state]_storage"
+	else
+		. += "[base_icon_state]_lights_closed"
+
+	. += "[base_icon_state]_[occupant ? "body" : "ready"]"
+
+/obj/machinery/suit_storage_unit/item_interaction(mob/living/user, obj/item/used, list/modifiers)
 	if(shocked)
 		if(shock(user, 100))
-			return
+			return ITEM_INTERACT_COMPLETE
 	if(!is_operational())
 		if(user.a_intent != INTENT_HELP)
 			return ..()
@@ -328,36 +328,52 @@
 			to_chat(usr, "<span class='warning'>Close the maintenance panel first.</span>")
 		else
 			to_chat(usr, "<span class='warning'>The unit is not operational.</span>")
-		return
+		return ITEM_INTERACT_COMPLETE
 	if(panel_open)
 		wires.Interact(user)
-		return
+		return ITEM_INTERACT_COMPLETE
 	if(state_open)
-		if(store_item(I, user))
-			update_icon()
+		if(store_item(used, user))
+			update_icon(UPDATE_OVERLAYS)
 			SStgui.update_uis(src)
-			to_chat(user, "<span class='notice'>You load [I] into the storage compartment.</span>")
+			to_chat(user, "<span class='notice'>You load [used] into the storage compartment.</span>")
 		else
-			to_chat(user, "<span class='warning'>You can't fit [I] into [src]!</span>")
-		return
+			to_chat(user, "<span class='warning'>You can't fit [used] into [src]!</span>")
+		return ITEM_INTERACT_COMPLETE
+
 	return ..()
 
-/obj/machinery/suit_storage_unit/screwdriver_act(mob/user, obj/item/I)
-	if(!I.use_tool(src, user, 0, volume = I.tool_volume))
+/obj/machinery/suit_storage_unit/crowbar_act(mob/living/user, obj/item/I)
+	if(!panel_open)
 		return
 	. = TRUE
+	if(!I.use_tool(src, user, volume = I.tool_volume))
+		return
+	if(occupant || helmet || suit || storage || boots)
+		to_chat(user, "<span class='warning'>There are contents that prevent you from deconstructing [src]!</span>")
+		return
+	if(locked)
+		to_chat(user, "<span class='warning'>The security system prevents you from deconstructing [src]!</span>")
+		return
+	dump_contents() // probably still a good idea for just incase?
+	default_deconstruction_crowbar(user, I)
+
+/obj/machinery/suit_storage_unit/screwdriver_act(mob/user, obj/item/I)
+	. = TRUE
+	if(!I.use_tool(src, user, I.tool_volume))
+		return
 	if(shocked && !(stat & NOPOWER))
 		if(shock(user, 100))
 			return
-	if(default_deconstruction_screwdriver(user, "panel", "close", I))
-		I.play_tool_sound(user, I.tool_volume)
+	if(default_deconstruction_screwdriver(user, "[base_icon_state]", "[base_icon_state]", I))
+		update_icon(UPDATE_OVERLAYS)
 
 /**
   * Tries to store the item into whatever slot it can go, returns true if the item is stored successfully.
   *
 **/
 /obj/machinery/suit_storage_unit/proc/store_item(obj/item/I, mob/user)
-	if(istype(I, /obj/item/clothing/suit) && !suit)
+	if((istype(I, /obj/item/clothing/suit) || istype(I, /obj/item/mod/control) || istype(I, /obj/item/storage/backpack)) && !suit)
 		if(try_store_item(I, user))
 			suit = I
 			return TRUE
@@ -373,7 +389,7 @@
 		if(try_store_item(I, user))
 			boots = I
 			return TRUE
-	if((istype(I, /obj/item/tank) || I.w_class <= WEIGHT_CLASS_SMALL) && !storage)
+	if(((istype(I, /obj/item/tank) || I.w_class <= WEIGHT_CLASS_SMALL)) && !storage)
 		if(try_store_item(I, user))
 			storage = I
 			return TRUE
@@ -391,11 +407,11 @@
 
 
 /obj/machinery/suit_storage_unit/power_change()
-	..()
+	..() //we don't check parent return here because `is_operational` cares about other flags in stat
 	if(!is_operational() && state_open)
 		open_machine()
 		dump_contents()
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 
 
 /obj/machinery/suit_storage_unit/proc/dump_contents()
@@ -407,41 +423,40 @@
 	storage = null
 	occupant = null
 
-/obj/machinery/suit_storage_unit/deconstruct(disassembled = TRUE)
-	if(!(flags & NODECONSTRUCT))
-		open_machine()
-		dump_contents()
-		new /obj/item/stack/sheet/metal (loc, 2)
-	qdel(src)
-
 /obj/machinery/suit_storage_unit/MouseDrop_T(atom/A, mob/user)
-	if(user.stat || user.lying || !Adjacent(user) || !Adjacent(A) || !isliving(A))
+	if(user.stat || HAS_TRAIT(user, TRAIT_HANDS_BLOCKED) || !Adjacent(user) || !Adjacent(A) || !isliving(A))
 		return
 	var/mob/living/target = A
 	if(!state_open)
 		to_chat(user, "<span class='warning'>[src]'s doors are shut!</span>")
-		return
+		return TRUE
 	if(!is_operational())
 		to_chat(user, "<span class='warning'>[src] is not operational!</span>")
-		return
+		return TRUE
 	if(occupant || helmet || suit || storage)
 		to_chat(user, "<span class='warning'>It's too cluttered inside to fit in!</span>")
-		return
+		return TRUE
 
 	if(target == user)
 		user.visible_message("<span class='warning'>[user] starts squeezing into [src]!</span>", "<span class='notice'>You start working your way into [src]...</span>")
 	else
 		target.visible_message("<span class='warning'>[user] starts shoving [target] into [src]!</span>", "<span class='userdanger'>[user] starts shoving you into [src]!</span>")
+	INVOKE_ASYNC(src, TYPE_PROC_REF(/obj/machinery/suit_storage_unit, put_in), user, target)
+	return TRUE
 
-	if(do_mob(user, target, 30))
-		if(occupant || helmet || suit || storage)
-			return
-		if(target == user)
-			user.visible_message("<span class='warning'>[user] slips into [src] and closes the door behind [user.p_them()]!</span>", "<span class='notice'>You slip into [src]'s cramped space and shut its door.</span>")
-		else
-			target.visible_message("<span class='warning'>[user] pushes [target] into [src] and shuts its door!<span>", "<span class='userdanger'>[user] shoves you into [src] and shuts the door!</span>")
-		close_machine(target)
-		add_fingerprint(user)
+/obj/machinery/suit_storage_unit/proc/put_in(mob/user, mob/living/target)
+	if(!do_mob(user, target, 30))
+		return
+	if(occupant || helmet || suit || storage)
+		return
+	if(target == user)
+		user.visible_message("<span class='warning'>[user] slips into [src] and closes the door behind [user.p_them()]!</span>", "<span class='notice'>You slip into [src]'s cramped space and shut its door.</span>")
+	else
+		target.visible_message("<span class='warning'>[user] pushes [target] into [src] and shuts its door!<span>", "<span class='userdanger'>[user] shoves you into [src] and shuts the door!</span>")
+	close_machine(target)
+	if(occupant == target)
+		QDEL_LIST_CONTENTS(target.grabbed_by)
+	add_fingerprint(user)
 
 /obj/machinery/suit_storage_unit/proc/cook()
 	if(uv_cycles)
@@ -454,7 +469,7 @@
 			else
 				mob_occupant.adjustFireLoss(rand(10, 16))
 			mob_occupant.emote("scream")
-		addtimer(CALLBACK(src, .proc/cook), 50)
+		addtimer(CALLBACK(src, PROC_REF(cook)), 50)
 	else
 		uv_cycles = initial(uv_cycles)
 		uv = FALSE
@@ -488,7 +503,7 @@
 			playsound(src, 'sound/machines/airlock_close.ogg', 25, 1)
 		if(occupant)
 			dump_contents()
-		update_icon()
+		update_icon(UPDATE_OVERLAYS)
 		SStgui.update_uis(src)
 
 /obj/machinery/suit_storage_unit/relaymove(mob/user)
@@ -509,7 +524,7 @@
 		"<span class='notice'>You start kicking against the doors... (this will take about [DisplayTimeText(breakout_time)].)</span>", \
 		"<span class='italics'>You hear a thump from [src].</span>")
 	if(do_after(user,(breakout_time), target = src))
-		if(!user || user.stat != CONSCIOUS || user.loc != src )
+		if(!user || user.stat != CONSCIOUS || user.loc != src)
 			return
 		user.visible_message("<span class='warning'>[user] successfully broke out of [src]!</span>", \
 			"<span class='notice'>You successfully break out of [src]!</span>")
@@ -520,7 +535,7 @@
 	if(locked)
 		visible_message("<span class='notice'>You see [user] kicking against the doors of [src]!</span>", \
 			"<span class='notice'>You start kicking against the doors...</span>")
-		addtimer(CALLBACK(src, .proc/resist_open, user), 300)
+		addtimer(CALLBACK(src, PROC_REF(resist_open), user), 300)
 	else
 		open_machine()
 		dump_contents()
@@ -537,16 +552,13 @@
 	state_open = TRUE
 	if(drop)
 		dropContents()
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 	SStgui.update_uis(src)
 
 /obj/machinery/suit_storage_unit/dropContents()
 	var/turf/T = get_turf(src)
 	for(var/atom/movable/A in contents)
 		A.forceMove(T)
-		if(isliving(A))
-			var/mob/living/L = A
-			L.update_canmove()
 	occupant = null
 
 /obj/machinery/suit_storage_unit/proc/close_machine(atom/movable/target = null)
@@ -569,7 +581,7 @@
 		occupant = target
 		target.forceMove(src)
 	SStgui.update_uis(src)
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 
 
 ////////
@@ -589,10 +601,16 @@
 		wires.Interact(user)
 	ui_interact(user)
 
-/obj/machinery/suit_storage_unit/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/machinery/suit_storage_unit/attack_ghost(mob/user)
+	ui_interact(user)
+
+/obj/machinery/suit_storage_unit/ui_state(mob/user)
+	return GLOB.default_state
+
+/obj/machinery/suit_storage_unit/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "SuitStorage", name, 402, 268, master_ui, state)
+		ui = new(user, src, "SuitStorage", name)
 		ui.set_autoupdate(FALSE)
 		ui.open()
 
@@ -642,7 +660,7 @@
 			cook()
 		if("eject_occupant")
 			eject_occupant(usr)
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 
 /obj/machinery/suit_storage_unit/proc/toggleUV()
 	if(!panel_open)
@@ -724,56 +742,11 @@
 	occupant = null
 	if(!state_open)
 		state_open = 1
-	update_icon()
+	update_icon(UPDATE_OVERLAYS)
 	return
 
 /obj/machinery/suit_storage_unit/force_eject_occupant(mob/target)
 	eject_occupant()
-
-/obj/machinery/suit_storage_unit/verb/get_out()
-	set name = "Eject Suit Storage Unit"
-	set category = "Object"
-	set src in oview(1)
-
-	if(usr.stat != 0)
-		return
-	eject_occupant(usr)
-	add_fingerprint(usr)
-	SStgui.update_uis(src)
-	update_icon()
-	return
-
-/obj/machinery/suit_storage_unit/verb/move_inside()
-	set name = "Hide in Suit Storage Unit"
-	set category = "Object"
-	set src in oview(1)
-
-	if(usr.stat != 0)
-		return
-	if(usr.incapacitated() || usr.buckled) //are you cuffed, dying, lying, stunned or other
-		return
-	if(!state_open)
-		to_chat(usr, "<span class='warning'>The unit's doors are shut.</span>")
-		return
-	if(broken)
-		to_chat(usr, "<span class='warning'>The unit is not operational.</span>")
-		return
-	if((occupant) || (helmet) || (suit) || (storage))
-		to_chat(usr, "<span class='warning'>It's too cluttered inside for you to fit in!</span>")
-		return
-	visible_message("[usr] starts squeezing into the suit storage unit!")
-	if(do_after(usr, 10, target = usr))
-		usr.stop_pulling()
-		usr.forceMove(src)
-		occupant = usr
-		state_open = FALSE //Close the thing after the guy gets inside
-		update_icon()
-
-		add_fingerprint(usr)
-		SStgui.update_uis(src)
-		return
-	else
-		occupant = null
 
 /obj/machinery/suit_storage_unit/attack_ai(mob/user as mob)
 	return attack_hand(user)
@@ -781,3 +754,20 @@
 /obj/machinery/suit_storage_unit/proc/check_electrified_callback()
 	if(!wires.is_cut(WIRE_ELECTRIFY))
 		shocked = FALSE
+
+/obj/machinery/suit_storage_unit/emag_act(mob/user)
+	if(uv)
+		to_chat(user, "<span class='warning'>[src] is currently undergoing a disinfection cycle, it wont open.</span>")
+		return
+	playsound(src, "sparks", 75, TRUE, SHORT_RANGE_SOUND_EXTRARANGE)
+	to_chat(user, "<span class='warning'>You short out [src]'s internal circuitry, causing its safeties to fail, and dumping its contents.</span>")
+	open_machine()
+	dump_contents()
+	eject_occupant()
+	update_icon(UPDATE_OVERLAYS)
+	locked = FALSE
+	if(safeties)
+		togglesafeties(FALSE)
+	if(!uv_super)
+		toggleUV(TRUE)
+	secure = FALSE

@@ -4,65 +4,68 @@
  * 	Improvised garrotes
  */
 
-/obj/item/twohanded/garrote // 12TC traitor item
+/// 12TC traitor item
+/obj/item/garrote
 	name = "fiber wire"
 	desc = "A length of razor-thin wire with an elegant wooden handle on either end.<br>You suspect you'd have to be behind the target to use this weapon effectively."
+	icon = 'icons/obj/weapons/melee.dmi'
 	icon_state = "garrot_wrap"
 	w_class = WEIGHT_CLASS_TINY
 	var/mob/living/carbon/human/strangling
-	var/improvised = 0
+	var/improvised = FALSE
 	var/garrote_time
 
-/obj/item/twohanded/garrote/Destroy()
+/obj/item/garrote/Initialize(mapload)
+	. = ..()
+	AddComponent(/datum/component/two_handed)
+
+/obj/item/garrote/Destroy()
 	strangling = null
 	return ..()
 
-/obj/item/twohanded/garrote/update_icon()
+/obj/item/garrote/update_icon_state()
 	if(strangling) // If we're strangling someone we want our icon to stay wielded
-		icon_state = "garrot_unwrap"
-		return
+		icon_state = "garrot_[improvised ? "I_" : ""]unwrap"
+	else
+		icon_state = "garrot_[improvised ? "I_" : ""][HAS_TRAIT(src, TRAIT_WIELDED) ? "un" : ""]wrap"
 
-	icon_state = "garrot_[wielded ? "un" : ""]wrap"
-
-/obj/item/twohanded/garrote/improvised // Made via tablecrafting
+/// Made via tablecrafting
+/obj/item/garrote/improvised
 	name = "garrote"
 	desc = "A length of cable with a shoddily-carved wooden handle tied to either end.<br>You suspect you'd have to be behind the target to use this weapon effectively."
 	icon_state = "garrot_I_wrap"
-	improvised = 1
+	improvised = TRUE
 
-/obj/item/twohanded/garrote/improvised/update_icon()
-	if(strangling)
-		icon_state = "garrot_I_unwrap"
+/obj/item/garrote/improvised/Initialize(mapload)
+	. = ..()
+	AddComponent(/datum/component/two_handed, wield_callback = CALLBACK(src, PROC_REF(wield)))
+
+
+/obj/item/garrote/proc/wield(obj/item/source, mob/living/carbon/user)
+	if(!strangling)
 		return
+	user.visible_message("<span class='notice'>[user] removes [src] from [strangling]'s neck.</span>",
+			"<span class='warning'>You remove [src] from [strangling]'s neck.</span>")
 
-	icon_state = "garrot_I_[wielded ? "un" : ""]wrap"
+	strangling = null
+	update_icon(UPDATE_ICON_STATE)
+	STOP_PROCESSING(SSobj, src)
 
-/obj/item/twohanded/garrote/wield(mob/living/carbon/user)
-	if(strangling)
-		user.visible_message("<span class='notice'>[user] removes [src] from [strangling]'s neck.</span>",
-				"<span class='warning'>You remove [src] from [strangling]'s neck.</span>")
 
-		strangling = null
-		update_icon()
-		STOP_PROCESSING(SSobj, src)
-
-	else
-		..()
-
-/obj/item/twohanded/garrote/attack(mob/living/carbon/M as mob, mob/user as mob)
+/obj/item/garrote/attack__legacy__attackchain(mob/living/carbon/M as mob, mob/user as mob)
 	if(garrote_time > world.time) // Cooldown
 		return
 
-	if(!istype(user, /mob/living/carbon/human)) // spap_hand is a proc of /mob/living, user is simply /mob
+	if(!ishuman(user)) // spap_hand is a proc of /mob/living, user is simply /mob
 		return
 
 	var/mob/living/carbon/human/U = user
 
-	if(!wielded)
+	if(!HAS_TRAIT(src, TRAIT_WIELDED))
 		to_chat(user, "<span class = 'warning'>You must use both hands to garrote [M]!</span>")
 		return
 
-	if(!istype(M, /mob/living/carbon/human))
+	if(!ishuman(M))
 		to_chat(user, "<span class = 'warning'>You don't think that garroting [M] would be very effective...</span>")
 		return
 
@@ -70,7 +73,7 @@
 		U.suicide() // This will display a prompt for confirmation first.
 		return
 
-	if(M.dir != U.dir)
+	if(M.dir != U.dir && !M.incapacitated())
 		to_chat(user, "<span class='warning'>You cannot use [src] on [M] from that angle!</span>")
 		return
 
@@ -81,45 +84,46 @@
 		to_chat(user, "<span class = 'warning'>You cannot use [src] on two people at once!</span>")
 		return
 
-	unwield(U)
+	attack_self__legacy__attackchain(user)
 
 	U.swap_hand() // For whatever reason the grab will not properly work if we don't have the free hand active.
 	var/obj/item/grab/G = M.grabbedby(U, 1)
 	U.swap_hand()
 
 	if(G && istype(G))
-		if(improvised) // Improvised garrotes start you off with a passive grab, but keep you stunned like an agressive grab.
-			M.Stun(1)
+		if(improvised) // Improvised garrotes start you off with a passive grab, but will lock you in place. A quick stun to drop items but not to make it unescapable
+			M.Stun(1 SECONDS)
+			M.Immobilize(2 SECONDS)
 		else
 			G.state = GRAB_NECK
 			G.hud.icon_state = "kill"
 			G.hud.name = "kill"
-			M.AdjustSilence(1)
+			M.AdjustSilence(2 SECONDS)
 
 	garrote_time = world.time + 10
 	START_PROCESSING(SSobj, src)
 	strangling = M
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
-	playsound(src.loc, 'sound/weapons/cablecuff.ogg', 15, 1, -1)
+	playsound(loc, 'sound/weapons/cablecuff.ogg', 15, TRUE, -10, ignore_walls = FALSE)
 
 	M.visible_message("<span class='danger'>[U] comes from behind and begins garroting [M] with [src]!</span>", \
-				  "<span class='userdanger'>[U] begins garroting you with [src]![improvised ? "" : " You are unable to speak!"]</span>", \
-				  "You hear struggling and wire strain against flesh!")
+				"<span class='userdanger'>[U] begins garroting you with [src]![improvised ? "" : " You are unable to speak!"]</span>", \
+				"You hear struggling and wire strain against flesh!")
 
 	return
 
-/obj/item/twohanded/garrote/process()
+/obj/item/garrote/process()
 	if(!strangling)
 		// Our mark got gibbed or similar
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 		STOP_PROCESSING(SSobj, src)
 		return
 
 
-	if(!istype(loc, /mob/living/carbon/human))
+	if(!ishuman(loc))
 		strangling = null
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 		STOP_PROCESSING(SSobj, src)
 		return
 
@@ -134,10 +138,10 @@
 
 	else
 		user.visible_message("<span class='warning'>[user] loses [user.p_their()] grip on [strangling]'s neck.</span>", \
-				 "<span class='warning'>You lose your grip on [strangling]'s neck.</span>")
+				"<span class='warning'>You lose your grip on [strangling]'s neck.</span>")
 
 		strangling = null
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 		STOP_PROCESSING(SSobj, src)
 
 		return
@@ -147,25 +151,28 @@
 				"<span class='warning'>You lose your grip on [strangling]'s neck.</span>")
 
 		strangling = null
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 		STOP_PROCESSING(SSobj, src)
 
 		return
 
 	if(G.state < GRAB_NECK) // Only possible with improvised garrotes, essentially this will stun people as if they were aggressively grabbed. Allows for resisting out if you're quick, but not running away.
-		strangling.Stun(3)
+		strangling.Immobilize(3 SECONDS)
 
 	if(improvised)
-		strangling.stuttering = max(strangling.stuttering, 3)
+		strangling.Stuttering(6 SECONDS)
 		strangling.apply_damage(2, OXY, "head")
 		return
 
 
-	strangling.Silence(3) // Non-improvised effects
-	strangling.apply_damage(4, OXY, "head")
+	strangling.AbsoluteSilence(6 SECONDS) // Non-improvised effects
+	if(G.state == GRAB_KILL)
+		strangling.PreventOxyHeal(6 SECONDS)
+		strangling.AdjustLoseBreath(6 SECONDS)
+		strangling.apply_damage(4, OXY, "head")
 
 
-/obj/item/twohanded/garrote/suicide_act(mob/user)
-	user.visible_message("<span class='suicide'>[user] is wrapping [src] around [user.p_their()] neck and pulling the handles! It looks like [user.p_theyre()] trying to commit suicide.</span>")
-	playsound(src.loc, 'sound/weapons/cablecuff.ogg', 15, 1, -1)
+/obj/item/garrote/suicide_act(mob/user)
+	user.visible_message("<span class='suicide'>[user] is wrapping [src] around [user.p_their()] neck and pulling the handles! It looks like [user.p_theyre()] trying to commit suicide!</span>")
+	playsound(loc, 'sound/weapons/cablecuff.ogg', 15, TRUE, -10, ignore_walls = FALSE)
 	return OXYLOSS

@@ -37,12 +37,12 @@
 	var/turf/there = get_turf(H)
 	return here && there && there.z == here.z
 
-/obj/item/pinpointer/crew/contractor/attack_self(mob/living/user)
+/obj/item/pinpointer/crew/contractor/attack_self__legacy__attackchain(mob/living/user)
 	if(owner)
-		if(owner != user)
+		if(owner != user.mind.current)
 			to_chat(user, "<span class='warning'>[src] refuses to do anything.</span>")
 			return
 	else
-		owner = user
+		owner = user.mind.current
 		to_chat(user, "<span class='notice'>[src] now recognizes you as its sole user.</span>")
 	return ..()

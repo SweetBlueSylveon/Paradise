@@ -1,16 +1,16 @@
 /obj/item/aicard
 	name = "inteliCard"
+	desc = "A handy pocket card used to extract an artificial intelligence for transport."
 	icon = 'icons/obj/aicards.dmi'
 	icon_state = "aicard" // aicard-full
 	item_state = "electronic"
 	w_class = WEIGHT_CLASS_SMALL
-	slot_flags = SLOT_BELT
+	slot_flags = ITEM_SLOT_BELT
 	flags = NOBLUDGEON
 	var/flush = null
 	origin_tech = "programming=3;materials=3"
 
-
-/obj/item/aicard/afterattack(atom/target, mob/user, proximity)
+/obj/item/aicard/afterattack__legacy__attackchain(atom/target, mob/user, proximity)
 	..()
 	if(!proximity || !target)
 		return
@@ -24,28 +24,38 @@
 
 /obj/item/aicard/proc/update_state()
 	var/mob/living/silicon/ai/AI = locate(/mob/living/silicon/ai) in src //AI is inside.
+	update_icon(UPDATE_OVERLAYS)
 	if(AI)
 		name = "intelliCard - [AI.name]"
-		if(AI.stat == DEAD)
-			icon_state = "aicard-404"
-		else
-			icon_state = "aicard-full"
 		AI.cancel_camera() //AI are forced to move when transferred, so do this whenver one is downloaded.
 	else
-		icon_state = "aicard"
 		name = "intelliCard"
-		overlays.Cut()
 
-/obj/item/aicard/attack_self(mob/user)
+/obj/item/aicard/update_overlays()
+	. = ..()
+	var/mob/living/silicon/ai/AI = locate(/mob/living/silicon/ai) in src //AI is inside.
+	if(AI)
+		var/list/aicard_icon_state_names = icon_states(icon)
+		var/aicard_new_display = AI.icon_state
+
+		if(aicard_new_display in aicard_icon_state_names)
+			. += aicard_new_display
+		else if(AI.stat == DEAD)
+			. += "ai_dead"
+		else
+			. += "ai"
+
+/obj/item/aicard/attack_self__legacy__attackchain(mob/user)
 	ui_interact(user)
 
+/obj/item/aicard/ui_state(mob/user)
+	return GLOB.inventory_state
 
-/obj/item/aicard/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = TRUE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.inventory_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/item/aicard/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "AICard", "[name]", 600, 394,  master_ui, state)
+		ui = new(user, src, "AICard", "[name]")
 		ui.open()
-
 
 /obj/item/aicard/ui_data(mob/user)
 	var/list/data = list()
@@ -74,7 +84,6 @@
 
 	return data
 
-
 /obj/item/aicard/ui_act(action, params)
 	if(..())
 		return
@@ -89,11 +98,11 @@
 			if(flush) // Don't doublewipe.
 				to_chat(user, "<span class='warning'>You are already wiping this AI!</span>")
 				return
-			var/confirm = alert("Are you sure you want to wipe this card's memory? This cannot be undone once started.", "Confirm Wipe", "Yes", "No")
-			if(confirm == "Yes" && (ui_status(user, GLOB.inventory_state) == STATUS_INTERACTIVE)) // And make doubly sure they want to wipe (three total clicks)
+			var/confirm = tgui_alert(user, "Are you sure you want to wipe this card's memory? This cannot be undone once started.", "Confirm Wipe", list("Yes", "No"))
+			if(confirm == "Yes" && (ui_status(user, GLOB.inventory_state) == UI_INTERACTIVE)) // And make doubly sure they want to wipe (three total clicks)
 				msg_admin_attack("[key_name_admin(user)] wiped [key_name_admin(AI)] with \the [src].", ATKLOG_FEW)
 				add_attack_logs(user, AI, "Wiped with [src].")
-				INVOKE_ASYNC(src, .proc/wipe_ai)
+				INVOKE_ASYNC(src, PROC_REF(wipe_ai))
 
 		if("radio")
 			AI.aiRadio.disabledAi = !AI.aiRadio.disabledAi
@@ -108,6 +117,16 @@
 
 	return TRUE
 
+/obj/item/aicard/examine(mob/user)
+	. = ..()
+	var/mob/living/silicon/ai/AI = locate() in src
+	if(!AI)
+		return
+
+	if(!GetComponent(/datum/component/ducttape) && AI.builtInCamera)
+		. += "<span class='notice'>You see a small [AI]'s camera staring at you.</span>"
+		. += "<span class='notice'>You can use a <b>tape roll</b> on [src] to tape the camera lens.</span>"
+
 /obj/item/aicard/proc/wipe_ai()
 	var/mob/living/silicon/ai/AI = locate() in src
 	flush = TRUE
@@ -117,3 +136,25 @@
 		AI.adjustOxyLoss(2)
 		sleep(10)
 	flush = FALSE
+
+/obj/item/aicard/add_tape()
+	var/mob/living/silicon/ai/AI = locate() in src
+	if(!AI)
+		return
+
+	if(AI.cracked_camera)
+		return // we dont crack camera if its already cracked
+
+	QDEL_NULL(AI.builtInCamera)
+
+/obj/item/aicard/remove_tape()
+	var/mob/living/silicon/ai/AI = locate() in src
+	if(!AI)
+		return
+
+	if(AI.cracked_camera)
+		return // we dont fix camera if malf AI cracked it
+
+	AI.builtInCamera = new /obj/machinery/camera/portable(AI)
+	AI.builtInCamera.c_tag = AI.name
+	AI.builtInCamera.network = list("SS13")

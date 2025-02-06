@@ -14,23 +14,29 @@
 	..()
 	ADD_TRAIT(owner, TRAIT_XENO_HOST, TRAIT_GENERIC)
 	ADD_TRAIT(owner, TRAIT_XENO_IMMUNE, "xeno immune")
-	START_PROCESSING(SSobj, src)
 	owner.med_hud_set_status()
-	INVOKE_ASYNC(src, .proc/AddInfectionImages, owner)
+	INVOKE_ASYNC(src, PROC_REF(AddInfectionImages), owner)
 
 /obj/item/organ/internal/body_egg/remove(mob/living/carbon/M, special = 0)
-	STOP_PROCESSING(SSobj, src)
 	if(owner)
 		REMOVE_TRAIT(owner, TRAIT_XENO_HOST, TRAIT_GENERIC)
 		REMOVE_TRAIT(owner, TRAIT_XENO_IMMUNE, "xeno immune")
 		owner.med_hud_set_status()
-		INVOKE_ASYNC(src, .proc/RemoveInfectionImages, owner)
+		INVOKE_ASYNC(src, PROC_REF(RemoveInfectionImages), owner)
 	. = ..()
 
-/obj/item/organ/internal/body_egg/process()
-	if(!owner)
+/obj/item/organ/internal/body_egg/on_life()
+	SHOULD_CALL_PARENT(TRUE)
+	..()
+	if(!(src in owner.internal_organs)) // I can only presume this is here for a reason, so not touching it.
+		remove(owner)
 		return
-	if(!(src in owner.internal_organs))
+	egg_process()
+
+/obj/item/organ/internal/body_egg/dead_process()
+	SHOULD_CALL_PARENT(TRUE)
+	..()
+	if(!(src in owner.internal_organs)) // I can only presume this is here for a reason, so not touching it.
 		remove(owner)
 		return
 	egg_process()

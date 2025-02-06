@@ -1,6 +1,6 @@
 /obj/machinery/computer/arcade
 	name = "random arcade"
-	desc = "random arcade machine"
+	desc = "random arcade machine."
 	icon = 'icons/obj/computer.dmi'
 	icon_state = "arcade"
 	icon_keyboard = null
@@ -11,18 +11,18 @@
 /obj/machinery/computer/arcade/proc/Reset()
 	return
 
-/obj/machinery/computer/arcade/New()
-	..()
+/obj/machinery/computer/arcade/Initialize(mapload)
+	. = ..()
 	if(!circuit)
 		var/choice = pick(subtypesof(/obj/machinery/computer/arcade))
-		new choice(loc)
-		qdel(src)
-		return
+		var/obj/machinery/computer/arcade/chosen = new choice(loc)
+		chosen.dir = dir
+		return INITIALIZE_HINT_QDEL
 	Reset()
 
 
 /obj/machinery/computer/arcade/proc/prizevend(score)
-	if(!contents.len)
+	if(!length(contents))
 		var/prize_amount
 		if(score)
 			prize_amount = score
@@ -39,9 +39,9 @@
 		return
 	var/num_of_prizes = 0
 	switch(severity)
-		if(1)
+		if(EMP_HEAVY)
 			num_of_prizes = rand(1,4)
-		if(2)
+		if(EMP_LIGHT)
 			num_of_prizes = rand(0,2)
 	for(var/i = num_of_prizes; i > 0; i--)
 		prizevend()
@@ -52,9 +52,10 @@
 	name = "arcade machine"
 	desc = "Does not support Pinball."
 	icon = 'icons/obj/computer.dmi'
-	icon_state = "arcade"
+	icon_state = "battle_arcade"
+	icon_screen = "battle"
 	circuit = /obj/item/circuitboard/arcade/battle
-	var/enemy_name = "Space Villian"
+	var/enemy_name = "Space Villain"
 	var/temp = "Winners Don't Use Spacedrugs" //Temporary message, for attack messages, etc
 	var/player_hp = 30 //Player health/attack points
 	var/player_mp = 10
@@ -98,9 +99,8 @@
 
 	//user << browse(dat, "window=arcade")
 	//onclose(user, "arcade")
-	var/datum/browser/popup = new(user, "arcade", "Space Villian 2000")
+	var/datum/browser/popup = new(user, "arcade", "Space Villain 2000")
 	popup.set_content(dat)
-	popup.set_title_image(user.browse_rsc_icon(icon, icon_state))
 	popup.open()
 	return
 
@@ -166,7 +166,7 @@
 
 		if(emagged)
 			Reset()
-			emagged = 0
+			emagged = FALSE
 
 	add_fingerprint(usr)
 	updateUsrDialog()
@@ -186,11 +186,10 @@
 				message_admins("[key_name_admin(usr)] has outbombed Cuban Pete and been awarded a bomb.")
 				log_game("[key_name(usr)] has outbombed Cuban Pete and been awarded a bomb.")
 				Reset()
-				emagged = 0
+				emagged = FALSE
 			else
 				SSblackbox.record_feedback("tally", "arcade_status", 1, "win_normal")
-				var/score = player_hp + player_mp + 5
-				prizevend(score)
+				prizevend(35)
 
 	else if(emagged && (turtle >= 4))
 		var/boomamt = rand(5,10)
@@ -252,13 +251,14 @@
 		gameover = 0
 		blocked = 0
 
-		emagged = 1
+		emagged = TRUE
 
 		enemy_name = "Cuban Pete"
 		name = "Outbomb Cuban Pete"
 
 		add_hiddenprint(user)
 		updateUsrDialog()
+		return TRUE
 
 // *** THE ORION TRAIL ** //
 
@@ -281,8 +281,9 @@
 	name = "The Orion Trail"
 	desc = "Learn how our ancestors got to Orion, and have fun in the process!"
 	icon_state = "arcade"
+	icon_screen = "orion"
 	circuit = /obj/item/circuitboard/arcade/orion_trail
-	var/busy = 0 //prevent clickspam that allowed people to ~speedrun~ the game.
+	var/busy = FALSE //prevent clickspam that allowed people to ~speedrun~ the game.
 	var/engine = 0
 	var/hull = 0
 	var/electronics = 0
@@ -296,14 +297,14 @@
 	var/event = null
 	var/list/settlers = list("Harry","Larry","Bob")
 	var/list/events = list(ORION_TRAIL_RAIDERS		= 3,
-						   ORION_TRAIL_FLUX			= 1,
-						   ORION_TRAIL_ILLNESS		= 3,
-						   ORION_TRAIL_BREAKDOWN	= 2,
-						   ORION_TRAIL_LING			= 3,
-						   ORION_TRAIL_MALFUNCTION	= 2,
-						   ORION_TRAIL_COLLISION	= 1,
-						   ORION_TRAIL_SPACEPORT	= 2
-						   )
+						ORION_TRAIL_FLUX			= 1,
+						ORION_TRAIL_ILLNESS		= 3,
+						ORION_TRAIL_BREAKDOWN	= 2,
+						ORION_TRAIL_LING			= 3,
+						ORION_TRAIL_MALFUNCTION	= 2,
+						ORION_TRAIL_COLLISION	= 1,
+						ORION_TRAIL_SPACEPORT	= 2
+						)
 	var/list/stops = list()
 	var/list/stopblurbs = list()
 	var/lings_aboard = 0
@@ -353,7 +354,7 @@
 /obj/machinery/computer/arcade/orion_trail/attack_hand(mob/user)
 	if(..())
 		return
-	if(fuel <= 0 || food <=0 || settlers.len == 0)
+	if(fuel <= 0 || food <=0 || length(settlers) == 0)
 		gameover = 1
 		event = null
 	user.set_machine(src)
@@ -361,7 +362,7 @@
 	if(gameover)
 		dat = "<center><h1>Game Over</h1></center>"
 		dat += "Like many before you, your crew never made it to Orion, lost to space... <br><b>Forever</b>."
-		if(settlers.len == 0)
+		if(length(settlers) == 0)
 			dat += "<br>Your entire crew died, your ship joins the fleet of ghost-ships littering the galaxy."
 		else
 			if(food <= 0)
@@ -381,7 +382,7 @@
 		if(emagged)
 			to_chat(user, "<span class='userdanger'><font size=3>You're never going to make it to Orion...</span></font>")
 			user.death()
-			emagged = 0 //removes the emagged status after you lose
+			emagged = FALSE //removes the emagged status after you lose
 			playing = 0 //also a new game
 			name = "The Orion Trail"
 			desc = "Learn how our ancestors got to Orion, and have fun in the process!"
@@ -410,7 +411,6 @@
 		dat += "<P ALIGN=Right><a href='byond://?src=[UID()];close=1'>Close</a></P>"
 	var/datum/browser/popup = new(user, "arcade", "The Orion Trail",400,700)
 	popup.set_content(dat)
-	popup.set_title_image(user.browse_rsc_icon(icon, icon_state))
 	popup.open()
 	return
 
@@ -424,7 +424,7 @@
 
 	if(busy)
 		return
-	busy = 1
+	busy = TRUE
 
 	if(href_list["continue"]) //Continue your travels
 		if(turns >= ORION_TRAIL_WINTURN)
@@ -448,7 +448,7 @@
 				if(ORION_TRAIL_RAIDERS)
 					if(prob(50))
 						to_chat(usr, "<span class='userdanger'>You hear battle shouts. The tramping of boots on cold metal. Screams of agony. The rush of venting air. Are you going insane?</span>")
-						M.AdjustHallucinate(30)
+						M.AdjustHallucinate(30 SECONDS)
 					else
 						to_chat(usr, "<span class='userdanger'>Something strikes you from behind! It hurts like hell and feel like a blunt weapon, but nothing is there...</span>")
 						M.take_organ_damage(30)
@@ -460,20 +460,20 @@
 
 					if(severity == 2)
 						to_chat(usr, "<span class='userdanger'>You suddenly feel extremely nauseous and hunch over until it passes.</span>")
-						M.Stun(3)
+						M.Stun(6 SECONDS)
 					if(severity >= 3) //you didn't pray hard enough
 						to_chat(M, "<span class='warning'>An overpowering wave of nausea consumes over you. You hunch over, your stomach's contents preparing for a spectacular exit.</span>")
-						M.Stun(5)
+						M.Stun(10 SECONDS)
 						sleep(30)
 						atom_say("[M] violently throws up!")
 						playsound(loc, 'sound/effects/splat.ogg', 50, TRUE)
 						M.adjust_nutrition(-50) //lose a lot of food
 						var/turf/location = usr.loc
-						if(istype(location, /turf/simulated))
+						if(issimulatedturf(location))
 							location.add_vomit_floor(TRUE)
 				if(ORION_TRAIL_FLUX)
 					if(prob(75))
-						M.Weaken(3)
+						M.Weaken(6 SECONDS)
 						atom_say("A sudden gust of powerful wind slams [M] into the floor!")
 						M.take_organ_damage(25)
 						playsound(loc, 'sound/weapons/genhit.ogg', 100, TRUE)
@@ -556,9 +556,11 @@
 			if(emagged) //has to be here because otherwise it doesn't work
 				playsound(loc, 'sound/effects/supermatter.ogg', 100, TRUE)
 				atom_say("A miniature black hole suddenly appears in front of [src], devouring [usr] alive!")
-				usr.Stun(10) //you can't run :^)
-				var/S = new /obj/singularity/academy(usr.loc)
-				emagged = 0 //immediately removes emagged status so people can't kill themselves by sprinting up and interacting
+				if(isliving(usr))
+					var/mob/living/L = usr
+					L.Stun(20 SECONDS) //you can't run :^)
+				var/S = new /obj/singularity/onetile(usr.loc)
+				emagged = FALSE //immediately removes emagged status so people can't kill themselves by sprinting up and interacting
 				sleep(50)
 				atom_say("[S] winks out, just as suddenly as it appeared.")
 				qdel(S)
@@ -674,7 +676,7 @@
 
 	add_fingerprint(usr)
 	updateUsrDialog()
-	busy = 0
+	busy = FALSE
 	return
 
 
@@ -755,7 +757,7 @@
 
 		if(ORION_TRAIL_LING)
 			eventdat += "Strange reports warn of changelings infiltrating crews on trips to Orion..."
-			if(settlers.len <= 2)
+			if(length(settlers) <= 2)
 				eventdat += "<br>Your crew's chance of reaching Orion is so slim the changelings likely avoided your ship..."
 				eventdat += "<P ALIGN=Right><a href='byond://?src=[UID()];eventclose=1'>Continue</a></P>"
 				eventdat += "<P ALIGN=Right><a href='byond://?src=[UID()];close=1'>Close</a></P>"
@@ -858,14 +860,14 @@
 				eventdat += "<P ALIGN=Right>Crew Management:</P>"
 
 				//Buy crew
-				if(food >= 10 && fuel >= 10)
+				if(food > 10 && fuel > 10)
 					eventdat += "<P ALIGN=Right><a href='byond://?src=[UID()];buycrew=1'>Hire a new Crewmember (-10FU,-10FO)</a></P>"
 				else
 					eventdat += "<P ALIGN=Right>Cant afford a new Crewmember</P>"
 
 				//Sell crew
-				if(settlers.len > 1)
-					eventdat += "<P ALIGN=Right><a href='byond://?src=[UID()];sellcrew=1'>Sell crew for Fuel and Food (+15FU,+15FO)</a></P>"
+				if(length(settlers) > 1)
+					eventdat += "<p ALIGN=Right><a href='byond://?src=[UID()];sellcrew=1'>Sell crew for Fuel and Food (+7FU,+7FO)</a></p>"
 				else
 					eventdat += "<P ALIGN=Right>Cant afford to sell a Crewmember</P>"
 
@@ -922,7 +924,6 @@
 		alive++
 	return newcrew
 
-
 //Remove Random/Specific crewmember
 /obj/machinery/computer/arcade/orion_trail/proc/remove_crewmember(specific = "", dont_remove = "")
 	var/list/safe2remove = settlers
@@ -932,7 +933,7 @@
 	if(specific && specific != dont_remove)
 		safe2remove = list(specific)
 	else
-		if(safe2remove.len >= 1) //need to make sure we even have anyone to remove
+		if(length(safe2remove) >= 1) //need to make sure we even have anyone to remove
 			removed = pick(safe2remove)
 
 	if(removed)
@@ -952,9 +953,9 @@
 		message_admins("[key_name_admin(usr)] made it to Orion on an emagged machine and got an explosive toy ship.")
 		log_game("[key_name(usr)] made it to Orion on an emagged machine and got an explosive toy ship.")
 	else
-		var/score = alive + round(food/2) + round(fuel/5) + engine + hull + electronics - lings_aboard
+		var/score = 10 * (alive - lings_aboard) + 5 * (engine + hull + electronics)
 		prizevend(score)
-	emagged = 0
+	emagged = FALSE
 	name = "The Orion Trail"
 	desc = "Learn how our ancestors got to Orion, and have fun in the process!"
 
@@ -965,7 +966,8 @@
 		desc = "Learn how our ancestors got to Orion, and try not to die in the process!"
 		add_hiddenprint(user)
 		newgame()
-		emagged = 1
+		emagged = TRUE
+		return TRUE
 
 /mob/living/simple_animal/hostile/syndicate/ranged/orion
 	name = "spaceport security"
@@ -980,7 +982,7 @@
 	icon = 'icons/obj/toy.dmi'
 	icon_state = "ship"
 	w_class = WEIGHT_CLASS_SMALL
-	var/active = 0 //if the ship is on
+	var/active = FALSE //if the ship is on
 
 /obj/item/orion_ship/examine(mob/user)
 	. = ..()
@@ -990,7 +992,7 @@
 		else
 			. += "<span class='notice'>There's a little switch on the bottom. It's flipped up.</span>"
 
-/obj/item/orion_ship/attack_self(mob/user) //Minibomb-level explosion. Should probably be more because of how hard it is to survive the machine! Also, just over a 5-second fuse
+/obj/item/orion_ship/attack_self__legacy__attackchain(mob/user) //Minibomb-level explosion. Should probably be more because of how hard it is to survive the machine! Also, just over a 5-second fuse
 	if(active)
 		return
 
@@ -998,7 +1000,7 @@
 	log_game("[key_name(usr)] primed an explosive Orion ship for detonation.")
 
 	to_chat(user, "<span class='warning'>You flip the switch on the underside of [src].</span>")
-	active = 1
+	active = TRUE
 	visible_message("<span class='notice'>[src] softly beeps and whirs to life!</span>")
 	playsound(loc, 'sound/machines/defib_saftyon.ogg', 25, TRUE)
 	atom_say("This is ship ID #[rand(1,1000)] to Orion Port Authority. We're coming in for landing, over.")

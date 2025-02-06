@@ -12,29 +12,29 @@
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 4)
+	butcher_results = list(/obj/item/food/meat = 4)
 	response_help  = "pets"
 	response_disarm = "gently pushes aside"
 	response_harm   = "kicks"
-	faction = list("neutral")
+	faction = list("neutral", "jungle")
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
-	attack_same = 1
+	attack_same = TRUE
 	attacktext = "kicks"
 	attack_sound = 'sound/weapons/punch1.ogg'
 	health = 40
 	maxHealth = 40
 	melee_damage_lower = 1
 	melee_damage_upper = 2
-	stop_automated_movement_when_pulled = 1
-	can_collar = 1
+	stop_automated_movement_when_pulled = TRUE
+	can_collar = TRUE
 	blood_volume = BLOOD_VOLUME_NORMAL
-	var/obj/item/udder/udder = null
+	var/obj/item/udder/cow/udder = null
 	gender = FEMALE
 	footstep_type = FOOTSTEP_MOB_SHOE
 
-/mob/living/simple_animal/hostile/retaliate/goat/New()
-	udder = new()
+/mob/living/simple_animal/hostile/retaliate/goat/Initialize(mapload)
 	. = ..()
+	udder = new()
 
 /mob/living/simple_animal/hostile/retaliate/goat/Destroy()
 	QDEL_NULL(udder)
@@ -43,17 +43,17 @@
 /mob/living/simple_animal/hostile/retaliate/goat/handle_automated_movement()
 	. = ..()
 	//chance to go crazy and start wacking stuff
-	if(!enemies.len && prob(1))
+	if(!length(enemies) && prob(1))
 		Retaliate()
 
-	if(enemies.len && prob(10))
+	if(length(enemies) && prob(10))
 		enemies = list()
 		LoseTarget()
 		visible_message("<span class='notice'>[src] calms down.</span>")
 
 	eat_plants()
 	if(!pulledby)
-		for(var/direction in shuffle(list(1, 2, 4, 8, 5, 6, 9, 10)))
+		for(var/direction in shuffle(GLOB.alldirs))
 			var/step = get_step(src, direction)
 			if(step)
 				if(locate(/obj/structure/spacevine) in step || locate(/obj/structure/glowshroom) in step)
@@ -70,10 +70,10 @@
 
 /mob/living/simple_animal/hostile/retaliate/goat/Move()
 	. = ..()
-	if(!stat)
+	if(stat == CONSCIOUS)
 		eat_plants()
 
-/mob/living/simple_animal/hostile/retaliate/goat/attackby(obj/item/O as obj, mob/user as mob, params)
+/mob/living/simple_animal/hostile/retaliate/goat/attackby__legacy__attackchain(obj/item/O as obj, mob/user as mob, params)
 	if(stat == CONSCIOUS && istype(O, /obj/item/reagent_containers/glass))
 		udder.milkAnimal(O, user)
 	else
@@ -122,35 +122,34 @@
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat/slab = 6)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat/slab = 6)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	attack_sound = 'sound/weapons/punch1.ogg'
 	health = 50
 	maxHealth = 50
-	can_collar = 1
+	can_collar = TRUE
 	gold_core_spawnable = FRIENDLY_SPAWN
 	blood_volume = BLOOD_VOLUME_NORMAL
-	var/obj/item/udder/udder = null
+	var/obj/item/udder/cow/udder = null
 	gender = FEMALE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
 	footstep_type = FOOTSTEP_MOB_SHOE
 
-/mob/living/simple_animal/cow/Initialize()
+/mob/living/simple_animal/cow/Initialize(mapload)
 	udder = new()
 	. = ..()
 
 /mob/living/simple_animal/cow/Destroy()
-	qdel(udder)
-	udder = null
+	QDEL_NULL(udder)
 	return ..()
 
-/mob/living/simple_animal/cow/attackby(obj/item/O, mob/user, params)
+/mob/living/simple_animal/cow/attackby__legacy__attackchain(obj/item/O, mob/user, params)
 	if(stat == CONSCIOUS && istype(O, /obj/item/reagent_containers/glass))
 		udder.milkAnimal(O, user)
-		return 1
+		return TRUE
 	else
 		return ..()
 
@@ -160,23 +159,37 @@
 		udder.generateMilk()
 
 /mob/living/simple_animal/cow/attack_hand(mob/living/carbon/M as mob)
-	if(!stat && M.a_intent == INTENT_DISARM && icon_state != icon_dead)
+	if(stat == CONSCIOUS && M.a_intent == INTENT_DISARM && icon_state != icon_dead)
 		M.visible_message("<span class='warning'>[M] tips over [src].</span>","<span class='notice'>You tip over [src].</span>")
-		Weaken(30)
+		Weaken(60 SECONDS)
 		icon_state = icon_dead
 		spawn(rand(20,50))
-			if(!stat && M)
+			if(stat == CONSCIOUS && M)
 				icon_state = icon_living
-				var/list/responses = list(	"[src] looks at you imploringly.",
-											"[src] looks at you pleadingly",
-											"[src] looks at you with a resigned expression.",
-											"[src] seems resigned to its fate.")
+				var/list/responses = list(
+					"[src] looks at you imploringly.",
+					"[src] looks at you pleadingly",
+					"[src] looks at you with a resigned expression.",
+					"[src] seems resigned to its fate."
+				)
 				to_chat(M, pick(responses))
 	else
 		..()
 
+
+/mob/living/simple_animal/cow/npc_safe(mob/user)
+	return TRUE
+
+/mob/living/simple_animal/cow/betsy
+	name = "Betsy"
+	real_name = "Betsy"
+	unique_pet = TRUE
+
+/mob/living/simple_animal/cow/betsy/npc_safe(mob/user) // depriving the chef of his animals is not cool
+	return FALSE
+
 /mob/living/simple_animal/chick
-	name = "\improper chick"
+	name = "chick"
 	desc = "Adorable! They make such a racket though."
 	icon_state = "chick"
 	icon_living = "chick"
@@ -188,29 +201,33 @@
 	speak_emote = list("cheeps")
 	emote_hear = list("cheeps")
 	emote_see = list("pecks at the ground","flaps its tiny wings")
-	density = 0
+	density = FALSE
 	speak_chance = 2
 	turns_per_move = 2
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 1)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat/chicken = 1)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	health = 3
 	maxHealth = 3
-	ventcrawler = 2
+	ventcrawler = VENTCRAWLER_ALWAYS
 	var/amount_grown = 0
 	pass_flags = PASSTABLE | PASSGRILLE | PASSMOB
 	mob_size = MOB_SIZE_TINY
-	can_hide = 1
-	can_collar = 1
+	holder_type = /obj/item/holder/chicken
+	can_hide = TRUE
+	can_collar = TRUE
 	gold_core_spawnable = FRIENDLY_SPAWN
 	footstep_type = FOOTSTEP_MOB_CLAW
 
-/mob/living/simple_animal/chick/New()
-	..()
-	pixel_x = rand(-6, 6)
-	pixel_y = rand(0, 10)
+/mob/living/simple_animal/chick/Initialize(mapload)
+	. = ..()
+	scatter_atom()
+
+/mob/living/simple_animal/chick/scatter_atom(x_offset, y_offset)
+	pixel_x = rand(-6, 6) + x_offset
+	pixel_y = rand(0, 10) + y_offset
 
 /mob/living/simple_animal/chick/Life(seconds, times_fired)
 	. =..()
@@ -218,15 +235,30 @@
 		amount_grown += rand(1,2)
 		if(amount_grown >= 100)
 			var/mob/living/simple_animal/chicken/C = new /mob/living/simple_animal/chicken(loc)
+			if(name != initial(name))
+				C.name = name
 			if(mind)
 				mind.transfer_to(C)
+			if(pcollar)
+				var/the_collar = pcollar
+				drop_item_to_ground(pcollar)
+				C.add_collar(the_collar)
 			qdel(src)
+
+
+/mob/living/simple_animal/chick/npc_safe(mob/user)
+	return TRUE
+
+/mob/living/simple_animal/chick/attack_hand(mob/living/carbon/human/M)
+	if(M.a_intent == INTENT_HELP)
+		get_scooped(M, TRUE)
+	..()
 
 #define MAX_CHICKENS 50
 GLOBAL_VAR_INIT(chicken_count, 0)
 
 /mob/living/simple_animal/chicken
-	name = "\improper chicken"
+	name = "chicken"
 	desc = "Hopefully the eggs are good this season."
 	gender = FEMALE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
@@ -237,43 +269,48 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	speak_emote = list("clucks","croons")
 	emote_hear = list("clucks")
 	emote_see = list("pecks at the ground","flaps its wings viciously")
-	density = 0
+	density = FALSE
 	speak_chance = 2
 	turns_per_move = 3
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 2)
-	var/egg_type = /obj/item/reagent_containers/food/snacks/egg
-	var/food_type = /obj/item/reagent_containers/food/snacks/grown/wheat
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat/chicken = 2)
+	var/egg_type = /obj/item/food/egg
+	var/food_type = /obj/item/food/grown/wheat
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	health = 15
 	maxHealth = 15
-	ventcrawler = 2
+	ventcrawler = VENTCRAWLER_ALWAYS
 	var/eggsleft = 0
 	var/eggsFertile = TRUE
 	var/body_color
 	var/icon_prefix = "chicken"
 	pass_flags = PASSTABLE | PASSMOB
 	mob_size = MOB_SIZE_SMALL
-	can_hide = 1
-	can_collar = 1
+	holder_type = /obj/item/holder/chicken
+	can_hide = TRUE
+	can_collar = TRUE
 	var/list/feedMessages = list("It clucks happily.","It clucks happily.")
 	var/list/layMessage = EGG_LAYING_MESSAGES
 	var/list/validColors = list("brown","black","white")
 	gold_core_spawnable = FRIENDLY_SPAWN
 	footstep_type = FOOTSTEP_MOB_CLAW
 
-/mob/living/simple_animal/chicken/New()
-	..()
+/mob/living/simple_animal/chicken/Initialize(mapload)
+	. = ..()
 	if(!body_color)
 		body_color = pick(validColors)
 	icon_state = "[icon_prefix]_[body_color]"
 	icon_living = "[icon_prefix]_[body_color]"
 	icon_dead = "[icon_prefix]_[body_color]_dead"
-	pixel_x = rand(-6, 6)
-	pixel_y = rand(0, 10)
+	scatter_atom()
+	update_appearance(UPDATE_ICON_STATE)
 	GLOB.chicken_count += 1
+
+/mob/living/simple_animal/chick/scatter_atom(x_offset, y_offset)
+	pixel_x = rand(-6, 6) + x_offset
+	pixel_y = rand(0, 10) + y_offset
 
 /mob/living/simple_animal/chicken/death(gibbed)
 	// Only execute the below if we successfully died
@@ -282,9 +319,9 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 		return
 	GLOB.chicken_count -= 1
 
-/mob/living/simple_animal/chicken/attackby(obj/item/O, mob/user, params)
+/mob/living/simple_animal/chicken/attackby__legacy__attackchain(obj/item/O, mob/user, params)
 	if(istype(O, food_type)) //feedin' dem chickens
-		if(!stat && eggsleft < 8)
+		if(stat == CONSCIOUS && eggsleft < 8)
 			var/feedmsg = "[user] feeds [O] to [name]! [pick(feedMessages)]"
 			user.visible_message(feedmsg)
 			user.drop_item()
@@ -296,20 +333,23 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	else
 		..()
 
+/mob/living/simple_animal/chicken/attack_hand(mob/living/carbon/human/M)
+	if(M.a_intent == INTENT_HELP)
+		get_scooped(M, TRUE)
+	..()
+
 /mob/living/simple_animal/chicken/Life(seconds, times_fired)
 	. = ..()
 	if((. && prob(3) && eggsleft > 0) && egg_type)
 		visible_message("[src] [pick(layMessage)]")
 		eggsleft--
 		var/obj/item/E = new egg_type(get_turf(src))
-		E.pixel_x = rand(-6,6)
-		E.pixel_y = rand(-6,6)
+		E.scatter_atom()
 		if(eggsFertile)
 			if(GLOB.chicken_count < MAX_CHICKENS && prob(25))
 				START_PROCESSING(SSobj, E)
 
-/obj/item/reagent_containers/food/snacks/egg/var/amount_grown = 0
-/obj/item/reagent_containers/food/snacks/egg/process()
+/obj/item/food/egg/process()
 	if(isturf(loc))
 		amount_grown += rand(1,2)
 		if(amount_grown >= 100)
@@ -320,6 +360,32 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	else
 		STOP_PROCESSING(SSobj, src)
 
+/mob/living/simple_animal/chicken/npc_safe(mob/user)
+	return TRUE
+
+/mob/living/simple_animal/chicken/clucky
+	name = "Commander Clucky"
+	real_name = "Commander Clucky"
+	unique_pet = TRUE
+
+/mob/living/simple_animal/chicken/clucky/npc_safe(mob/user) // depriving the chef of his animals is not cool
+	return FALSE
+
+/mob/living/simple_animal/chicken/kentucky
+	name = "Kentucky"
+	real_name = "Kentucky"
+	unique_pet = TRUE
+
+/mob/living/simple_animal/chicken/kentucky/npc_safe(mob/user)
+	return FALSE
+
+/mob/living/simple_animal/chicken/featherbottom
+	name = "Featherbottom"
+	real_name = "Featherbottom"
+	unique_pet = TRUE
+
+/mob/living/simple_animal/chicken/featherbottom/npc_safe(mob/user)
+	return FALSE
 
 /mob/living/simple_animal/pig
 	name = "pig"
@@ -334,14 +400,14 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat/ham = 6)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat/ham = 6)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	health = 50
 	maxHealth = 50
-	can_collar = 1
+	can_collar = TRUE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
 	gold_core_spawnable = FRIENDLY_SPAWN
 	blood_volume = BLOOD_VOLUME_NORMAL
@@ -360,14 +426,14 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 4)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat = 4)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "pecks"
 	health = 50
 	maxHealth = 50
-	can_collar = 1
+	can_collar = TRUE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
 	gold_core_spawnable = FRIENDLY_SPAWN
 	footstep_type = FOOTSTEP_MOB_CLAW
@@ -385,14 +451,14 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 6)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat = 6)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	health = 50
 	maxHealth = 50
-	can_collar = 1
+	can_collar = TRUE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
 	gold_core_spawnable = FRIENDLY_SPAWN
 	footstep_type = FOOTSTEP_MOB_CLAW
@@ -410,14 +476,14 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 6)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat = 6)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	health = 50
 	maxHealth = 50
-	can_collar = 1
+	can_collar = TRUE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
 	gold_core_spawnable = FRIENDLY_SPAWN
 	blood_volume = BLOOD_VOLUME_NORMAL
@@ -435,14 +501,14 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 	speak_chance = 1
 	turns_per_move = 5
 	see_in_dark = 6
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 6)
-	response_help  = "pets the"
-	response_disarm = "gently pushes aside the"
-	response_harm   = "kicks the"
+	butcher_results = list(/obj/item/food/meat = 6)
+	response_help  = "pets"
+	response_disarm = "gently pushes aside"
+	response_harm   = "kicks"
 	attacktext = "kicks"
 	health = 50
 	maxHealth = 50
-	can_collar = 1
+	can_collar = TRUE
 	mob_biotypes = MOB_ORGANIC | MOB_BEAST
 	gold_core_spawnable = FRIENDLY_SPAWN
 	blood_volume = BLOOD_VOLUME_NORMAL
@@ -450,10 +516,9 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 /obj/item/udder
 	name = "udder"
 
-/obj/item/udder/New()
-	create_reagents(50)
-	reagents.add_reagent("milk", 20)
+/obj/item/udder/Initialize(mapload)
 	. = ..()
+	create_reagents(50)
 
 /obj/item/udder/proc/generateMilk()
 	if(prob(5))
@@ -469,3 +534,11 @@ GLOBAL_VAR_INIT(chicken_count, 0)
 		user.visible_message("[user] milks [src] using \the [O].", "<span class='notice'>You milk [src] using \the [O].</span>")
 	else
 		to_chat(user, "<span class='danger'>The udder is dry. Wait a bit longer...</span>")
+
+/obj/item/udder/cow
+
+/obj/item/udder/cow/Initialize(mapload)
+	. = ..()
+	reagents.add_reagent("milk", 20)
+
+#undef MAX_CHICKENS

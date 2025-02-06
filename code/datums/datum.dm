@@ -6,9 +6,20 @@
 	var/list/status_traits
 	var/list/comp_lookup
 	var/list/list/datum/callback/signal_procs
-	var/signal_enabled = FALSE
 	var/var_edited = FALSE //Warranty void if seal is broken
 	var/tmp/unique_datum_id = null
+	/// MD5'd version of the UID. Used for instances where we dont want to make clients aware of UIDs.
+	VAR_PRIVATE/tmp/md5_unique_datum_id = null // using VAR_PRIVATE means it cant be accessed outside of the MD5_UID() proc
+
+	/// Used by SSprocessing
+	var/isprocessing = FALSE
+
+/**
+  * A cached version of our \ref
+  * The brunt of \ref costs are in creating entries in the string tree (a tree of immutable strings)
+  * This avoids doing that more then once per datum by ensuring ref strings always have a reference to them after they're first pulled
+  */
+	var/cached_ref
 
 #ifdef REFERENCE_TRACKING
 	var/running_find_references
@@ -22,17 +33,18 @@
 	SHOULD_CALL_PARENT(TRUE)
 	tag = null
 
+	// Close our open TGUIs
+	SStgui.close_uis(src)
+
 	var/list/timers = active_timers
 	active_timers = null
 	for(var/thing in timers)
 		var/datum/timedevent/timer = thing
-		if(timer.spent)
+		if(timer.spent && !(timer.flags & TIMER_DELETE_ME))
 			continue
 		qdel(timer)
 
 	//BEGIN: ECS SHIT
-	signal_enabled = FALSE
-
 	var/list/dc = datum_components
 	if(dc)
 		var/all_components = dc[/datum/component]
@@ -45,6 +57,15 @@
 			qdel(C, FALSE, TRUE)
 		dc.Cut()
 
+	_clear_signal_refs()
+	//END: ECS SHIT
+
+	return QDEL_HINT_QUEUE
+
+/// Do not override this. This proc exists solely to be overriden by /turf. This
+/// allows it to ignore clearing out signals which refer to it, in order to keep
+/// those signals valid after the turf has been changed.
+/datum/proc/_clear_signal_refs()
 	var/list/lookup = comp_lookup
 	if(lookup)
 		for(var/sig in lookup)
@@ -60,10 +81,6 @@
 
 	for(var/target in signal_procs)
 		UnregisterSignal(target, signal_procs[target])
-	//END: ECS SHIT
-
-	return QDEL_HINT_QUEUE
-
 
 /datum/nothing
 	// Placeholder object, used for ispath checks. Has to be defined to prevent errors, but shouldn't ever be created.

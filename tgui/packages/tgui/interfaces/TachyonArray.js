@@ -4,47 +4,34 @@ import { Window } from '../layouts';
 
 export const TachyonArray = (props, context) => {
   const { act, data } = useBackend(context);
-  const {
-    records = [],
-    explosion_target,
-    toxins_tech,
-    printing,
-  } = data;
+  const { records = [], explosion_target, toxins_tech, printing } = data;
   return (
-    <Window>
+    <Window width={500} height={600}>
       <Window.Content scrollable>
         <Section>
           <LabeledList>
-            <LabeledList.Item label="Shift's Target">
-              {explosion_target}
-            </LabeledList.Item>
-            <LabeledList.Item label="Current Toxins Level">
-              {toxins_tech}
-            </LabeledList.Item>
+            <LabeledList.Item label="Shift's Target">{explosion_target}</LabeledList.Item>
+            <LabeledList.Item label="Current Toxins Level">{toxins_tech}</LabeledList.Item>
             <LabeledList.Item label="Administration">
               <Button
                 icon="print"
                 content="Print All Logs"
                 disabled={!records.length || printing}
                 align="center"
-                onClick={() => act('print_logs')} />
+                onClick={() => act('print_logs')}
+              />
               <Button.Confirm
                 icon="trash"
                 content="Delete All Logs"
                 disabled={!records.length}
                 color="bad"
                 align="center"
-                onClick={() => act('delete_logs')} />
+                onClick={() => act('delete_logs')}
+              />
             </LabeledList.Item>
           </LabeledList>
         </Section>
-        {!records.length ? (
-          <NoticeBox>
-            No Records
-          </NoticeBox>
-        ) : (
-          <TachyonArrayContent />
-        )}
+        {!records.length ? <NoticeBox>No Records</NoticeBox> : <TachyonArrayContent />}
       </Window.Content>
     </Window>
   );
@@ -52,9 +39,7 @@ export const TachyonArray = (props, context) => {
 
 export const TachyonArrayContent = (props, context) => {
   const { act, data } = useBackend(context);
-  const {
-    records = [],
-  } = data;
+  const { records = [] } = data;
 
   return (
     <Section title="Logged Explosions">
@@ -62,41 +47,28 @@ export const TachyonArrayContent = (props, context) => {
         <Flex.Item>
           <Table m="0.5rem">
             <Table.Row header>
-              <Table.Cell>
-                Time
-              </Table.Cell>
-              <Table.Cell>
-                Epicenter
-              </Table.Cell>
-              <Table.Cell>
-                Actual Size
-              </Table.Cell>
-              <Table.Cell>
-                Theoretical Size
-              </Table.Cell>
+              <Table.Cell>Time</Table.Cell>
+              <Table.Cell>Epicenter</Table.Cell>
+              <Table.Cell>Actual Size</Table.Cell>
+              <Table.Cell>Theoretical Size</Table.Cell>
             </Table.Row>
-            {records.map(a => (
+            {records.map((a) => (
               <Table.Row key={a.index}>
-                <Table.Cell>
-                  {a.logged_time}
-                </Table.Cell>
-                <Table.Cell>
-                  {a.epicenter}
-                </Table.Cell>
-                <Table.Cell>
-                  {a.actual_size_message}
-                </Table.Cell>
-                <Table.Cell>
-                  {a.theoretical_size_message}
-                </Table.Cell>
+                <Table.Cell>{a.logged_time}</Table.Cell>
+                <Table.Cell>{a.epicenter}</Table.Cell>
+                <Table.Cell>{a.actual_size_message}</Table.Cell>
+                <Table.Cell>{a.theoretical_size_message}</Table.Cell>
                 <Table.Cell>
                   <Button.Confirm
                     icon="trash"
                     content="Delete"
                     color="bad"
-                    onClick={() => act('delete_record', {
-                      'index': a.index,
-                    })} />
+                    onClick={() =>
+                      act('delete_record', {
+                        'index': a.index,
+                      })
+                    }
+                  />
                 </Table.Cell>
               </Table.Row>
             ))}

@@ -4,14 +4,13 @@
 	desc = "A bluespace telepad used for teleporting objects to and from a location."
 	icon = 'icons/obj/telescience.dmi'
 	icon_state = "pad-idle"
-	anchored = 1
-	use_power = IDLE_POWER_USE
-	idle_power_usage = 200
-	active_power_usage = 5000
+	anchored = TRUE
+	idle_power_consumption = 200
+	active_power_consumption = 5000
 	var/efficiency
 
-/obj/machinery/telepad/New()
-	..()
+/obj/machinery/telepad/Initialize(mapload)
+	. = ..()
 	component_parts = list()
 	component_parts += new /obj/item/circuitboard/telesci_pad(null)
 	component_parts += new /obj/item/stack/ore/bluespace_crystal/artificial(null, 2)
@@ -20,8 +19,8 @@
 	component_parts += new /obj/item/stack/cable_coil(null, 1)
 	RefreshParts()
 
-/obj/machinery/telepad/upgraded/New()
-	..()
+/obj/machinery/telepad/upgraded/Initialize(mapload)
+	. = ..()
 	component_parts = list()
 	component_parts += new /obj/item/circuitboard/telesci_pad(null)
 	component_parts += new /obj/item/stack/ore/bluespace_crystal/artificial(null, 2)
@@ -35,11 +34,6 @@
 	for(var/obj/item/stock_parts/capacitor/C in component_parts)
 		E += C.rating
 	efficiency = E
-
-/obj/machinery/telepad/attackby(obj/item/I, mob/user, params)
-	if(exchange_parts(user, I))
-		return
-	return ..()
 
 /obj/machinery/telepad/screwdriver_act(mob/user, obj/item/I)
 	. = TRUE
@@ -67,9 +61,8 @@
 	icon = 'icons/obj/telescience.dmi'
 	icon_state = "pad-idle"
 	anchored = TRUE
-	use_power = IDLE_POWER_USE
-	idle_power_usage = 20
-	active_power_usage = 500
+	idle_power_consumption = 20
+	active_power_consumption = 500
 	var/stage = 0
 
 /obj/machinery/telepad_cargo/crowbar_act(mob/living/user, obj/item/I)
@@ -106,10 +99,10 @@
 	item_state = "signaler"
 	origin_tech = "bluespace=3"
 
-/obj/item/telepad_beacon/attack_self(mob/user as mob)
+/obj/item/telepad_beacon/attack_self__legacy__attackchain(mob/user as mob)
 	if(user)
 		to_chat(user, "<span class = 'caution'> Locked In</span>")
 		new /obj/machinery/telepad_cargo(user.loc)
-		playsound(src, 'sound/effects/pop.ogg', 100, 1, 1)
+		playsound(src, 'sound/effects/pop.ogg', 100, TRUE, 1)
 		qdel(src)
 	return

@@ -1,3 +1,9 @@
+/**
+ * @file
+ * @copyright 2020 Aleksej Komarov
+ * @license MIT
+ */
+
 import { Component } from 'inferno';
 import { Box } from './Box';
 import { Button } from './Button';
@@ -14,15 +20,9 @@ export class Collapsible extends Component {
   render() {
     const { props } = this;
     const { open } = this.state;
-    const {
-      children,
-      color = 'default',
-      title,
-      buttons,
-      ...rest
-    } = props;
+    const { children, color = 'default', title, buttons, contentStyle, ...rest } = props;
     return (
-      <div className="Collapsible">
+      <Box className="Collapsible">
         <div className="Table">
           <div className="Table__cell">
             <Button
@@ -30,22 +30,19 @@ export class Collapsible extends Component {
               color={color}
               icon={open ? 'chevron-down' : 'chevron-right'}
               onClick={() => this.setState({ open: !open })}
-              {...rest}>
+              {...rest}
+            >
               {title}
             </Button>
           </div>
-          {buttons && (
-            <div className="Table__cell Table__cell--collapsing">
-              {buttons}
-            </div>
-          )}
+          {buttons && <div className="Table__cell Table__cell--collapsing">{buttons}</div>}
         </div>
         {open && (
-          <Box mt={1}>
+          <Box mt={1} style={contentStyle}>
             {children}
           </Box>
         )}
-      </div>
+      </Box>
     );
   }
 }

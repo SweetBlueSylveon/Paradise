@@ -33,21 +33,38 @@
 /datum/outfit/syndicatecommandocorpse
 	name = "Corpse of a Syndicate Commando"
 	uniform = /obj/item/clothing/under/syndicate
-	suit = /obj/item/clothing/suit/space/hardsuit/syndi
 	shoes = /obj/item/clothing/shoes/combat
 	gloves = /obj/item/clothing/gloves/combat
 	l_ear = /obj/item/radio/headset
 	mask = /obj/item/clothing/mask/gas/syndicate
-	back = /obj/item/tank/jetpack/oxygen
+	back = /obj/item/mod/control/pre_equipped/traitor
 	r_pocket = /obj/item/tank/internals/emergency_oxygen
 	id = /obj/item/card/id
 
+/obj/effect/mob_spawn/human/corpse/syndicatequartermaster
+	name = "Syndicate Quartermaster"
+	mob_name = "Syndicate Quartermaster"
+	hair_style = "bald"
+	facial_hair_style = "shaved"
+	id_job = "Operative"
+	id_access_list = list(ACCESS_SYNDICATE)
+	outfit = /datum/outfit/syndicatequartermastercorpse
 
-/obj/effect/mob_spawn/human/clown/corpse
+/datum/outfit/syndicatequartermastercorpse
+	name = "Corpse of a Syndicate Quartermaster"
+	uniform = /obj/item/clothing/under/syndicate
+	shoes = /obj/item/clothing/shoes/combat
+	gloves = /obj/item/clothing/gloves/combat
+	l_ear = /obj/item/radio/headset
+	mask = /obj/item/clothing/mask/gas/syndicate
+	r_pocket = /obj/item/tank/internals/emergency_oxygen
+	id = /obj/item/card/id
+
+/obj/effect/mob_spawn/human/corpse/clown/corpse
 	roundstart = TRUE
 	instant = TRUE
 
-/obj/effect/mob_spawn/human/mime/corpse
+/obj/effect/mob_spawn/human/corpse/mime/corpse
 	roundstart = TRUE
 	instant = TRUE
 
@@ -60,50 +77,65 @@
 
 /datum/outfit/piratecorpse
 	name = "Corpse of a Pirate"
-	uniform = /obj/item/clothing/under/pirate
+	uniform = /obj/item/clothing/under/costume/pirate
+	suit = /obj/item/clothing/suit/space/eva
 	shoes = /obj/item/clothing/shoes/jackboots
 	glasses = /obj/item/clothing/glasses/eyepatch
-	head = /obj/item/clothing/head/bandana
-
+	head = /obj/item/clothing/head/helmet/space/eva
+	back = /obj/item/tank/jetpack/carbondioxide
 
 /obj/effect/mob_spawn/human/corpse/pirate/ranged
 	name = "Pirate Gunner"
 	mob_name = "Pirate Gunner"
-	outfit = /datum/outfit/piratecorpse/ranged
+	outfit = /datum/outfit/piratecorpse
 
 /datum/outfit/piratecorpse/ranged
 	name = "Corpse of a Pirate Gunner"
-	suit = /obj/item/clothing/suit/pirate_black
-	head = /obj/item/clothing/head/pirate
 
 
-/obj/effect/mob_spawn/human/corpse/russian
-	name = "Russian"
-	mob_name = "Russian"
+/obj/effect/mob_spawn/human/corpse/soviet
+	name = "Soviet"
+	mob_name = "Soviet"
 	hair_style = "bald"
 	facial_hair_style = "shaved"
-	outfit = /datum/outfit/russiancorpse
+	outfit = /datum/outfit/sovietcorpse
 
-/datum/outfit/russiancorpse
-	name = "Corpse of a Russian"
-	uniform = /obj/item/clothing/under/soviet
+/datum/outfit/sovietcorpse
+	name = "Corpse of a Soviet"
+	uniform = /obj/item/clothing/under/new_soviet
 	shoes = /obj/item/clothing/shoes/jackboots
-	head = /obj/item/clothing/head/bearpelt
+	head = /obj/item/clothing/head/sovietsidecap
 
 
-/obj/effect/mob_spawn/human/corpse/russian/ranged
-	outfit = /datum/outfit/russiancorpse/ranged
+/obj/effect/mob_spawn/human/corpse/soviet/ranged
+	outfit = /datum/outfit/sovietcorpse/ranged
 
-/datum/outfit/russiancorpse/ranged
-	name = "Corpse of a Ranged Russian"
+/datum/outfit/sovietcorpse/ranged
+	name = "Corpse of a Ranged Soviet"
+	suit = /obj/item/clothing/suit/sovietcoat
+
+/obj/effect/mob_spawn/human/corpse/soviet_nian
+	name = "Soviet Nian"
+	mob_name = "Soviet Nian"
+	mob_species = /datum/species/moth
+	hair_style = "bald"
+	facial_hair_style = "shaved"
+	outfit = /datum/outfit/soviet_nian
+
+/datum/outfit/soviet_nian
+	name = "Soviet Nian"
+	uniform = /obj/item/clothing/under/new_soviet
+	gloves = /obj/item/clothing/gloves/color/black
+	shoes = /obj/item/clothing/shoes/jackboots
 	head = /obj/item/clothing/head/ushanka
-
+	r_pocket = /obj/item/reagent_containers/drinks/drinkingglass/shotglass
+	l_pocket = /obj/item/reagent_containers/drinks/bottle/vodka
 
 /obj/effect/mob_spawn/human/corpse/wizard
 	name = "Corpse of a Space Wizard"
 	outfit = /datum/outfit/wizardcorpse
 
-/obj/effect/mob_spawn/human/corpse/clownoff/Initialize(mapload)
+/obj/effect/mob_spawn/human/corpse/wizard/officer/Initialize(mapload)
 	mob_name = "[pick(GLOB.wizard_first)], [pick(GLOB.wizard_second)]"
 	. = ..()
 
@@ -113,3 +145,17 @@
 	suit = /obj/item/clothing/suit/wizrobe
 	shoes = /obj/item/clothing/shoes/sandal
 	head = /obj/item/clothing/head/wizard
+
+/obj/effect/mob_spawn/human/corpse/seed_vault_diona
+	name = "Corpse of a Diona"
+	mob_species = /datum/species/diona
+	outfit = /datum/outfit/seed_vault_diona
+
+/datum/outfit/seed_vault_diona
+	name = "Unknown Diona"
+	uniform = /obj/item/clothing/under/rank/civilian/hydroponics
+	belt = /obj/item/storage/bag/plants
+	mask = /obj/item/clothing/mask/breath
+	r_pocket = /obj/item/paper/crumpled/ruins/lavaland/seed_vault/discovery
+	l_pocket = /obj/item/tank/internals/emergency_oxygen/engi/empty
+

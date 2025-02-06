@@ -12,6 +12,9 @@
 	name = "Green Terror spider"
 	desc = "An ominous-looking green spider. It has a small egg-sac attached to it, and dried blood stains on its carapace."
 	spider_role_summary = "Average melee spider that webs its victims and lays more spider eggs"
+	spider_intro_text = "As a Green Terror Spider, your role is to lay and protect spider eggs so they can hatch and mature into more spiders. \
+	You can lay a new set of eggs for every 2 corpses you web, so work with other spiders to collect as many bodies as you can. \
+	To aid with this you have moderate health and deal moderate damage, with your bite and webs blurring the vision of any victims."
 	ai_target_method = TS_DAMAGE_BRUTE
 	icon_state = "terror_green"
 	icon_living = "terror_green"
@@ -22,13 +25,12 @@
 	melee_damage_upper = 20
 	web_type = /obj/structure/spider/terrorweb/green
 	var/feedings_to_lay = 2
-	var/datum/action/innate/terrorspider/greeneggs/greeneggs_action
 
 
-/mob/living/simple_animal/hostile/poison/terror_spider/green/New()
-	..()
-	greeneggs_action = new()
-	greeneggs_action.Grant(src)
+/mob/living/simple_animal/hostile/poison/terror_spider/green/Initialize(mapload)
+	. = ..()
+	var/datum/action/innate/terrorspider/greeneggs/act = new
+	act.Grant(src)
 
 /mob/living/simple_animal/hostile/poison/terror_spider/green/proc/DoLayGreenEggs()
 	var/obj/structure/spider/eggcluster/E = locate() in get_turf(src)
@@ -46,10 +48,10 @@
 		eggtypes += TS_DESC_BLACK
 	var/eggtype = pick(eggtypes)
 	if(client)
-		eggtype = input("What kind of eggs?") as null|anything in eggtypes
+		eggtype = tgui_input_list(src, "What kind of eggs?", "Egg Laying", eggtypes)
 		if(!(eggtype in eggtypes))
 			to_chat(src, "<span class='danger'>Unrecognized egg type.</span>")
-			return 0
+			return FALSE
 	if(!isturf(loc))
 		// This has to be checked after we ask the user what egg type. Otherwise they could trigger prompt THEN move into a vent.
 		to_chat(src, "<span class='danger'>Eggs can only be laid while standing on a floor.</span>")
@@ -87,9 +89,8 @@
 		..()
 		return
 	var/inject_target = pick("chest","head")
-	if(L.stunned || L.can_inject(null, FALSE, inject_target, FALSE))
-		if(L.eye_blurry < 60)
-			L.AdjustEyeBlurry(10)
+	if(L.IsStunned() || L.can_inject(null, FALSE, inject_target, FALSE))
+		L.AdjustEyeBlurry(20 SECONDS, 0, 120 SECONDS)
 		// instead of having a venom that only lasts seconds, we just add the eyeblur directly.
 		visible_message("<span class='danger'>[src] buries its fangs deep into the [inject_target] of [target]!</span>")
 	else
@@ -102,6 +103,5 @@
 
 /obj/structure/spider/terrorweb/green/web_special_ability(mob/living/carbon/C)
 	if(istype(C))
-		if(C.eye_blurry < 60)
-			C.AdjustEyeBlurry(30)
+		C.AdjustEyeBlurry(60 SECONDS, 0, 120 SECONDS)
 

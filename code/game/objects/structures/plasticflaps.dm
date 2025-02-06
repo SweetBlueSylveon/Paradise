@@ -3,10 +3,10 @@
 	desc = "Completely impassable - or are they?"
 	icon = 'icons/obj/stationobjs.dmi'
 	icon_state = "plasticflaps"
-	density = 0
-	anchored = 1
+	density = FALSE
+	anchored = TRUE
 	layer = 4
-	armor = list(melee = 100, bullet = 80, laser = 80, energy = 100, bomb = 50, bio = 100, rad = 100, fire = 50, acid = 50)
+	armor = list(melee = 100, bullet = 80, laser = 80, energy = 100, bomb = 50, rad = 100, fire = 50, acid = 50)
 	var/state = PLASTIC_FLAPS_NORMAL
 
 /obj/structure/plasticflaps/examine(mob/user)
@@ -71,22 +71,21 @@
 			return TRUE
 		if(M.buckled && istype(M.buckled, /mob/living/simple_animal/bot/mulebot)) // mulebot passenger gets a free pass.
 			return TRUE
-		if(!M.lying && !M.ventcrawler && M.mob_size != MOB_SIZE_TINY)	//If your not laying down, or a ventcrawler or a small creature, no pass.
+		if(!IS_HORIZONTAL(M) && !M.ventcrawler && M.mob_size != MOB_SIZE_TINY)	//If your not laying down, or a ventcrawler or a small creature, no pass.
 			return FALSE
 	return ..()
 
 
-/obj/structure/plasticflaps/CanAStarPass(ID, to_dir, caller)
-	if(isliving(caller))
-		if(isbot(caller))
-			return TRUE
+/obj/structure/plasticflaps/CanPathfindPass(to_dir, datum/can_pass_info/pass_info)
+	if(pass_info.is_bot || pass_info.is_drone)
+		return TRUE
 
-		var/mob/living/M = caller
-		if(!M.ventcrawler && M.mob_size != MOB_SIZE_TINY)
-			return FALSE
-	var/atom/movable/M = caller
-	if(M && M.pulling)
-		return CanAStarPass(ID, to_dir, M.pulling)
+	if(!pass_info.can_ventcrawl && pass_info.mob_size != MOB_SIZE_TINY)
+		return FALSE
+
+	if(pass_info.pulling_info)
+		return CanPathfindPass(to_dir, pass_info.pulling_info)
+
 	return TRUE //diseases, stings, etc can pass
 
 /obj/structure/plasticflaps/deconstruct(disassembled = TRUE)
@@ -94,18 +93,19 @@
 		new /obj/item/stack/sheet/plastic/five(loc)
 	qdel(src)
 
-/obj/structure/plasticflaps/mining //A specific type for mining that doesn't allow airflow because of them damn crates
+/// A specific type for mining that doesn't allow airflow because of them damn crates
+/obj/structure/plasticflaps/mining
 	name = "airtight plastic flaps"
 	desc = "Heavy duty, airtight, plastic flaps."
 
-/obj/structure/plasticflaps/mining/Initialize()
-	air_update_turf(TRUE)
-	..()
+/obj/structure/plasticflaps/mining/Initialize(mapload)
+	. = ..()
+	recalculate_atmos_connectivity()
 
 /obj/structure/plasticflaps/mining/Destroy()
 	var/turf/T = get_turf(src)
 	. = ..()
-	T.air_update_turf(TRUE)
+	T.recalculate_atmos_connectivity()
 
-/obj/structure/plasticflaps/mining/CanAtmosPass(turf/T)
+/obj/structure/plasticflaps/mining/CanAtmosPass(direction)
 	return FALSE

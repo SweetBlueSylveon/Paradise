@@ -4,52 +4,59 @@
 /area/template_noop)
 "b" = (
 /turf/simulated/mineral,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "c" = (
 /turf/simulated/mineral/random/high_chance,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "d" = (
 /turf/simulated/floor/plating/asteroid/airless,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "e" = (
 /turf/simulated/mineral/clown,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "f" = (
 /turf/simulated/floor/plating,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "g" = (
 /obj/item/shard,
 /obj/item/paper{
 	info = "Extraction was successful! The disguise was perfect, the clowns never knew what hit 'em! Once I get back to base with the bananium samples I'll be rich, I tell you! RICH!"
 	},
 /turf/simulated/floor/plating,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "h" = (
 /obj/item/stack/sheet/mineral/bananium{
 	amount = 15
 	},
 /turf/simulated/floor/plating,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "i" = (
 /turf/simulated/wall/mineral/titanium,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "j" = (
 /obj/item/shard,
 /turf/simulated/floor/mineral/titanium/blue,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "k" = (
 /turf/simulated/floor/mineral/titanium/blue,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "l" = (
 /obj/structure/shuttle/engine/propulsion/burst,
 /turf/simulated/wall/mineral/titanium,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
 "m" = (
 /obj/machinery/door/airlock/titanium{
 	name = "Escape Pod Airlock"
 	},
 /turf/simulated/floor/mineral/titanium/blue,
-/area/ruin/unpowered)
+/area/ruin/space/unpowered)
+"p" = (
+/obj/effect/spawner/random/pool/spaceloot/syndicate/mixed,
+/turf/simulated/floor/plating,
+/area/ruin/space/unpowered)
+"Q" = (
+/turf/simulated/mineral/random/low_chance,
+/area/ruin/space/unpowered)
 
 (1,1,1) = {"
 a
@@ -76,7 +83,6 @@ a
 (2,1,1) = {"
 a
 a
-a
 c
 c
 b
@@ -92,12 +98,12 @@ a
 a
 b
 b
+a
 a
 a
 "}
 (3,1,1) = {"
 a
-a
 b
 c
 c
@@ -114,15 +120,15 @@ b
 b
 b
 b
+a
 a
 a
 "}
 (4,1,1) = {"
 a
-a
 b
 c
-c
+Q
 b
 d
 d
@@ -132,16 +138,16 @@ a
 a
 b
 b
+Q
 b
-b
-b
+Q
 a
 a
 b
+a
 "}
 (5,1,1) = {"
 a
-a
 b
 b
 b
@@ -154,9 +160,10 @@ a
 a
 a
 a
-b
-b
-b
+Q
+Q
+Q
+a
 a
 a
 a
@@ -164,10 +171,9 @@ a
 (6,1,1) = {"
 a
 a
-a
 b
-b
-b
+Q
+Q
 b
 b
 d
@@ -181,19 +187,20 @@ a
 a
 a
 b
+a
 a
 "}
 (7,1,1) = {"
 a
 a
-a
 b
 c
-b
+Q
 b
 b
 d
 d
+a
 a
 a
 a
@@ -208,14 +215,14 @@ a
 (8,1,1) = {"
 a
 a
+b
+b
+Q
+b
+b
+d
+d
 a
-b
-b
-b
-b
-b
-d
-d
 a
 a
 a
@@ -231,10 +238,9 @@ a
 a
 a
 a
-a
 b
-b
-b
+Q
+Q
 b
 b
 b
@@ -245,6 +251,7 @@ a
 d
 d
 d
+a
 a
 a
 a
@@ -253,7 +260,6 @@ a
 a
 a
 a
-a
 b
 b
 b
@@ -267,6 +273,7 @@ b
 b
 d
 d
+a
 a
 a
 a
@@ -276,7 +283,6 @@ a
 a
 a
 a
-a
 b
 c
 c
@@ -290,11 +296,11 @@ b
 b
 b
 b
+a
 a
 a
 "}
 (12,1,1) = {"
-a
 a
 a
 a
@@ -314,9 +320,9 @@ i
 i
 l
 a
+a
 "}
 (13,1,1) = {"
-a
 a
 a
 a
@@ -336,6 +342,7 @@ j
 k
 m
 a
+a
 "}
 (14,1,1) = {"
 a
@@ -348,15 +355,15 @@ a
 a
 a
 a
-a
 c
 c
 b
-f
+p
 f
 i
 i
 l
+a
 a
 "}
 (15,1,1) = {"
@@ -367,17 +374,17 @@ a
 a
 a
 a
+b
+b
+b
+b
+b
+b
+b
+b
+b
+b
 a
-b
-b
-b
-b
-b
-b
-b
-b
-b
-b
 a
 a
 "}
@@ -386,11 +393,10 @@ a
 a
 a
 a
-a
 b
-b
-b
-b
+Q
+Q
+Q
 b
 b
 b
@@ -399,6 +405,7 @@ a
 c
 c
 b
+a
 a
 a
 a
@@ -407,12 +414,12 @@ a
 a
 a
 a
+Q
+Q
+Q
+b
+b
 a
-b
-b
-b
-b
-b
 a
 a
 a
@@ -431,8 +438,8 @@ a
 a
 a
 a
-a
 b
+a
 a
 a
 a
@@ -448,28 +455,6 @@ a
 a
 "}
 (19,1,1) = {"
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-a
-"}
-(20,1,1) = {"
 a
 a
 a

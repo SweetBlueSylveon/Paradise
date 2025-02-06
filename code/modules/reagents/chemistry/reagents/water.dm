@@ -55,14 +55,13 @@
 	color = "#61C2C2"
 	harmless = TRUE
 	taste_description = "floor cleaner"
+	process_flags = ORGANIC | SYNTHETIC
 
 /datum/reagent/space_cleaner/reaction_obj(obj/O, volume)
-	if(istype(O, /obj/effect))
+	if(iseffect(O))
 		var/obj/effect/E = O
 		if(E.is_cleanable())
-			var/obj/effect/decal/cleanable/blood/B = E
-			if(!(istype(B) && B.off_floor))
-				qdel(E)
+			qdel(E)
 	else
 		if(O.simulated)
 			O.color = initial(O.color)
@@ -75,7 +74,22 @@
 	M.clean_blood()
 
 /datum/reagent/blood
-	data = list("donor"=null,"viruses"=null,"blood_DNA"=null,"blood_type"=null,"blood_colour"="#A10808","resistances"=null,"trace_chem"=null,"mind"=null,"ckey"=null,"gender"=null,"real_name"=null,"cloneable"=null,"factions"=null, "dna" = null)
+	data = list("donor" = null,
+				"viruses" = null,
+				"blood_DNA" = null,
+				"blood_type" = null,
+				"blood_colour" = "#A10808",
+				"resistances" = null,
+				"trace_chem" = null,
+				"mind" = null,
+				"ckey" = null,
+				"gender" = null,
+				"real_name" = null,
+				"cloneable" = null,
+				"factions" = null,
+				"dna" = null,
+				"species" = "Synthetic Humanoid",
+				"species_only" = FALSE)
 	name = "Blood"
 	id = "blood"
 	reagent_state = LIQUID
@@ -87,7 +101,7 @@
 	taste_description = "<span class='warning'>blood</span>"
 	taste_mult = 1.3
 
-/datum/reagent/blood/reaction_mob(mob/living/M, method=REAGENT_TOUCH, volume)
+/datum/reagent/blood/reaction_mob(mob/living/M, method = REAGENT_TOUCH, volume)
 	if(data && data["viruses"])
 		for(var/thing in data["viruses"])
 			var/datum/disease/D = thing
@@ -102,43 +116,54 @@
 
 	if(method == REAGENT_INGEST && iscarbon(M))
 		var/mob/living/carbon/C = M
-		if(C.get_blood_id() == "blood")
-			if((!data || !(data["blood_type"] in get_safe_blood(C.dna.blood_type))))
-				C.reagents.add_reagent("toxin", volume * 0.5)
-			else
-				C.blood_volume = min(C.blood_volume + round(volume, 0.1), BLOOD_VOLUME_NORMAL)
+		if(C.mind?.has_antag_datum(/datum/antagonist/vampire) && data["blood_type"] != BLOOD_TYPE_FAKE_BLOOD)
+			C.set_nutrition(min(NUTRITION_LEVEL_WELL_FED, C.nutrition + 10))
+			C.blood_volume = min(C.blood_volume + round(volume, 0.1), BLOOD_VOLUME_NORMAL)
+	..()
 
 /datum/reagent/blood/on_new(list/data)
 	if(istype(data))
 		SetViruses(src, data)
 
 /datum/reagent/blood/on_merge(list/mix_data)
-	if(data && mix_data)
-		data["cloneable"] = 0 //On mix, consider the genetic sampling unviable for pod cloning, or else we won't know who's even getting cloned, etc
-		if(data["viruses"] || mix_data["viruses"])
+	if(!data || !mix_data)
+		return
 
-			var/list/mix1 = data["viruses"]
-			var/list/mix2 = mix_data["viruses"]
+	var/same_species = data["species"] == mix_data["species"]
+	var/species_unique = data["species_only"] || mix_data["species_only"]
+	var/species_mismatch = species_unique && !same_species
+	var/type_mismatch = data["blood_type"] != mix_data["blood_type"]
 
-			// Stop issues with the list changing during mixing.
-			var/list/to_mix = list()
+	if(mix_data["blood_color"])
+		color = mix_data["blood_color"]
+	data["cloneable"] = 0 // On mix, consider the genetic sampling unviable for pod cloning, or else we won't know who's even getting cloned
 
-			for(var/datum/disease/advance/AD in mix1)
-				to_mix += AD
-			for(var/datum/disease/advance/AD in mix2)
-				to_mix += AD
+	if(type_mismatch || species_mismatch)
+		data["species"] = "Coagulated"
+		data["blood_type"] = "<span class='warning'>UNUSABLE!</span>"
+		data["species_only"] = species_unique
+	else if(!same_species) // Same blood type, species-agnostic, but we're still mixing blood of different species
+		data["species"] = "Mixed Humanoid"
 
-			var/datum/disease/advance/AD = Advance_Mix(to_mix)
-			if(AD)
-				var/list/preserve = list(AD)
-				for(var/D in data["viruses"])
-					if(!istype(D, /datum/disease/advance))
-						preserve += D
-				data["viruses"] = preserve
+	if(data["viruses"] || mix_data["viruses"])
+		var/list/mix1 = data["viruses"]
+		var/list/mix2 = mix_data["viruses"]
 
-		if(mix_data["blood_color"])
-			color = mix_data["blood_color"]
-	return 1
+		// Stop issues with the list changing during mixing.
+		var/list/to_mix = list()
+
+		for(var/datum/disease/advance/AD in mix1)
+			to_mix += AD
+		for(var/datum/disease/advance/AD in mix2)
+			to_mix += AD
+
+		var/datum/disease/advance/AD = Advance_Mix(to_mix)
+		if(AD)
+			var/list/preserve = list(AD)
+			for(var/D in data["viruses"])
+				if(!istype(D, /datum/disease/advance))
+					preserve += D
+			data["viruses"] = preserve
 
 /datum/reagent/blood/on_update(atom/A)
 	if(data["blood_color"])
@@ -150,13 +175,13 @@
 		return
 	if(volume < 3)
 		return
-	if(!data["donor"] || istype(data["donor"], /mob/living/carbon/human))
+	if(!data["donor"] || ishuman(data["donor"]))
 		var/obj/effect/decal/cleanable/blood/blood_prop = locate() in T //find some blood here
 		if(!blood_prop) //first blood!
 			blood_prop = new(T)
 			blood_prop.blood_DNA[data["blood_DNA"]] = data["blood_type"]
 
-	else if(istype(data["donor"], /mob/living/carbon/alien))
+	else if(isalien(data["donor"]))
 		var/obj/effect/decal/cleanable/blood/xeno/blood_prop = locate() in T
 		if(!blood_prop)
 			blood_prop = new(T)
@@ -177,9 +202,9 @@
 				D.cure()
 		M.resistances |= data
 
-/datum/reagent/vaccine/on_merge(list/data)
-	if(istype(data))
-		data |= data.Copy()
+/datum/reagent/vaccine/on_merge(list/incoming_data)
+	if(islist(incoming_data))
+		data |= incoming_data.Copy()
 
 /datum/reagent/fishwater
 	name = "Fish Water"
@@ -188,18 +213,21 @@
 	reagent_state = LIQUID
 	color = "#757547"
 	taste_description = "puke"
+	harmless = FALSE
 
 /datum/reagent/fishwater/reaction_mob(mob/living/M, method=REAGENT_TOUCH, volume)
 	if(method == REAGENT_INGEST)
 		to_chat(M, "Oh god, why did you drink that?")
 
 /datum/reagent/fishwater/on_mob_life(mob/living/M)
+	var/update_flags = STATUS_UPDATE_NONE
 	if(prob(30))		// Nasty, you drank this stuff? 30% chance of the fakevomit (non-stunning version)
 		if(prob(50))	// 50/50 chance of green vomit vs normal vomit
 			M.fakevomit(1)
 		else
 			M.fakevomit(0)
-	return ..()
+	update_flags |= M.adjustToxLoss(1 * REAGENTS_EFFECT_MULTIPLIER, FALSE)
+	return ..() | update_flags
 
 /datum/reagent/fishwater/toiletwater
 	name = "Toilet Water"
@@ -226,17 +254,17 @@
 
 /datum/reagent/holywater/on_mob_life(mob/living/M)
 	var/update_flags = STATUS_UPDATE_NONE
-	M.AdjustJitter(-5)
+	M.AdjustJitter(-10 SECONDS)
 	if(current_cycle >= 30)		// 12 units, 60 seconds @ metabolism 0.4 units & tick rate 2.0 sec
-		M.AdjustStuttering(4, bound_lower = 0, bound_upper = 20)
-		M.Dizzy(5)
-		if(iscultist(M))
+		M.AdjustStuttering(8 SECONDS, bound_lower = 0, bound_upper = 40 SECONDS)
+		M.Dizzy(10 SECONDS)
+		if(IS_CULTIST(M))
 			for(var/datum/action/innate/cult/blood_magic/BM in M.actions)
 				for(var/datum/action/innate/cult/blood_spell/BS in BM.spells)
 					to_chat(M, "<span class='cultlarge'>Your blood rites falter as holy water scours your body!</span>")
 					qdel(BS)
 			if(prob(5))
-				M.AdjustCultSlur(5)//5 seems like a good number...
+				M.AdjustCultSlur(10 SECONDS)//5 seems like a good number...
 				M.say(pick("Av'te Nar'sie","Pa'lid Mors","INO INO ORA ANA","SAT ANA!","Daim'niodeis Arc'iai Le'eones","Egkau'haom'nai en Chaous","Ho Diak'nos tou Ap'iron","R'ge Na'sie","Diabo us Vo'iscum","Si gn'um Co'nu"))
 		if(isvampirethrall(M))
 			if(prob(10))
@@ -245,69 +273,78 @@
 				M.visible_message("<span class='warning'>A fog lifts from [M]'s eyes for a moment, but soon returns.</span>")
 
 	if(current_cycle >= 75 && prob(33))	// 30 units, 150 seconds
-		M.AdjustConfused(3)
+		M.AdjustConfused(6 SECONDS)
 		if(isvampirethrall(M))
-			SSticker.mode.remove_vampire_mind(M.mind)
+			M.mind.remove_antag_datum(/datum/antagonist/mindslave/thrall)
+
 			holder.remove_reagent(id, volume)
+			M.visible_message("<span class='biggerdanger'>[M] recoils, their skin flushes with colour, regaining their sense of control!</span>")
 			M.SetJitter(0)
 			M.SetStuttering(0)
 			M.SetConfused(0)
 			return
-		if(iscultist(M))
-			SSticker.mode.remove_cultist(M.mind, TRUE, TRUE)
+		if(IS_CULTIST(M))
+			var/datum/antagonist/cultist/cultist = IS_CULTIST(M)
+			cultist.remove_gear_on_removal = TRUE
+			M.mind.remove_antag_datum(/datum/antagonist/cultist)
+
 			holder.remove_reagent(id, volume)	// maybe this is a little too perfect and a max() cap on the statuses would be better??
 			M.SetJitter(0)
 			M.SetStuttering(0)
 			M.SetConfused(0)
 			return
-	if(ishuman(M) && M.mind && M.mind.vampire && !M.mind.vampire.get_ability(/datum/vampire_passive/full) && prob(80))
+	var/datum/antagonist/vampire/vamp = M.mind?.has_antag_datum(/datum/antagonist/vampire)
+	if(ishuman(M) && vamp && !vamp.get_ability(/datum/vampire_passive/full) && prob(80))
 		var/mob/living/carbon/V = M
-		if(M.mind.vampire.bloodusable)
-			M.Stuttering(1)
-			M.Jitter(30)
+		if(vamp.bloodusable)
+			M.Stuttering(2 SECONDS)
+			M.Jitter(60 SECONDS)
 			update_flags |= M.adjustStaminaLoss(5, FALSE)
 			if(prob(20))
 				M.emote("scream")
-			M.mind.vampire.adjust_nullification(5, 2)
-			M.mind.vampire.bloodusable = max(M.mind.vampire.bloodusable - 3,0)
-			if(M.mind.vampire.bloodusable)
-				V.vomit(0,1)
+			vamp.adjust_nullification(20, 4)
+			vamp.bloodusable = max(vamp.bloodusable - 3,0)
+			if(vamp.bloodusable)
+				V.vomit(0, TRUE, FALSE)
+				V.adjustBruteLoss(3)
 			else
 				holder.remove_reagent(id, volume)
-				V.vomit(0,0)
+				V.vomit(0, FALSE, FALSE)
 				return
 		else
+			if(!vamp.bloodtotal)
+				return ..() | update_flags
 			switch(current_cycle)
 				if(1 to 4)
 					to_chat(M, "<span class = 'warning'>Something sizzles in your veins!</span>")
-					M.mind.vampire.adjust_nullification(5, 2)
+					vamp.adjust_nullification(20, 4)
 				if(5 to 12)
 					to_chat(M, "<span class = 'danger'>You feel an intense burning inside of you!</span>")
 					update_flags |= M.adjustFireLoss(1, FALSE)
-					M.Stuttering(1)
-					M.Jitter(20)
+					M.Stuttering(2 SECONDS)
+					M.Jitter(40 SECONDS)
 					if(prob(20))
 						M.emote("scream")
-					M.mind.vampire.adjust_nullification(5, 2)
+					vamp.adjust_nullification(20, 4)
 				if(13 to INFINITY)
-					to_chat(M, "<span class = 'danger'>You suddenly ignite in a holy fire!</span>")
-					for(var/mob/O in viewers(M, null))
-						O.show_message(text("<span class = 'danger'>[] suddenly bursts into flames!</span>", M), 1)
-					M.fire_stacks = min(5,M.fire_stacks + 3)
-					M.IgniteMob()			//Only problem with igniting people is currently the commonly availible fire suits make you immune to being on fire
-					update_flags |= M.adjustFireLoss(3, FALSE)		//Hence the other damages... ain't I a bastard?
-					M.Stuttering(1)
-					M.Jitter(30)
+					M.visible_message("<span class='danger'>[M] suddenly bursts into flames!</span>",
+									"<span class='danger'>You suddenly ignite in a holy fire!</span>")
+					M.fire_stacks = min(5, M.fire_stacks + 3)
+					M.IgniteMob()
+					update_flags |= M.adjustFireLoss(3, FALSE)
+					M.Stuttering(2 SECONDS)
+					M.Jitter(60 SECONDS)
 					if(prob(40))
 						M.emote("scream")
-					M.mind.vampire.adjust_nullification(5, 2)
+					vamp.adjust_nullification(20, 4)
 	return ..() | update_flags
 
 
 /datum/reagent/holywater/reaction_mob(mob/living/M, method=REAGENT_TOUCH, volume)
 	// Vampires have their powers weakened by holy water applied to the skin.
-	if(ishuman(M) && M.mind && M.mind.vampire && !M.mind.vampire.get_ability(/datum/vampire_passive/full))
-		var/mob/living/carbon/human/H=M
+	var/datum/antagonist/vampire/V = M.mind?.has_antag_datum(/datum/antagonist/vampire)
+	if(ishuman(M) && V && !V.get_ability(/datum/vampire_passive/full))
+		var/mob/living/carbon/human/H = M
 		if(method == REAGENT_TOUCH)
 			if(H.wear_mask)
 				to_chat(H, "<span class='warning'>Your mask protects you from the holy water!</span>")
@@ -317,7 +354,7 @@
 				return
 			else
 				to_chat(M, "<span class='warning'>Something holy interferes with your powers!</span>")
-				M.mind.vampire.adjust_nullification(5, 2)
+				V.adjust_nullification(5, 2)
 
 
 /datum/reagent/holywater/reaction_turf(turf/simulated/T, volume)
@@ -328,32 +365,35 @@
 			qdel(R)
 	T.Bless()
 
-/datum/reagent/fuel/unholywater		//if you somehow managed to extract this from someone, dont splash it on yourself and have a smoke
+/// if you somehow managed to extract this from someone, dont splash it on yourself and have a smoke
+/datum/reagent/fuel/unholywater
 	name = "Unholy Water"
 	id = "unholywater"
-	description = "Something that shouldn't exist on this plane of existance."
+	description = "Something that shouldn't exist on this plane of existence."
 	process_flags = ORGANIC | SYNTHETIC //ethereal means everything processes it.
 	metabolization_rate = 1
 	taste_description = "sulfur"
 
 /datum/reagent/fuel/unholywater/on_mob_life(mob/living/M)
 	var/update_flags = STATUS_UPDATE_NONE
-	if(iscultist(M))
-		M.AdjustDrowsy(-5)
-		update_flags |= M.AdjustParalysis(-1, FALSE)
-		update_flags |= M.AdjustStunned(-2, FALSE)
-		update_flags |= M.AdjustWeakened(-2, FALSE)
-		update_flags |= M.adjustToxLoss(-2, FALSE)
-		update_flags |= M.adjustFireLoss(-2, FALSE)
-		update_flags |= M.adjustOxyLoss(-2, FALSE)
-		update_flags |= M.adjustBruteLoss(-2, FALSE)
+	if(IS_CULTIST(M))
+		M.AdjustDrowsy(-10 SECONDS)
+		M.AdjustParalysis(-2 SECONDS)
+		M.AdjustStunned(-4 SECONDS)
+		M.AdjustWeakened(-4 SECONDS)
+		M.AdjustKnockDown(-4 SECONDS)
+		update_flags |= M.adjustStaminaLoss(-25, FALSE)
+		update_flags |= M.adjustToxLoss(-1, FALSE)
+		update_flags |= M.adjustFireLoss(-1, FALSE)
+		update_flags |= M.adjustOxyLoss(-1, FALSE)
+		update_flags |= M.adjustBruteLoss(-1, FALSE)
 	else
 		update_flags |= M.adjustBrainLoss(3, FALSE)
 		update_flags |= M.adjustToxLoss(1, FALSE)
 		update_flags |= M.adjustFireLoss(2, FALSE)
 		update_flags |= M.adjustOxyLoss(2, FALSE)
 		update_flags |= M.adjustBruteLoss(2, FALSE)
-		M.AdjustCultSlur(10)//CUASE WHY THE HELL NOT
+		M.AdjustCultSlur(20 SECONDS) //CUASE WHY THE HELL NOT
 	return ..() | update_flags
 
 /datum/reagent/hellwater
@@ -362,7 +402,6 @@
 	description = "YOUR FLESH! IT BURNS!"
 	process_flags = ORGANIC | SYNTHETIC		//Admin-bus has no brakes! KILL THEM ALL.
 	metabolization_rate = 1
-	can_synth = FALSE
 	taste_description = "burning"
 
 /datum/reagent/hellwater/on_mob_life(mob/living/M)
@@ -385,7 +424,7 @@
 /datum/reagent/liquidgibs/reaction_turf(turf/T, volume) //yes i took it from synthflesh...
 	if(volume >= 5 && !isspaceturf(T))
 		new /obj/effect/decal/cleanable/blood/gibs/cleangibs(T)
-		playsound(T, 'sound/effects/splat.ogg', 50, 1, -3)
+		playsound(T, 'sound/effects/splat.ogg', 50, TRUE, -3)
 
 /datum/reagent/lye
 	name = "Lye"
@@ -412,3 +451,28 @@
 		var/t_loc = get_turf(O)
 		qdel(O)
 		new /obj/item/clothing/shoes/galoshes/dry(t_loc)
+
+/datum/reagent/saturated_activated_charcoal
+	name = "Saturated activated charcoal"
+	id = "saturated_charcoal"
+	description = "Charcoal that is completely saturated with various toxins. Useless."
+	reagent_state = LIQUID
+	color = "#29262b"
+	taste_description = "burnt dirt"
+
+/datum/reagent/tar_compound
+	name = "Sticky tar"
+	id = "sticky_tar"
+	description = "A sticky compound that creates tar on contact with surfaces."
+	reagent_state = LIQUID
+	color = "#4B4B4B"
+	harmless = FALSE
+	taste_description = "processed sludge"
+
+/datum/reagent/tar_compound/reaction_turf(turf/simulated/T, volume)
+	if(volume < 1 || !issimulatedturf(T))
+		return
+	var/obj/effect/decal/cleanable/tar/C = locate() in T
+	if(C) // We don't want the slowdown to stack
+		return
+	new /obj/effect/decal/cleanable/tar(T)

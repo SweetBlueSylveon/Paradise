@@ -27,30 +27,20 @@ import { Box, Button, Flex, Icon, Section } from '../../components';
  */
 export const LoginScreen = (_properties, context) => {
   const { act, data } = useBackend(context);
-  const {
-    loginState,
-    isAI,
-    isRobot,
-    isAdmin,
-  } = data;
+  const { loginState, isAI, isRobot, isAdmin } = data;
   return (
-    <Section title="Welcome" height="100%" stretchContents>
+    <Section title="Welcome" fill stretchContents>
       <Flex height="100%" align="center" justify="center">
         <Flex.Item textAlign="center" mt="-2rem">
           <Box fontSize="1.5rem" bold>
-            <Icon
-              name="user-circle"
-              verticalAlign="middle"
-              size={3}
-              mr="1rem"
-            />
+            <Icon name="user-circle" verticalAlign="middle" size={3} mr="1rem" />
             Guest
           </Box>
           <Box color="label" my="1rem">
             ID:
             <Button
               icon="id-card"
-              content={loginState.id ? loginState.id : "----------"}
+              content={loginState.id ? loginState.id : '----------'}
               ml="0.5rem"
               onClick={() => act('login_insert')}
             />
@@ -59,35 +49,43 @@ export const LoginScreen = (_properties, context) => {
             icon="sign-in-alt"
             disabled={!loginState.id}
             content="Login"
-            onClick={() => act('login_login', {
-              login_type: 1,
-            })}
+            onClick={() =>
+              act('login_login', {
+                login_type: 1,
+              })
+            }
           />
           {!!isAI && (
             <Button
               icon="sign-in-alt"
               content="Login as AI"
-              onClick={() => act('login_login', {
-                login_type: 2,
-              })}
+              onClick={() =>
+                act('login_login', {
+                  login_type: 2,
+                })
+              }
             />
           )}
           {!!isRobot && (
             <Button
               icon="sign-in-alt"
               content="Login as Cyborg"
-              onClick={() => act('login_login', {
-                login_type: 3,
-              })}
+              onClick={() =>
+                act('login_login', {
+                  login_type: 3,
+                })
+              }
             />
           )}
           {!!isAdmin && (
             <Button
               icon="sign-in-alt"
               content="CentComm Secure Login"
-              onClick={() => act('login_login', {
-                login_type: 4,
-              })}
+              onClick={() =>
+                act('login_login', {
+                  login_type: 4,
+                })
+              }
             />
           )}
         </Flex.Item>
