@@ -42,13 +42,13 @@
 		if(prob(20))	//chance to become a stationary snowman structure instead of a corpse
 			loot.Add(/obj/structure/snowman)
 			deathmessage = "shimmers as its animating magic fades away!"
-			del_on_death = 1
+			del_on_death = TRUE
 	return ..()
 
 /mob/living/simple_animal/hostile/winter/snowman/ranged
 	maxHealth = 50
 	health = 50
-	ranged = 1
+	ranged = TRUE
 	retreat_distance = 5
 	minimum_distance = 5
 	projectiletype = /obj/item/projectile/snowball
@@ -59,7 +59,7 @@
 	icon_state = "reindeer"
 	icon_living = "reindeer"
 	icon_dead = "reindeer-dead"
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 3)
+	butcher_results = list(/obj/item/food/meat = 3)
 	maxHealth = 80
 	health = 80
 	melee_damage_lower = 5
@@ -89,7 +89,8 @@
 			new next_stage(get_turf(src))
 			qdel(src)	//hide the body
 
-/mob/living/simple_animal/hostile/winter/santa/stage_1		//stage 1: slow melee
+/// stage 1: slow melee
+/mob/living/simple_animal/hostile/winter/santa/stage_1
 	maxHealth = 150
 	health = 150
 	desc = "GET THE FAT MAN!"
@@ -99,31 +100,34 @@
 	melee_damage_lower = 10
 	melee_damage_upper = 20
 
-/mob/living/simple_animal/hostile/winter/santa/stage_2		//stage 2: slow ranged
+/// stage 2: slow ranged
+/mob/living/simple_animal/hostile/winter/santa/stage_2
 	desc = "GET THE FAT MAN AGAIN!"
 	next_stage = /mob/living/simple_animal/hostile/winter/santa/stage_3
 	death_message = "<span class='danger'>YOU'VE BEEN VERY NAUGHTY! PREPARE TO DIE!</span>"
 	maxHealth = 200		//DID YOU REALLY BELIEVE IT WOULD BE THIS EASY!??!!
 	health = 200
-	ranged = 1
+	ranged = TRUE
 	projectiletype = /obj/item/projectile/ornament
 	retreat_distance = 5
 	minimum_distance = 5
 
-/mob/living/simple_animal/hostile/winter/santa/stage_3		//stage 3: fast rapidfire ranged
+/// stage 3: fast rapidfire ranged
+/mob/living/simple_animal/hostile/winter/santa/stage_3
 	desc = "WHY WON'T HE DIE ALREADY!?"
 	next_stage = /mob/living/simple_animal/hostile/winter/santa/stage_4
 	death_message = "<span class='danger'>FACE MY FINAL FORM AND KNOW DESPAIR!</span>"
 	maxHealth = 250
 	health = 250
-	ranged = 1
+	ranged = TRUE
 	rapid = 3
 	speed = 0	//he's lost some weight from the fighting
 	projectiletype = /obj/item/projectile/ornament
 	retreat_distance = 3
 	minimum_distance = 3
 
-/mob/living/simple_animal/hostile/winter/santa/stage_4		//stage 4: fast spinebreaker
+/// stage 4: fast spinebreaker
+/mob/living/simple_animal/hostile/winter/santa/stage_4
 	name = "Final Form Santa"
 	desc = "WHAT THE HELL IS HE!?! WHY WON'T HE STAY DEAD!?!"
 	maxHealth = 300		//YOU FACE JARAX- I MEAN SANTA!

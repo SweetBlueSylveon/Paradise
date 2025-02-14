@@ -3,18 +3,19 @@
 	name = "Fungal tuberculosis"
 	max_stages = 5
 	spread_text = "Airborne"
-	cure_text = "Spaceacillin & salbutamol"
+	cure_text = "Spaceacillin & Salbutamol"
 	cures = list("spaceacillin", "salbutamol")
 	agent = "Fungal Tubercle bacillus Cosmosis"
 	viable_mobtypes = list(/mob/living/carbon/human)
-	cure_chance = 5//like hell are you getting out of hell
+	cure_chance = 5 // Like hell are you getting out of hell
 	desc = "A rare highly transmittable virulent virus. Few samples exist, rumoured to be carefully grown and cultured by clandestine bio-weapon specialists. Causes fever, blood vomiting, lung damage, weight loss, and fatigue."
-	required_organs = list(/obj/item/organ/internal/lungs)
-	severity = DANGEROUS
+	required_organs = list(ORGAN_DATUM_LUNGS)
+	severity = HARMFUL
 	bypasses_immunity = TRUE //Fungal and bacterial in nature; also infects the lungs
 
-/datum/disease/tuberculosis/stage_act() //it begins
-	..()
+/datum/disease/tuberculosis/stage_act()
+	if(!..())
+		return FALSE
 	switch(stage)
 		if(2)
 			if(prob(2))
@@ -27,7 +28,7 @@
 		if(4)
 			if(prob(2))
 				to_chat(affected_mob, "<span class='userdanger'>You see four of everything</span>")
-				affected_mob.Dizzy(5)
+				affected_mob.Dizzy(10 SECONDS)
 			if(prob(2))
 				to_chat(affected_mob, "<span class='danger'>You feel a sharp pain from your lower chest!</span>")
 				affected_mob.adjustOxyLoss(5)
@@ -43,10 +44,10 @@
 			if(prob(10))
 				affected_mob.adjustStaminaLoss(100)
 				affected_mob.visible_message("<span class='warning'>[affected_mob] faints!</span>", "<span class='userdanger'>You surrender yourself and feel at peace...</span>")
-				affected_mob.AdjustSleeping(5)
+				affected_mob.AdjustSleeping(10 SECONDS)
 			if(prob(2))
 				to_chat(affected_mob, "<span class='userdanger'>You feel your mind relax and your thoughts drift!</span>")
-				affected_mob.AdjustConfused(8, bound_lower = 0, bound_upper = 100)
+				affected_mob.AdjustConfused(16 SECONDS, bound_lower = 0, bound_upper = 200 SECONDS)
 			if(prob(10))
 				affected_mob.vomit(20)
 			if(prob(3))

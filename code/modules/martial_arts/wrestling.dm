@@ -1,6 +1,7 @@
 /datum/martial_art/wrestling
 	name = "Wrestling"
-	help_verb = /mob/living/carbon/human/proc/wrestling_help
+	weight = 3
+	has_explaination_verb = TRUE
 
 //	combo refence since wrestling uses a different format to sleeping carp and plasma fist.
 //	Clinch "G"
@@ -27,7 +28,7 @@
 	D.forceMove(A.loc)
 	var/armor_block = D.run_armor_check(null, MELEE)
 	D.apply_damage(30, BRUTE, null, armor_block)
-	D.apply_effect(6, WEAKEN, armor_block)
+	D.apply_effect(12 SECONDS, WEAKEN, armor_block)
 	add_attack_logs(A, D, "Melee attacked with [src] (SUPLEX)")
 
 	A.SpinAnimation(10,1)
@@ -35,7 +36,7 @@
 	D.SpinAnimation(10,1)
 	spawn(3)
 		armor_block = A.run_armor_check(null, MELEE)
-		A.apply_effect(4, WEAKEN, armor_block)
+		A.apply_effect(8 SECONDS, WEAKEN, armor_block)
 	return
 
 /datum/martial_art/wrestling/disarm_act(mob/living/carbon/human/A, mob/living/carbon/human/D)
@@ -56,12 +57,12 @@
 	D.apply_damage(10, STAMINA, affecting, armor_block)
 	return 1
 
-/mob/living/carbon/human/proc/wrestling_help()
-	set name = "Recall Teachings"
-	set desc = "Remember how to wrestle."
-	set category = "Wrestling"
+/datum/martial_art/wrestling/explaination_header(user)
+	. = ..()
+	to_chat(user, "<b><i>You flex your muscles and have a revelation...</i></b>")
 
-	to_chat(usr, "<b><i>You flex your muscles and have a revelation...</i></b>")
-	to_chat(usr, "<span class='notice'>Clinch</span>: Grab. Passively gives you a chance to immediately aggressively grab someone. Not always successful.")
-	to_chat(usr, "<span class='notice'>Suplex</span>: Disarm someone you are grabbing. Suplexes your target to the floor. Greatly injures them and leaves both you and your target on the floor.")
-	to_chat(usr, "<span class='notice'>Advanced grab</span>: Grab. Passively causes stamina damage when grabbing someone.")
+/datum/martial_art/wrestling/explaination_combos(user)
+	. = ..()
+	to_chat(user, "<span class='notice'>Clinch</span>: Grab. Passively gives you a chance to immediately aggressively grab someone. Not always successful.")
+	to_chat(user, "<span class='notice'>Suplex</span>: Disarm someone you are grabbing. Suplexes your target to the floor. Greatly injures them and leaves both you and your target on the floor.")
+	to_chat(user, "<span class='notice'>Advanced grab</span>: Grab. Passively causes stamina damage when grabbing someone.")

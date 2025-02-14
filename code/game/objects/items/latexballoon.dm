@@ -1,6 +1,6 @@
 /obj/item/latexballon
 	name = "latex glove"
-	desc = "" //todo
+	desc = "You wanted a fiery fist o' pain, but all you got was this dumb balloon."
 	icon_state = "latexballon"
 	item_state = "lgloves"
 	force = 0
@@ -8,6 +8,7 @@
 	w_class = WEIGHT_CLASS_TINY
 	throw_speed = 1
 	throw_range = 7
+	cares_about_temperature = TRUE
 	var/state
 	var/datum/gas_mixture/air_contents = null
 
@@ -35,15 +36,16 @@
 		var/mob/living/user = loc
 		user.update_inv_r_hand()
 		user.update_inv_l_hand()
-	loc.assume_air(air_contents)
+	var/turf/T = get_turf(src)
+	T.blind_release_air(air_contents)
 
 /obj/item/latexballon/ex_act(severity)
 	burst()
 	switch(severity)
-		if (1)
+		if(1)
 			qdel(src)
-		if (2)
-			if (prob(50))
+		if(2)
+			if(prob(50))
 				qdel(src)
 
 /obj/item/latexballon/bullet_act(obj/item/projectile/P)
@@ -51,15 +53,15 @@
 		burst()
 	return ..()
 
-/obj/item/latexballon/temperature_expose(datum/gas_mixture/air, temperature, volume)
+/obj/item/latexballon/temperature_expose(temperature, volume)
 	..()
 	if(temperature > T0C+100)
 		burst()
 
-/obj/item/latexballon/attackby(obj/item/W, mob/user, params)
+/obj/item/latexballon/attackby__legacy__attackchain(obj/item/W, mob/user, params)
 	if(istype(W, /obj/item/tank))
 		var/obj/item/tank/T = W
 		blow(T, user)
 		return
-	if(is_sharp(W) || is_hot(W) || is_pointed(W))
+	if(W.sharp || W.get_heat() || is_pointed(W))
 		burst()

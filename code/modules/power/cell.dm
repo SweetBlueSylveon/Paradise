@@ -10,14 +10,23 @@
 	throw_speed = 2
 	throw_range = 5
 	w_class = WEIGHT_CLASS_SMALL
-	var/charge = 0	// note %age conveted to actual charge in New
+	/// Battery's current state of charge (kilojoules)
+	var/charge = 0
+	/// Battery's maximum state of charge (kilojoules)
 	var/maxcharge = 1000
+	/// How much energy the cell starts with (kilojoules)
+	var/starting_charge
 	materials = list(MAT_METAL = 700, MAT_GLASS = 50)
-	var/rigged = FALSE		// true if rigged to explode
-	var/chargerate = 100 //how much power is given every tick in a recharger
-	var/self_recharge = 0 //does it self recharge, over time, or not?
+	///If the battery will explode
+	var/rigged = FALSE
+	/// How much energy is given to a recharging cell every tick (kilojoules / tick)
+	var/chargerate = 100
+	///Whether it will recharge automatically
+	var/self_recharge = FALSE
+	///Whether the description will include the maxcharge
 	var/ratingdesc = TRUE
-	var/grown_battery = FALSE // If it's a grown that acts as a battery, add a wire overlay to it.
+	///Additional overlay to signify battery being organic
+	var/grown_battery = FALSE
 
 /obj/item/stock_parts/cell/get_cell()
 	return src
@@ -25,10 +34,11 @@
 /obj/item/stock_parts/cell/New()
 	..()
 	START_PROCESSING(SSobj, src)
-	charge = maxcharge
+	charge = !isnull(starting_charge) ? starting_charge : maxcharge
 	if(ratingdesc)
-		desc += " This one has a power rating of [DisplayPower(maxcharge)], and you should not swallow it."
-	update_icon()
+		// State of charge is in kJ so we multiply it by 1000 to get Joules
+		desc += " This one has a power rating of [DisplayJoules(maxcharge * 1000)], and you should not swallow it."
+	update_icon(UPDATE_OVERLAYS)
 
 /obj/item/stock_parts/cell/Destroy()
 	STOP_PROCESSING(SSobj, src)
@@ -49,16 +59,16 @@
 	else
 		return PROCESS_KILL
 
-/obj/item/stock_parts/cell/update_icon()
-	overlays.Cut()
+/obj/item/stock_parts/cell/update_overlays()
+	. = ..()
 	if(grown_battery)
-		overlays += image('icons/obj/power.dmi', "grown_wires")
+		. += image('icons/obj/power.dmi', "grown_wires")
 	if(charge < 0.01)
 		return
 	else if(charge/maxcharge >=0.995)
-		overlays += "cell-o2"
+		. += "cell-o2"
 	else
-		overlays += "cell-o1"
+		. += "cell-o1"
 
 /obj/item/stock_parts/cell/proc/percent()		// return % charge of cell
 	return 100 * charge / maxcharge
@@ -92,22 +102,19 @@
 		. += "The charge meter reads [round(percent() )]%."
 
 /obj/item/stock_parts/cell/suicide_act(mob/user)
-	to_chat(viewers(user), "<span class='suicide'>[user] is licking the electrodes of [src]! It looks like [user.p_theyre()] trying to commit suicide.</span>")
+	to_chat(viewers(user), "<span class='suicide'>[user] is licking the electrodes of [src]! It looks like [user.p_theyre()] trying to commit suicide!</span>")
 	return FIRELOSS
 
-/obj/item/stock_parts/cell/attackby(obj/item/W, mob/user, params)
+/obj/item/stock_parts/cell/attackby__legacy__attackchain(obj/item/W, mob/user, params)
 	if(istype(W, /obj/item/reagent_containers/syringe))
 		var/obj/item/reagent_containers/syringe/S = W
 
-		to_chat(user, "You inject the solution into the power cell.")
-
 		if(S.reagents.has_reagent("plasma", 5) || S.reagents.has_reagent("plasma_dust", 5))
-
+			to_chat(user, "You inject the solution into the power cell.")
 			rigged = TRUE
 
 			log_admin("LOG: [key_name(user)] injected a power cell with plasma, rigging it to explode.")
 			message_admins("LOG: [key_name_admin(user)] injected a power cell with plasma, rigging it to explode.")
-
 		S.reagents.clear_reagents()
 	else
 		return ..()
@@ -117,6 +124,7 @@
 	var/turf/T = get_turf(loc)
 	if(charge == 0)
 		return
+
 	var/devastation_range = -1 //round(charge/11000)
 	var/heavy_impact_range = round(sqrt(charge) / 60)
 	var/light_impact_range = round(sqrt(charge) / 30)
@@ -130,6 +138,7 @@
 	message_admins("LOG: Rigged power cell explosion, last touched by [fingerprintslast]")
 
 	explosion(T, devastation_range, heavy_impact_range, light_impact_range, flash_range)
+	charge = 0 //Extra safety in the event the cell does not QDEL right
 	qdel(src)
 
 /obj/item/stock_parts/cell/proc/corrupt()
@@ -165,9 +174,8 @@
 		return 0
 
 // Cell variants
-/obj/item/stock_parts/cell/empty/New()
-	..()
-	charge = 0
+/obj/item/stock_parts/cell/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/crap
 	name = "\improper Nanotrasen brand rechargeable AA battery"
@@ -176,10 +184,8 @@
 	materials = list(MAT_GLASS = 40)
 	rating = 2
 
-/obj/item/stock_parts/cell/crap/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/crap/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/upgraded
 	name = "upgraded power cell"
@@ -201,22 +207,27 @@
 	materials = list(MAT_GLASS = 40)
 	rating = 2.5
 
-/obj/item/stock_parts/cell/secborg/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/secborg/empty
+	starting_charge = 0
 
-/obj/item/stock_parts/cell/pulse //200 pulse shots
+/obj/item/stock_parts/cell/hos_gun
+	name = "\improper X-01 multiphase energy gun power cell"
+	maxcharge = 1200
+
+/// 200 pulse shots
+/obj/item/stock_parts/cell/pulse
 	name = "pulse rifle power cell"
 	maxcharge = 40000
 	rating = 3
 	chargerate = 1500
 
-/obj/item/stock_parts/cell/pulse/carbine //25 pulse shots
+/// 25 pulse shots
+/obj/item/stock_parts/cell/pulse/carbine
 	name = "pulse carbine power cell"
 	maxcharge = 5000
 
-/obj/item/stock_parts/cell/pulse/pistol //10 pulse shots
+/// 10 pulse shots
+/obj/item/stock_parts/cell/pulse/pistol
 	name = "pulse pistol power cell"
 	maxcharge = 2000
 
@@ -236,10 +247,8 @@
 	maxcharge = 15000
 	chargerate = 2250
 
-/obj/item/stock_parts/cell/high/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/high/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/super
 	name = "super-capacity power cell"
@@ -250,10 +259,8 @@
 	rating = 4
 	chargerate = 2000
 
-/obj/item/stock_parts/cell/super/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/super/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/hyper
 	name = "hyper-capacity power cell"
@@ -264,10 +271,8 @@
 	rating = 5
 	chargerate = 3000
 
-/obj/item/stock_parts/cell/hyper/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/hyper/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/bluespace
 	name = "bluespace power cell"
@@ -279,16 +284,17 @@
 	rating = 6
 	chargerate = 4000
 
-/obj/item/stock_parts/cell/bluespace/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/bluespace/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/bluespace/charging
 	name = "self-charging bluespace power cell"
 	desc = "An experimental, self-charging, transdimensional power cell."
 	origin_tech =  "powerstorage=10;bluespace=10"
 	self_recharge = TRUE
+
+/obj/item/stock_parts/cell/bluespace/trapped
+	rigged = TRUE
 
 /obj/item/stock_parts/cell/infinite
 	name = "infinite-capacity power cell!"
@@ -311,9 +317,8 @@
 	rating = 12
 	ratingdesc = FALSE
 
-/obj/item/stock_parts/cell/infinite/abductor/update_icon()
-	return
-
+/obj/item/stock_parts/cell/infinite/abductor/update_overlays()
+	return list()
 
 /obj/item/stock_parts/cell/potato
 	name = "potato battery"
@@ -344,10 +349,8 @@
 	maxcharge = 500
 	rating = 3
 
-/obj/item/stock_parts/cell/emproof/empty/New()
-	..()
-	charge = 0
-	update_icon()
+/obj/item/stock_parts/cell/emproof/empty
+	starting_charge = 0
 
 /obj/item/stock_parts/cell/emproof/emp_act(severity)
 	return
@@ -366,3 +369,16 @@
 	desc = "A high capacity, slow charging cell for the B.S.G."
 	maxcharge = 40000
 	chargerate = 2600 // about 30 seconds to charge with a default recharger
+
+/// EMP proof so emp_act does not double dip.
+/obj/item/stock_parts/cell/emproof/reactive
+	name = "reactive armor power cell"
+	desc = "A cell used to power reactive armors."
+	maxcharge = 2400
+
+/obj/item/stock_parts/cell/flayerprod
+	name = "mind flayer internal cell"
+	desc = "you shouldn't be seeing this, contact a coder"
+	maxcharge = 4000
+	self_recharge = TRUE
+	chargerate = 200 //This self charges it 50 power per tick at the base level

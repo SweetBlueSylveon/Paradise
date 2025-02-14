@@ -18,10 +18,14 @@
 */
 
 /proc/init_sprite_accessory_subtypes(prototype, list/L, list/male, list/female, list/full_list)
-	if(!istype(L))	L = list()
-	if(!istype(male))	male = list()
-	if(!istype(female))	female = list()
-	if(!istype(full_list))	full_list = list()
+	if(!istype(L))
+		L = list()
+	if(!istype(male))
+		male = list()
+	if(!istype(female))
+		female = list()
+	if(!istype(full_list))
+		full_list = list()
 
 	for(var/path in subtypesof(prototype))
 		var/datum/sprite_accessory/D = new path()
@@ -33,9 +37,11 @@
 				L[D.name] = D
 				full_list[D.name] = D
 
-			switch(D.gender)
-				if(MALE)	male[D.name] = D
-				if(FEMALE)	female[D.name] = D
+			switch(D.body_type)
+				if(MALE)
+					male[D.name] = D
+				if(FEMALE)
+					female[D.name] = D
 				else
 					male[D.name] = D
 					female[D.name] = D
@@ -45,7 +51,7 @@
 	var/icon			//the icon file the accessory is located in
 	var/icon_state		//the icon_state of the accessory
 	var/name			//the preview name of the accessory
-	var/gender = NEUTER	//Determines if the accessory will be skipped or included in random hair generations
+	var/body_type = NEUTER	//Determines if the accessory will be skipped or included in random hair generations
 
 	// Restrict some styles to specific species
 	var/list/species_allowed = list("Human", "Slime People")
@@ -70,11 +76,10 @@
 	icon = 'icons/mob/human_face.dmi' // Keep bald hair here, as for some reason, putting it elsewhere lead to it being colourable - Also it make sense as it is shared by everyone.
 	name = "Bald"
 	icon_state = "bald"
-	species_allowed = list("Human", "Unathi", "Vox", "Diona", "Kidan", "Grey", "Plasmaman", "Skeleton", "Vulpkanin", "Tajaran")
+	species_allowed = list("Human", "Unathi", "Vox", "Diona", "Kidan", "Grey", "Plasmaman", "Skeleton", "Vulpkanin", "Tajaran", "Nian")
 	glasses_over = 1
 
 /datum/sprite_accessory/facial_hair
-	gender = MALE // barf (unless you're a dorf, dorfs dig chix /w beards :P)
 	icon = 'icons/mob/sprite_accessories/human/human_facial_hair.dmi'
 	var/over_hair
 
@@ -98,7 +103,7 @@
 
 /datum/sprite_accessory/body_markings
 	icon = 'icons/mob/sprite_accessories/human/human_body_markings.dmi'
-	species_allowed = list("Unathi", "Tajaran", "Vulpkanin", "Machine", "Vox", "Kidan")
+	species_allowed = list("Unathi", "Tajaran", "Vulpkanin", "Machine", "Vox", "Kidan", "Nian")
 	icon_state = "accessory_none"
 	marking_location = "body"
 
@@ -168,20 +173,20 @@
 ///////////////////////////
 /datum/sprite_accessory/underwear
 	icon = 'icons/mob/clothing/underwear.dmi'
-	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox")
+	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox", "Nian")
 	sprite_sheets = list(
 	"Vox" = 'icons/mob/clothing/species/vox/underwear.dmi',
-	"Grey" = 'icons/mob/clothing/species/grey/underwear.dmi'
+	"Grey" = 'icons/mob/clothing/species/grey/underwear.dmi',
+	"Kidan" = 'icons/mob/clothing/species/kidan/underwear.dmi'
 	)
-	gender = NEUTER
 
 /datum/sprite_accessory/underwear/nude
 	name = "Nude"
 	icon_state = null
-	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox")
+	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox", "Nian")
 
 /datum/sprite_accessory/underwear/male
-	gender = MALE
+	body_type = MALE
 
 /datum/sprite_accessory/underwear/male/male_white
 	name = "Mens White"
@@ -191,7 +196,7 @@
 	name = "Mens Grey"
 	icon_state = "male_grey"
 
-/datum/sprite_accessory/underwear/male/male_grey
+/datum/sprite_accessory/underwear/male/male_grey_alt
 	name = "Mens Grey Alt"
 	icon_state = "male_greyalt"
 
@@ -232,7 +237,7 @@
 	icon_state = "male_mankini"
 
 /datum/sprite_accessory/underwear/female
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/underwear/female/female_red
 	name = "Ladies Red"
@@ -298,16 +303,17 @@
 ////////////////////////////
 /datum/sprite_accessory/undershirt
 	icon = 'icons/mob/clothing/underwear.dmi'
-	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox")
+	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox", "Nian")
 	sprite_sheets = list(
 	"Vox" = 'icons/mob/clothing/species/vox/underwear.dmi',
-	"Grey" = 'icons/mob/clothing/species/grey/underwear.dmi')
-	gender = NEUTER
+	"Grey" = 'icons/mob/clothing/species/grey/underwear.dmi',
+	"Kidan" = 'icons/mob/clothing/species/kidan/underwear.dmi'
+	)
 
 /datum/sprite_accessory/undershirt/nude
 	name = "Nude"
 	icon_state = null
-	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox")
+	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox", "Nian")
 
 //plain color shirts
 /datum/sprite_accessory/undershirt/shirt_white
@@ -363,6 +369,10 @@
 /datum/sprite_accessory/undershirt/shirt_corgi
 	name = "Corgi Shirt"
 	icon_state = "shirt_corgi"
+
+/datum/sprite_accessory/undershirt/shirt_en
+	name = "Borgi Shirt" // E-N!
+	icon_state = "shirt_borgi"
 
 /datum/sprite_accessory/undershirt/shirt_clown
 	name = "Clown Shirt"
@@ -427,6 +437,35 @@
 /datum/sprite_accessory/undershirt/brightblue_striped
 	name = "Striped Bright Blue Shirt"
 	icon_state = "shirt_brightbluestripe"
+
+/datum/sprite_accessory/undershirt/shirt_trans
+	name = "Transgender Shirt"
+	icon_state = "shirt_trans"
+
+/datum/sprite_accessory/undershirt/shirt_nonbinary
+	name = "Nonbinary Shirt"
+	icon_state = "shirt_nonbinary"
+
+/datum/sprite_accessory/undershirt/shirt_bisexual
+	name = "Bisexual Shirt"
+	icon_state = "shirt_bisexual"
+
+/datum/sprite_accessory/undershirt/shirt_pansexual
+	name = "Pansexual Shirt"
+	icon_state = "shirt_pansexual"
+
+/datum/sprite_accessory/undershirt/shirt_asexual
+	name = "Asexual Shirt"
+	icon_state = "shirt_asexual"
+
+/datum/sprite_accessory/undershirt/shirt_rainbow
+	name = "Rainbow Shirt"
+	icon_state = "shirt_rainbow"
+
+/datum/sprite_accessory/undershirt/shirt_wave
+	name = "Great Wave Shirt"
+	icon_state = "shirt_wave"
+
 //end graphic shirts
 
 //short sleeved
@@ -491,17 +530,17 @@
 /datum/sprite_accessory/undershirt/tank_redtop
 	name = "Red Crop-Top"
 	icon_state = "tank_redtop"
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/undershirt/tank_whitetop
 	name = "White Crop-Top"
 	icon_state = "tank_whitetop"
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/undershirt/tank_midriff
 	name = "White Mid Tank-Top"
 	icon_state = "tank_midriff"
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/undershirt/tank_white
 	name = "White Tank-Top"
@@ -532,19 +571,32 @@
 	icon_state = "tank_stripes"
 //end tanktops
 
+//paratoberfest/contributor reward items
+/datum/sprite_accessory/undershirt/reward
+	fluff = TRUE
+
+/datum/sprite_accessory/undershirt/reward/ptbf24
+	name = "Great Synthwave Shirt"
+	icon_state = "shirt_ptbf24"
+//end rewards
+
 ///////////////////////
 // Socks Definitions //
 ///////////////////////
 /datum/sprite_accessory/socks
 	icon = 'icons/mob/clothing/underwear.dmi'
-	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox")
-	sprite_sheets = list("Vox" = 'icons/mob/clothing/species/vox/underwear.dmi')
-	gender = NEUTER
+	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox", "Nian")
+	sprite_sheets = list(
+	"Vox" = 'icons/mob/clothing/species/vox/underwear.dmi',
+	"Kidan" = 'icons/mob/clothing/species/kidan/underwear.dmi',
+	"Nian" = 'icons/mob/clothing/species/nian/underwear.dmi'
+
+	)
 
 /datum/sprite_accessory/socks/nude
 	name = "Nude"
 	icon_state = null
-	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox")
+	species_allowed = list("Human", "Unathi", "Diona", "Vulpkanin", "Tajaran", "Kidan", "Grey", "Plasmaman", "Machine", "Skrell", "Slime People", "Skeleton", "Drask", "Vox", "Nian")
 
 /datum/sprite_accessory/socks/white_norm
 	name = "Normal White"
@@ -573,7 +625,7 @@
 /datum/sprite_accessory/socks/thin_knee
 	name = "Knee-high Thin"
 	icon_state = "thin_knee"
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/socks/striped_norm
 	name = "Normal Striped"
@@ -598,7 +650,7 @@
 /datum/sprite_accessory/socks/thin_thigh
 	name = "Thigh-high Thin"
 	icon_state = "thin_thigh"
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/socks/striped_thigh
 	name = "Thigh-high Striped"
@@ -611,7 +663,7 @@
 /datum/sprite_accessory/socks/pantyhose
 	name = "Pantyhose"
 	icon_state = "pantyhose"
-	gender = FEMALE
+	body_type = FEMALE
 
 /datum/sprite_accessory/socks/black_fishnet
 	name = "Black Fishnet"
@@ -648,3 +700,48 @@
 /datum/sprite_accessory/socks/stockings_blue
 	name = "Stockings (Blue)"
 	icon_state = "stockings_blue"
+
+/* HAIR GRADIENT */
+
+/datum/sprite_accessory/hair_gradient
+	icon = 'icons/mob/hair_gradients.dmi'
+
+/datum/sprite_accessory/hair_gradient/none
+	name = "None"
+	icon_state = "none"
+
+/datum/sprite_accessory/hair_gradient/fadeup
+	name = "Fade Up"
+	icon_state = "fadeup"
+
+/datum/sprite_accessory/hair_gradient/fadedown
+	name = "Fade Down"
+	icon_state = "fadedown"
+
+/datum/sprite_accessory/hair_gradient/vertical_split
+	name = "Vertical Split"
+	icon_state = "vsplit"
+
+/datum/sprite_accessory/hair_gradient/_split
+	name = "Horizontal Split"
+	icon_state = "bottomflat"
+
+/datum/sprite_accessory/hair_gradient/reflected
+	name = "Reflected"
+	icon_state = "reflected_high"
+
+/datum/sprite_accessory/hair_gradient/reflected_inverse
+	name = "Reflected Inverse"
+	icon_state = "reflected_inverse_high"
+
+/datum/sprite_accessory/hair_gradient/wavy
+	name = "Wavy"
+	icon_state = "wavy"
+
+/datum/sprite_accessory/hair_gradient/long_fade_up
+	name = "Long Fade Up"
+	icon_state = "long_fade_up"
+
+/datum/sprite_accessory/hair_gradient/long_fade_down
+	name = "Long Fade Down"
+	icon_state = "long_fade_down"

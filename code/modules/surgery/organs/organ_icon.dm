@@ -1,13 +1,11 @@
-GLOBAL_LIST_EMPTY(limb_icon_cache)
-
 /obj/item/organ/external/proc/compile_icon()
 	// I do this so the head's overlays don't get obliterated
 	for(var/child_i in child_icons)
 		overlays -= child_i
 	child_icons.Cut()
-	 // This is a kludge, only one icon has more than one generation of children though.
+	// This is a kludge, only one icon has more than one generation of children though.
 	for(var/obj/item/organ/external/organ in contents)
-		if(organ.children && organ.children.len)
+		if(organ.children && length(organ.children))
 			for(var/obj/item/organ/external/child in organ.children)
 				overlays += child.mob_icon
 				child_icons += child.mob_icon
@@ -57,10 +55,6 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 	var/obj/item/organ/internal/eyes/eyes = owner.get_int_organ(/obj/item/organ/internal/eyes)//owner.internal_bodyparts_by_name["eyes"]
 	if(eyes) eyes.update_colour()
 
-/obj/item/organ/external/head/remove(mob/living/user, ignore_children)
-	get_icon()
-	. = ..()
-
 /obj/item/organ/external/proc/get_icon(skeletal)
 	// Kasparrov, you monster
 	if(force_icon)
@@ -75,10 +69,10 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 		mob_icon = new /icon(icon_file, new_icon_state)
 		if(!skeletal && !is_robotic())
 			if(status & ORGAN_DEAD)
-				mob_icon.ColorTone(rgb(10,50,0))
+				mob_icon.ColorTone(COLORTONE_DEAD_EXT_ORGAN)
 				mob_icon.SetIntensity(0.7)
 
-			if(!isnull(s_tone))
+			else if(!isnull(s_tone)) // we use an else here because it fucks with shit. It would be nice to fix this someday so that colors affect dead limbs
 				if(s_tone >= 0)
 					mob_icon.Blend(rgb(s_tone, s_tone, s_tone), ICON_ADD)
 				else
@@ -114,7 +108,7 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 	var/head_marking = owner.m_styles["head"]
 	if(head_marking)
 		var/datum/sprite_accessory/head_marking_style = GLOB.marking_styles_list[head_marking]
-		if(head_marking_style && head_marking_style.species_allowed && (dna.species.name in head_marking_style.species_allowed) && head_marking_style.marking_location == "head")
+		if(head_marking_style && head_marking_style.species_allowed && (dna.species.sprite_sheet_name in head_marking_style.species_allowed) && head_marking_style.marking_location == "head")
 			var/icon/h_marking_s = new /icon("icon" = head_marking_style.icon, "icon_state" = "[head_marking_style.icon_state]_s")
 			if(head_marking_style.do_colouration)
 				h_marking_s.Blend(owner.m_colours["head"], ICON_ADD)
@@ -123,7 +117,7 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 	if(!((owner.head && (owner.head.flags & BLOCKHAIR)) || (owner.wear_mask && (owner.wear_mask.flags & BLOCKHAIR)))) //Common restriction for all the below features.
 		if(ha_style)
 			var/datum/sprite_accessory/head_accessory_style = GLOB.head_accessory_styles_list[ha_style]
-			if(head_accessory_style && head_accessory_style.species_allowed && (dna.species.name in head_accessory_style.species_allowed))
+			if(head_accessory_style && head_accessory_style.species_allowed && (dna.species.sprite_sheet_name in head_accessory_style.species_allowed))
 				var/icon/head_accessory_s = new /icon("icon" = head_accessory_style.icon, "icon_state" = "[head_accessory_style.icon_state]_s")
 				if(head_accessory_style.do_colouration)
 					head_accessory_s.Blend(headacc_colour, ICON_ADD)
@@ -131,7 +125,7 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 
 		if(f_style)
 			var/datum/sprite_accessory/facial_hair_style = GLOB.facial_hair_styles_list[f_style]
-			if(facial_hair_style && ((facial_hair_style.species_allowed && (dna.species.name in facial_hair_style.species_allowed)) || (dna.species.bodyflags & ALL_RPARTS)))
+			if(facial_hair_style && ((facial_hair_style.species_allowed && (dna.species.sprite_sheet_name in facial_hair_style.species_allowed)) || (dna.species.bodyflags & ALL_RPARTS)))
 				var/icon/facial_s = new /icon("icon" = facial_hair_style.icon, "icon_state" = "[facial_hair_style.icon_state]_s")
 				if(istype(dna.species, /datum/species/slime)) // I am el worstos
 					facial_s.Blend("[owner.skin_colour]A0", ICON_AND) //A0 = 160 alpha.
@@ -142,7 +136,7 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 		if(h_style)
 			if(!ismachineperson(owner) || (ismachineperson(owner) && ((owner.head && (owner.head.flags & BLOCKHEADHAIR)) || (owner.wear_mask && (owner.wear_mask.flags & BLOCKHEADHAIR)))))
 				var/datum/sprite_accessory/hair_style = GLOB.hair_styles_full_list[h_style]
-				if(hair_style && ((dna.species.name in hair_style.species_allowed) || (dna.species.bodyflags & ALL_RPARTS)))
+				if(hair_style && ((dna.species.sprite_sheet_name in hair_style.species_allowed) || (dna.species.bodyflags & ALL_RPARTS)))
 					var/icon/hair_s = new /icon("icon" = hair_style.icon, "icon_state" = "[hair_style.icon_state]_s")
 					if(istype(dna.species, /datum/species/slime)) // I am el worstos
 						hair_s.Blend("[owner.skin_colour]A0", ICON_AND) //A0 = 160 alpha.
@@ -153,7 +147,7 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 	return mob_icon //Don't need to blend the above into this as it's handled in human/update_icons(). The overlays are for rendering stuff on disembodied heads.
 
 /obj/item/organ/external/proc/get_icon_state(skeletal)
-	var/gender
+	var/body
 	var/icon_file
 	var/new_icon_state
 	if(!dna)
@@ -161,18 +155,17 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 		new_icon_state = "[icon_name][gendered_icon ? "_f" : ""]"
 	else
 		if(gendered_icon)
-			switch(dna.GetUITriState(DNA_UI_GENDER))
+			switch(dna.GetUITriState(DNA_UI_BODY_TYPE))
 				if(DNA_GENDER_FEMALE)
-					gender = "f"
-				if(DNA_GENDER_MALE)
-					gender = "m"
+					body = "f"
 				else
-					gender = "f"	//Default to "f" (per line 162). Using a pick("m", "f") will make different body parts different genders for the same character.
+					body = "m"
+
 		if(limb_name == "head")
 			var/obj/item/organ/external/head/head_organ = src
 			head_organ.handle_alt_icon()
 
-		new_icon_state = "[icon_name][gender ? "_[gender]" : ""]"
+		new_icon_state = "[icon_name][body ? "_[body]" : ""]"
 
 		if(skeletal)
 			icon_file = 'icons/mob/human_races/r_skeleton.dmi'
@@ -185,7 +178,8 @@ GLOBAL_LIST_EMPTY(limb_icon_cache)
 
 // new damage icon system
 // adjusted to set damage_state to brute/burn code only (without r_name0 as before)
-/obj/item/organ/external/update_icon()
+
+/obj/item/organ/external/proc/update_state()
 	var/n_is = damage_state_text()
 	if(n_is != damage_state)
 		damage_state = n_is

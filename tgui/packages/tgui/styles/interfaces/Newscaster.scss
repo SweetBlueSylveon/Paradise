@@ -44,7 +44,7 @@
       color: colors.$white;
 
       &:after {
-        content: "";
+        content: '';
         background-color: colors.$primary;
         width: 2px;
         height: 24px;
@@ -139,13 +139,14 @@ $_gen_map: (
 
 .Newscaster__photo {
   cursor: pointer;
-  width: 96px;
+  width: 100px;
   border: 1px solid colors.$black;
-  transition: border-color 0.1s;
-  -ms-interpolation-mode: nearest-neighbor;
+  transition: border-color 0.3s;
+  -ms-interpolation-mode: nearest-neighbor; // TODO: Remove with 516
+  image-rendering: pixelated;
 
   &:hover {
-    border-color: color.scale(colors.$black, $lightness: 50%);;
+    border-color: color.scale(colors.$black, $lightness: 50%);
   }
 }
 
@@ -154,7 +155,8 @@ $_gen_map: (
 
   & > img {
     transform: scale(2);
-    -ms-interpolation-mode: nearest-neighbor;
+    -ms-interpolation-mode: nearest-neighbor; // TODO: Remove with 516
+    image-rendering: pixelated;
   }
 
   & > .Button {

@@ -2,87 +2,73 @@
 	name = "atmospheric alert computer"
 	desc = "Used to access the station's atmospheric sensors."
 	circuit = /obj/item/circuitboard/atmos_alert
-	var/ui_x = 350
-	var/ui_y = 300
 	icon_keyboard = "atmos_key"
 	icon_screen = "alert:0"
 	light_color = LIGHT_COLOR_CYAN
-	var/list/priority_alarms = list()
-	var/list/minor_alarms = list()
-	var/receive_frequency = ATMOS_FIRE_FREQ
+	// List of alarms and their state in areas. This is sent to TGUI
+	var/list/alarm_cache
+	var/parent_area_type
 
 /obj/machinery/computer/atmos_alert/Initialize(mapload)
 	. = ..()
-	set_frequency(receive_frequency)
+	alarm_cache = list()
+	alarm_cache["priority"] = list()
+	alarm_cache["minor"] = list()
+	alarm_cache["mode"] = list()
+	var/area/machine_area = get_area(src)
+	parent_area_type = machine_area.get_top_parent_type()
 
-/obj/machinery/computer/atmos_alert/Destroy()
-	SSradio.remove_object(src, receive_frequency)
-	return ..()
+/obj/machinery/computer/atmos_alert/process()
+	alarm_cache = list()
+	alarm_cache["priority"] = list()
+	alarm_cache["minor"] = list()
+	alarm_cache["mode"] = list()
+	for(var/area/A in GLOB.all_areas)
+		if(!istype(A, parent_area_type))
+			continue
+		var/alarm_level = null
+		for(var/obj/machinery/alarm/air_alarm in A.air_alarms)
+			if(!istype(air_alarm))
+				continue
+			if(!air_alarm.report_danger_level)
+				continue
+			switch(air_alarm.alarm_area.atmosalm)
+				if(ATMOS_ALARM_DANGER)
+					alarm_level = "priority"
+				if(ATMOS_ALARM_WARNING)
+					if(isnull(alarm_level))
+						alarm_level = "minor"
+			if(!isnull(alarm_level))
+				alarm_cache[alarm_level] += A.name
+			if(air_alarm.mode != AALARM_MODE_FILTERING)
+				alarm_cache["mode"][A.name] = GLOB.aalarm_modes["[air_alarm.mode]"]
+
+	update_icon()
 
 /obj/machinery/computer/atmos_alert/attack_hand(mob/user)
 	ui_interact(user)
 
-/obj/machinery/computer/atmos_alert/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/machinery/computer/atmos_alert/ui_state(mob/user)
+	return GLOB.default_state
+
+/obj/machinery/computer/atmos_alert/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "AtmosAlertConsole", name, ui_x, ui_y, master_ui, state)
+		ui = new(user, src, "AtmosAlertConsole", name)
 		ui.open()
 
 /obj/machinery/computer/atmos_alert/ui_data(mob/user)
-	var/list/data = list()
+	return alarm_cache
 
-	data["priority"] = list()
-	for(var/zone in priority_alarms)
-		data["priority"] |= zone
-	data["minor"] = list()
-	for(var/zone in minor_alarms)
-		data["minor"] |= zone
+/obj/machinery/computer/atmos_alert/update_icon_state()
+	if(!length(alarm_cache)) // This happens if were mid init
+		icon_screen = "alert:0"
+		return ..()
 
-	return data
 
-/obj/machinery/computer/atmos_alert/ui_act(action, params)
-	if(..())
-		return
-	switch(action)
-		if("clear")
-			var/zone = params["zone"]
-			if(zone in priority_alarms)
-				to_chat(usr, "<span class='notice'>Priority alarm for [zone] cleared.</span>")
-				priority_alarms -= zone
-				. = TRUE
-			if(zone in minor_alarms)
-				to_chat(usr, "<span class='notice'>Minor alarm for [zone] cleared.</span>")
-				minor_alarms -= zone
-				. = TRUE
-	update_icon()
-
-/obj/machinery/computer/atmos_alert/set_frequency(new_frequency)
-	SSradio.remove_object(src, receive_frequency)
-	receive_frequency = new_frequency
-	radio_connection = SSradio.add_object(src, receive_frequency, RADIO_ATMOSIA)
-
-/obj/machinery/computer/atmos_alert/receive_signal(datum/signal/signal)
-	if(!signal)
-		return
-
-	var/zone = signal.data["zone"]
-	var/severity = signal.data["alert"]
-
-	if(!zone || !severity)
-		return
-
-	minor_alarms -= zone
-	priority_alarms -= zone
-	if(severity == "severe")
-		priority_alarms += zone
-	else if(severity == "minor")
-		minor_alarms += zone
-	update_icon()
-
-/obj/machinery/computer/atmos_alert/update_icon()
-	if(length(priority_alarms))
+	if(length(alarm_cache["priority"]))
 		icon_screen = "alert:2"
-	else if(length(minor_alarms))
+	else if(length(alarm_cache["minor"]))
 		icon_screen = "alert:1"
 	else
 		icon_screen = "alert:0"

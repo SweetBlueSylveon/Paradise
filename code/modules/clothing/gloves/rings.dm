@@ -1,6 +1,6 @@
 /obj/item/clothing/gloves/ring
 	name = "iron ring"
-	desc = "A band that goes around your finger.  It's considered gauche to wear more than one."
+	desc = "A band that goes around your finger. It's considered gauche to wear more than one."
 	gender = "neuter" // not plural anymore
 	transfer_prints = TRUE
 	icon_state = "ironring"
@@ -11,11 +11,11 @@
 	var/stud = 0
 	var/ring_color = "iron"
 
-/obj/item/clothing/gloves/ring/New()
-	..()
-	update_icon()
+/obj/item/clothing/gloves/ring/Initialize(mapload)
+	. = ..()
+	update_icon(UPDATE_ICON_STATE)
 
-/obj/item/clothing/gloves/ring/update_icon()
+/obj/item/clothing/gloves/ring/update_icon_state()
 	icon_state = "[stud ? "d_" : ""][ring_color]ring"
 
 /obj/item/clothing/gloves/ring/examine(mob/user)
@@ -25,7 +25,7 @@
 	if(stud)
 		. += "It is adorned with a single gem."
 
-/obj/item/clothing/gloves/ring/attackby(obj/item/I as obj, mob/user as mob, params)
+/obj/item/clothing/gloves/ring/attackby__legacy__attackchain(obj/item/I as obj, mob/user as mob, params)
 	if(istype(I, /obj/item/stack/sheet/mineral/diamond))
 		var/obj/item/stack/sheet/mineral/diamond/D = I
 		if(stud)
@@ -33,8 +33,8 @@
 		else
 			if(D.amount >= 1)
 				D.use(1)
-				stud = 1
-				update_icon()
+				stud = TRUE
+				update_icon(UPDATE_ICON_STATE)
 				to_chat(usr, "<span class='notice'>You socket the diamond into [src].</span>")
 
 // s'pensive
@@ -44,7 +44,8 @@
 	material = "silver"
 	ring_color = "silver"
 
-/obj/item/clothing/gloves/ring/silver/blessed // todo
+/// todo
+/obj/item/clothing/gloves/ring/silver/blessed
 	name = "blessed silver ring"
 
 /obj/item/clothing/gloves/ring/gold
@@ -73,10 +74,10 @@
 	icon_state = "redring"
 	ring_color = "red"
 
-/obj/item/clothing/gloves/ring/plastic/random/New()
+/obj/item/clothing/gloves/ring/plastic/random/Initialize(mapload)
 	ring_color = pick("white","blue","red")
 	name = "[ring_color] plastic ring"
-	..()
+	. = ..()
 
 // weird
 /obj/item/clothing/gloves/ring/glass

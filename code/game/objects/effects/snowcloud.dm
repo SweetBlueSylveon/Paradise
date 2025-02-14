@@ -3,7 +3,6 @@
 	desc = "Let it snow, let it snow, let it snow!"
 	icon_state = "snowcloud"
 	layer = FLY_LAYER
-	anchored = TRUE
 	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 	var/obj/machinery/snow_machine/parent_machine
 
@@ -21,13 +20,11 @@
 	if(QDELETED(parent_machine))
 		parent_machine = null
 	var/turf/T = get_turf(src)
-	if(isspaceturf(T))
+	if(isspaceturf(T) || T.density) // Don't want snowclouds or snow on walls
 		qdel(src)
 		return
-	var/turf_hotness
-	if(issimulatedturf(T))
-		var/turf/simulated/S = T
-		turf_hotness = S.air.temperature
+	var/datum/gas_mixture/G = T.get_readonly_air()
+	var/turf_hotness = G.temperature()
 	if(turf_hotness > T0C && prob(10 * (turf_hotness - T0C))) //Cloud disappears if it's too warm
 		qdel(src)
 		return
@@ -37,16 +34,16 @@
 		return
 	try_to_snow()
 	try_to_spread_cloud()
-	parent_machine.affect_turf_temperature(T, 0.25 * parent_machine.cooling_speed)
+	var/datum/milla_safe/snow_machine_cooling/milla = new()
+	milla.invoke_async(parent_machine, 0.25 * parent_machine.cooling_speed)
 
 /obj/effect/snowcloud/proc/try_to_snow()
 	var/turf/T = get_turf(src)
 	if(locate(/obj/effect/snow, T))
 		return
-	if(issimulatedturf(T))
-		var/turf/simulated/S = T
-		if(prob(75 + S.air.temperature - T0C)) //Colder turf = more chance of snow
-			return
+	var/datum/gas_mixture/G = T.get_readonly_air()
+	if(prob(75 + G.temperature() - T0C)) //Colder turf = more chance of snow
+		return
 	new /obj/effect/snow(T)
 
 /obj/effect/snowcloud/proc/try_to_spread_cloud()
@@ -57,7 +54,7 @@
 		var/turf/T = get_turf(get_step(src, potential))
 		if(isspaceturf(T) || T.density)
 			continue
-		if(!T.CanAtmosPass(T))
+		if(!CanAtmosPass(potential) || !T.CanAtmosPass(turn(potential, 180)))
 			continue
 		if(parent_machine.make_snowcloud(T))
 			return
@@ -68,9 +65,9 @@
 /obj/effect/snow
 	desc = "Perfect for making snow angels, or throwing at other people!"
 	icon = 'icons/effects/effects.dmi'
-	icon_state = "snow"
+	icon_state = "snow1"
+	plane = FLOOR_PLANE
 	layer = ABOVE_ICYOVERLAY_LAYER
-	anchored = TRUE
 
 /obj/effect/snow/New()
 	START_PROCESSING(SSobj, src)
@@ -83,15 +80,14 @@
 
 /obj/effect/snow/process()
 	var/turf/T = get_turf(src)
-	if(isspaceturf(T))
+	if(isspaceturf(T) || T.density) // Don't want snowclouds or snow on walls
 		qdel(src)
 		return
-	else if(issimulatedturf(T))
-		var/turf/simulated/S = T
-		if(S.air.temperature <= T0C)
-			return
-		if(prob(10 + S.air.temperature - T0C))
-			qdel(src)
+	var/datum/gas_mixture/G = T.get_readonly_air()
+	if(G.temperature() <= T0C)
+		return
+	if(prob(10 + G.temperature() - T0C))
+		qdel(src)
 
 /obj/effect/snow/attack_hand(mob/living/carbon/human/user)
 	if(!istype(user)) //Nonhumans don't have the balls to fight in the snow
@@ -101,7 +97,7 @@
 	user.put_in_hands(SB)
 	to_chat(user, "<span class='notice'>You scoop up some snow and make \a [SB]!</span>")
 
-/obj/effect/snow/attackby(obj/item/I, mob/user)
+/obj/effect/snow/attackby__legacy__attackchain(obj/item/I, mob/user)
 	if(istype(I, /obj/item/shovel))
 		var/obj/item/shovel/S = I
 		user.visible_message("<span class='notice'>[user] is clearing away [src]...</span>", "<span class='notice'>You begin clearing away [src]...</span>", "<span class='warning'>You hear a wettish digging sound.</span>")
@@ -118,7 +114,7 @@
 	qdel(src)
 
 /obj/effect/snow/ex_act(severity)
-	if(severity == 3 && prob(50))
+	if(severity == EXPLODE_LIGHT && prob(50))
 		return
 	qdel(src)
 
@@ -133,7 +129,7 @@
 	. = ..()
 	if(!. && isliving(target))
 		var/mob/living/M = target
-		M.adjustStaminaLoss(stamina_damage)
+		M.apply_damage(stamina_damage, STAMINA)
 		playsound(target, 'sound/weapons/tap.ogg', 50, TRUE)
 	qdel(src)
 

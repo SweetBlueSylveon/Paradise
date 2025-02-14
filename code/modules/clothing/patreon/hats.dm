@@ -53,7 +53,7 @@
 //black sombrero
 /obj/item/clothing/head/fluff/blacksombrero
 	name = "Black sombrero"
-	desc = "A rare identifying hat of the infamous ancient renegade gang known as 'El Loco Pocos'"
+	desc = "A rare identifying hat of the infamous ancient renegade gang known as 'El Loco Pocos'."
 	icon_state = "blacksombrero"
 	item_state = "blacksombrero"
 	flags = BLOCKHAIR
@@ -61,3 +61,13 @@
 	sprite_sheets = list(
 		"Vox" = 'icons/mob/clothing/species/vox/head.dmi'
 		)
+
+// Equivalent to a winter coat's hood
+/obj/item/clothing/head/furcap
+	name = "fur cap"
+	desc = "A warm furry cap."
+	icon_state = "furcap"
+	item_state = "furcap"
+
+	cold_protection = HEAD
+	min_cold_protection_temperature = FIRE_SUIT_MIN_TEMP_PROTECT

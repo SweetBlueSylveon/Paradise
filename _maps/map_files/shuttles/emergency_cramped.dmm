@@ -15,7 +15,7 @@
 /area/shuttle/escape)
 "i" = (
 /obj/structure/table,
-/obj/item/book/manual,
+/obj/item/book/manual/wiki/security_space_law/black,
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "j" = (
@@ -47,11 +47,13 @@
 	layer = 2.9
 	},
 /obj/structure/table,
-/obj/item/storage/firstaid,
+/obj/item/storage/firstaid/regular,
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "o" = (
-/obj/machinery/door/window/northleft,
+/obj/machinery/door/window/classic/normal{
+	dir = 1
+	},
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "p" = (
@@ -76,9 +78,9 @@
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "r" = (
-/obj/effect/decal/warning_stripes/yellow/hollow,
+/obj/effect/turf_decal/delivery/hollow,
 /obj/structure/closet/crate,
-/obj/effect/spawner/lootdrop/maintenance,
+/obj/effect/spawner/random/maintenance,
 /obj/machinery/light/spot{
 	dir = 4
 	},
@@ -91,13 +93,13 @@
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "u" = (
-/obj/effect/decal/warning_stripes/yellow/hollow,
+/obj/effect/turf_decal/delivery/hollow,
 /obj/structure/closet/crate,
-/obj/effect/spawner/lootdrop/maintenance,
+/obj/effect/spawner/random/maintenance,
 /turf/simulated/floor/plating,
 /area/shuttle/escape)
 "w" = (
-/obj/effect/decal/warning_stripes/yellow/hollow,
+/obj/effect/turf_decal/delivery/hollow,
 /obj/structure/closet/crate,
 /turf/simulated/floor/plating,
 /area/shuttle/escape)

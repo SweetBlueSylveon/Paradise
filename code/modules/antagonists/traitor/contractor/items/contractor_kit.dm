@@ -12,13 +12,12 @@
 		// Offensive
 		/obj/item/gun/projectile/automatic/c20r/toy,
 		/obj/item/storage/box/syndie_kit/throwing_weapons,
-		/obj/item/pen/edagger,
 		/obj/item/gun/projectile/automatic/toy/pistol/riot,
 		/obj/item/soap/syndie,
 		/obj/item/storage/box/syndie_kit/dart_gun,
 		/obj/item/gun/syringe/rapidsyringe,
-		/obj/item/storage/backpack/duffel/syndie/x4,
 		// Mixed
+		/obj/item/storage/box/syndie_kit/c4,
 		/obj/item/storage/box/syndie_kit/emp,
 		/obj/item/flashlight/emp,
 		// Support
@@ -26,16 +25,16 @@
 		/obj/item/storage/belt/military/traitor,
 		/obj/item/clothing/shoes/chameleon/noslip,
 		/obj/item/storage/toolbox/syndicate,
-		/obj/item/storage/backpack/duffel/syndie/surgery,
+		/obj/item/storage/backpack/duffel/syndie/med/surgery,
 		/obj/item/multitool/ai_detect,
-		/obj/item/encryptionkey/binary,
+		/obj/item/encryptionkey/syndicate,
 		/obj/item/jammer,
-		/obj/item/implanter/freedom,
+		/obj/item/clothing/under/syndicate/silicon_cham,
+		/obj/item/bio_chip_implanter/freedom,
 	)
 
 
-/obj/item/storage/box/syndie_kit/contractor/New()
-	..()
+/obj/item/storage/box/syndie_kit/contractor/populate_contents()
 	new /obj/item/paper/contractor_guide(src)
 	new /obj/item/contractor_uplink(src)
 	new /obj/item/storage/box/syndie_kit/contractor_loadout(src)
@@ -48,21 +47,23 @@
 	name = "contractor standard loadout box"
 	desc = "A standard issue box included in a contractor kit."
 
-/obj/item/storage/box/syndie_kit/contractor_loadout/New()
-	..()
+/obj/item/storage/box/syndie_kit/contractor_loadout/populate_contents()
 	new /obj/item/clothing/head/helmet/space/syndicate/contractor(src)
 	new /obj/item/clothing/suit/space/syndicate/contractor(src)
 	new /obj/item/melee/classic_baton/telescopic/contractor(src)
 	new /obj/item/clothing/under/chameleon(src)
-	new /obj/item/clothing/mask/chameleon(src)
+	new /obj/item/clothing/suit/chameleon(src)
+	new /obj/item/clothing/head/chameleon(src)
+	new /obj/item/clothing/mask/chameleon/voice_change(src)
 	new /obj/item/card/id/syndicate(src)
 	new /obj/item/storage/fancy/cigarettes/cigpack_syndicate(src)
 	new /obj/item/lighter/zippo(src)
-
+	new /obj/item/handheld_mirror(src)
+	
 /obj/item/paper/contractor_guide
 	name = "contractor guide"
 
-/obj/item/paper/contractor_guide/Initialize()
+/obj/item/paper/contractor_guide/Initialize(mapload)
 	info = {"<p>Welcome agent, congratulations on your new position as a Syndicate contractor. On top of your already assigned objectives,
 			this kit will provide you contracts to take on for telecrystal payments.</p>
 			<p>Provided within is your specialist contractor space suit. It's even more compact, being able to fit into a pocket, and faster than the

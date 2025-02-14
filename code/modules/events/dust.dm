@@ -12,9 +12,9 @@
 	name = "Space Dust"
 	desc = "Dust in space."
 	icon = 'icons/obj/meteor.dmi'
-	icon_state = "space_dust"
-	density = 1
-	anchored = 1
+	icon_state = "dust"
+	density = TRUE
+	anchored = TRUE
 	var/strength = 2 //ex_act severity number
 	var/life = 2 //how many things we hit before qdel(src)
 	var/atom/goal = null
@@ -32,51 +32,28 @@
 	strength = 1
 	life = 40
 
-/obj/effect/space_dust/New()
+/obj/effect/space_dust/Initialize(mapload)
 	. = ..()
-	var/startx = 0
-	var/starty = 0
-	var/endy = 0
-	var/endx = 0
-	var/startside = pick(GLOB.cardinal)
+	ADD_TRAIT(src, TRAIT_NO_EDGE_TRANSITIONS, ROUNDSTART_TRAIT)
 
-	switch(startside)
-		if(NORTH)
-			starty = world.maxy-(TRANSITIONEDGE+1)
-			startx = rand((TRANSITIONEDGE+1), world.maxx-(TRANSITIONEDGE+1))
-			endy = TRANSITIONEDGE
-			endx = rand(TRANSITIONEDGE, world.maxx-TRANSITIONEDGE)
-		if(EAST)
-			starty = rand((TRANSITIONEDGE+1),world.maxy-(TRANSITIONEDGE+1))
-			startx = world.maxx-(TRANSITIONEDGE+1)
-			endy = rand(TRANSITIONEDGE, world.maxy-TRANSITIONEDGE)
-			endx = TRANSITIONEDGE
-		if(SOUTH)
-			starty = (TRANSITIONEDGE+1)
-			startx = rand((TRANSITIONEDGE+1), world.maxx-(TRANSITIONEDGE+1))
-			endy = world.maxy-TRANSITIONEDGE
-			endx = rand(TRANSITIONEDGE, world.maxx-TRANSITIONEDGE)
-		if(WEST)
-			starty = rand((TRANSITIONEDGE+1), world.maxy-(TRANSITIONEDGE+1))
-			startx = (TRANSITIONEDGE+1)
-			endy = rand(TRANSITIONEDGE,world.maxy-TRANSITIONEDGE)
-			endx = world.maxx-TRANSITIONEDGE
-	goal = locate(endx, endy, 1)
-	src.x = startx
-	src.y = starty
-	src.z = level_name_to_num(MAIN_STATION)
-	walk_towards(src, goal, 1)
+	var/startside = pick(GLOB.cardinal)
+	GLOB.meteor_list += src
+
+	var/turf/start = pick_edge_loc(startside, level_name_to_num(MAIN_STATION))
+	forceMove(start)
+	goal = pick_edge_loc(REVERSE_DIR(startside), level_name_to_num(MAIN_STATION))
+	GLOB.move_manager.home_onto(src, goal, 1)
 
 /obj/effect/space_dust/Bump(atom/A)
 	if(QDELETED(src))
 		return
 	if(prob(shake_chance))
 		for(var/mob/M in range(10, src))
-			if(!M.stat && !istype(M, /mob/living/silicon/ai))
+			if(!M.stat && !is_ai(M))
 				shake_camera(M, 3, 1)
 	playsound(loc, 'sound/effects/meteorimpact.ogg', 40, 1)
 
-	INVOKE_ASYNC(src, .proc/impact_meteor, A) // ex_act can have some sleeps in it
+	INVOKE_ASYNC(src, PROC_REF(impact_meteor), A) // ex_act can have some sleeps in it
 
 /obj/effect/space_dust/proc/impact_meteor(atom/A)
 	var/turf/where = get_turf(A)
@@ -87,7 +64,7 @@
 
 	life--
 	if(life <= 0)
-		walk(src, 0)
+		GLOB.move_manager.stop_looping(src)
 		on_shatter(where)
 		qdel(src)
 
@@ -100,3 +77,7 @@
 
 /obj/effect/space_dust/ex_act(severity)
 	qdel(src)
+
+/obj/effect/space_dust/Destroy()
+	GLOB.meteor_list -= src
+	return ..()

@@ -21,7 +21,7 @@
 	..()
 	// After target moves, check for nearby stakes. If associated, move to target
 	for(var/obj/structure/target_stake/M in view(3, src))
-		if(M.density == 0 && M.pinned_target == src)
+		if(!M.density && M.pinned_target == src)
 			M.loc = loc
 
 	// This may seem a little counter-intuitive but I assure you that's for a purpose.
@@ -98,7 +98,7 @@
 		bullet_hole.pixel_y = p_y - 1
 		if(decaltype == DECALTYPE_SCORCH)
 			if(P.damage >= 20 || istype(P, /obj/item/projectile/beam/practice))
-				bullet_hole.setDir(pick(NORTH,SOUTH,EAST,WEST))// random scorch design. light_scorch does not have different directions
+				bullet_hole.dir = pick(NORTH,SOUTH,EAST,WEST) // random scorch design. light_scorch does not have different directions
 			else
 				bullet_hole.icon_state = "light_scorch"
 		else

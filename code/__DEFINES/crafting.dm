@@ -21,16 +21,15 @@
 #define CAT_MISCFOOD	"Misc. Food"
 #define CAT_PASTRY	"Pastries"
 #define CAT_PIE	"Pies"
-#define CAT_PIZZA	"Pizzas"
 #define CAT_SALAD	"Salads"
 #define CAT_SANDWICH	"Sandwiches"
 #define CAT_SOUP	"Soups"
 #define CAT_SPAGHETTI	"Spaghettis"
 #define CAT_ICE	"Frozen"
 
-#define RECIPE_MICROWAVE	"Microwave"
-#define RECIPE_OVEN			"Oven"
-#define RECIPE_GRILL		"Grill"
-#define RECIPE_CANDY		"Candy"
+#define RECIPE_MICROWAVE	"microwave"
+#define RECIPE_OVEN			"oven"
+#define RECIPE_GRILL		"grill"
+#define RECIPE_CANDY		"candy machine"
 
 #define RECIPE_FAIL		null

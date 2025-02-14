@@ -1,6 +1,6 @@
 /datum/sprite_accessory/hair/vulpkanin
-    icon = 'icons/mob/sprite_accessories/vulpkanin/vulpkanin_hair.dmi'
-    species_allowed = list("Vulpkanin")
+	icon = 'icons/mob/sprite_accessories/vulpkanin/vulpkanin_hair.dmi'
+	species_allowed = list("Vulpkanin")
 
 /datum/sprite_accessory/hair/vulpkanin/vulp_hair_kajam
 	name = "Kajam"
@@ -84,4 +84,11 @@
 /datum/sprite_accessory/hair/vulpkanin/vulp_hair_raine
 	name = "Raine"
 	icon_state = "raine"
-	gender = FEMALE
+
+/datum/sprite_accessory/hair/vulpkanin/vulp_hair_jeremy
+	name = "Jeremy"
+	icon_state = "jeremy"
+
+/datum/sprite_accessory/hair/vulpkanin/vulp_hair_clean_cut
+	name = "Clean Cut"
+	icon_state = "clean_cut"

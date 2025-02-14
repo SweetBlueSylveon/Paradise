@@ -10,10 +10,9 @@
 
 /obj/item/stack/tape_roll/New(loc, amount=null)
 	..()
+	update_icon(UPDATE_ICON_STATE)
 
-	update_icon()
-
-/obj/item/stack/tape_roll/attack(mob/living/carbon/human/M, mob/living/user)
+/obj/item/stack/tape_roll/attack__legacy__attackchain(mob/living/carbon/human/M, mob/living/user)
 	if(!istype(M)) //What good is a duct tape mask if you are unable to speak?
 		return
 	if(M.wear_mask)
@@ -39,10 +38,10 @@
 	user.visible_message("<span class='warning'>[user] tapes [M]'s mouth shut!</span>",
 	"<span class='notice'>You cover [M == user ? "your own" : "[M]'s"] mouth with a piece of duct tape.[M == user ? null : " That will shut them up."]</span>")
 	var/obj/item/clothing/mask/muzzle/G = new /obj/item/clothing/mask/muzzle/tapegag
-	M.equip_to_slot(G, slot_wear_mask)
+	M.equip_to_slot(G, ITEM_SLOT_MASK)
 	G.add_fingerprint(user)
 
-/obj/item/stack/tape_roll/update_icon()
+/obj/item/stack/tape_roll/update_icon_state()
 	var/amount = get_amount()
 	if((amount <= 2) && (amount > 0))
 		icon_state = "taperoll"
@@ -50,8 +49,7 @@
 		icon_state = "taperoll-2"
 	if((amount <= 6) && (amount > 4))
 		icon_state = "taperoll-3"
-	if((amount > 6))
+	if(amount > 6)
 		icon_state = "taperoll-4"
 	else
 		icon_state = "taperoll-4"
-	..()

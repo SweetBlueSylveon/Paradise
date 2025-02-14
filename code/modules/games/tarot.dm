@@ -6,9 +6,7 @@
 	desc = "For all your occult needs!"
 	icon_state = "deck_tarot"
 
-/obj/item/deck/tarot/New()
-	..()
-
+/obj/item/deck/tarot/build_deck()
 	for(var/tarotname in list("Fool","Magician","High Priestess","Empress","Emperor","Hierophant","Lovers","Chariot","Strength","Hermit","Wheel of Fortune","Justice","Hanged Man","Death","Temperance","Devil","Tower","Star","Moon","Sun","Judgement","World"))
 		cards += new /datum/playingcard("[tarotname]", "tarot_major", "card_back_tarot")
 	for(var/suit in list("wands","pentacles","cups","swords"))
@@ -17,9 +15,9 @@
 
 /obj/item/deck/tarot/deckshuffle()
 	var/mob/living/user = usr
-	if(cooldown < world.time - 5 SECONDS)
+	if(shuffle_cooldown < world.time - 1 SECONDS)
 		var/list/newcards = list()
-		while(cards.len)
+		while(length(cards))
 			var/datum/playingcard/P = pick(cards)
 			P.name = replacetext(P.name," reversed","")
 			if(prob(50))
@@ -27,6 +25,11 @@
 			newcards += P
 			cards -= P
 		cards = newcards
-		playsound(user, 'sound/items/cardshuffle.ogg', 50, 1)
-		user.visible_message("<span class='notice'>[user] shuffles [src].</span>", "<span class='notice'>You shuffle [src].</span>")
-		cooldown = world.time
+		playsound(user, 'sound/items/cardshuffle.ogg', 50, TRUE)
+		user.visible_message(
+			"<span class='notice'>[user] shuffles [src].</span>",
+			"<span class='notice'>You shuffle [src].</span>",
+			"<span class='notice'>You hear cards being shuffled.</span>"
+		)
+		shuffle_cooldown = world.time
+

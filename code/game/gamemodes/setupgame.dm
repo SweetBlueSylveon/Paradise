@@ -1,5 +1,5 @@
 /proc/getAssignedBlock(name, list/blocksLeft, activity_bounds=DNA_DEFAULT_BOUNDS, good=0)
-	if(blocksLeft.len==0)
+	if(!length(blocksLeft))
 		warning("[name]: No more blocks left to assign!")
 		return 0
 	var/assigned = pick(blocksLeft)
@@ -15,12 +15,6 @@
 	return assigned
 
 /proc/setupgenetics()
-
-	if(prob(50))
-		GLOB.blockadd = rand(-300,300)
-	if(prob(75))
-		GLOB.diffmut = rand(0,20)
-
 
 //Thanks to nexis for the fancy code
 // BITCH I AIN'T DONE YET
@@ -45,7 +39,6 @@
 	GLOB.coughblock         = getAssignedBlock("COUGH",         numsToAssign)
 	GLOB.glassesblock       = getAssignedBlock("GLASSES",       numsToAssign)
 	GLOB.epilepsyblock      = getAssignedBlock("EPILEPSY",      numsToAssign)
-	GLOB.twitchblock        = getAssignedBlock("TWITCH",        numsToAssign)
 	GLOB.nervousblock       = getAssignedBlock("NERVOUS",       numsToAssign)
 	GLOB.wingdingsblock     = getAssignedBlock("WINGDINGS",     numsToAssign)
 	GLOB.mesonblock			= getAssignedBlock("MESONS",        numsToAssign, good=1)
@@ -57,7 +50,6 @@
 	GLOB.breathlessblock    = getAssignedBlock("BREATHLESS",    numsToAssign, DNA_HARD_BOUNDS, good=1)
 	GLOB.remoteviewblock    = getAssignedBlock("REMOTEVIEW",    numsToAssign, DNA_HARDER_BOUNDS, good=1)
 	GLOB.regenerateblock    = getAssignedBlock("REGENERATE",    numsToAssign, DNA_HARDER_BOUNDS, good=1)
-	GLOB.increaserunblock   = getAssignedBlock("INCREASERUN",   numsToAssign, DNA_HARDER_BOUNDS, good=1)
 	GLOB.remotetalkblock    = getAssignedBlock("REMOTETALK",    numsToAssign, DNA_HARDER_BOUNDS, good=1)
 	GLOB.morphblock         = getAssignedBlock("MORPH",         numsToAssign, DNA_HARDER_BOUNDS, good=1)
 	GLOB.coldblock          = getAssignedBlock("COLD",          numsToAssign, good=1)
@@ -72,6 +64,7 @@
 	// Disabilities
 	GLOB.lispblock      = getAssignedBlock("LISP",       numsToAssign)
 	GLOB.muteblock      = getAssignedBlock("MUTE",       numsToAssign)
+	GLOB.paraplegicblock= getAssignedBlock("PARAPLEGIC", numsToAssign)
 	GLOB.radblock       = getAssignedBlock("RAD",        numsToAssign)
 	GLOB.fatblock       = getAssignedBlock("FAT",        numsToAssign)
 	GLOB.chavblock      = getAssignedBlock("CHAV",       numsToAssign)
@@ -136,18 +129,4 @@
 					warning("DNA2: Mutation [mutation.name] trying to add to already assigned gene block list (used by [english_list(GLOB.assigned_mutation_blocks[block])])")
 				GLOB.assigned_mutation_blocks[block] = mutation
 
-	//testing("DNA2: [numsToAssign.len] blocks are unused: [english_list(numsToAssign)]")
-
-/proc/setupcult()
-	var/static/datum/cult_info/picked_cult // Only needs to get picked once
-
-	if(picked_cult)
-		return picked_cult
-
-	var/random_cult = pick(typesof(/datum/cult_info))
-	picked_cult = new random_cult()
-
-	if(!picked_cult)
-		log_runtime(EXCEPTION("Cult datum creation failed"))
-	//todo:add adminonly datum var, check for said var here...
-	return picked_cult
+	//testing("DNA2: [length(numsToAssign)] blocks are unused: [english_list(numsToAssign)]")

@@ -30,10 +30,21 @@ GLOBAL_LIST_EMPTY(uid_log)
 		var/tag_backup = tag
 		tag = null // Grab the raw ref, not the tag
 		// num2text can output 8 significant figures max. If we go above 10 million UIDs in a round, shit breaks
-		unique_datum_id = "\ref[src]_[num2text(GLOB.next_unique_datum_id++, 8)]"
+		var/uid_number = num2text(GLOB.next_unique_datum_id++, 8)
+		unique_datum_id = "\ref[src]_[uid_number]"
+		md5_unique_datum_id = "[md5(unique_datum_id)]_[uid_number]" // Avoid ANY collision chance
 		tag = tag_backup
 		GLOB.uid_log[type]++
 	return unique_datum_id
+
+/**
+  * Safety wrapper for getting MD5 UIDs
+  *
+  * This ensures it exists before reading it
+  */
+/datum/proc/MD5_UID()
+	UID()
+	return md5_unique_datum_id
 
 /**
   * Locates a datum based off of the UID
@@ -57,7 +68,19 @@ GLOBAL_LIST_EMPTY(uid_log)
 	return null
 
 /**
-  * Opens a lof of UIDs
+ * If the list `L` contains a datum UID who's type matches `D`'s type, returns the UID of that datum in the list. Otherwise returns null.
+ */
+/proc/is_type_in_UID_list(datum/D, list/L)
+	if(!length(L))
+		return
+
+	for(var/datum_UID in L)
+		var/datum/A = locateUID(datum_UID)
+		if(istype(D, A))
+			return datum_UID
+
+/**
+  * Opens a log of UIDs
   *
   * In-round ability to view what has created a UID, and how many times a UID for that path has been declared
   */
@@ -69,7 +92,7 @@ GLOBAL_LIST_EMPTY(uid_log)
 	if(!check_rights(R_DEBUG))
 		return
 
-	var/list/sorted = sortTim(GLOB.uid_log, cmp=/proc/cmp_numeric_dsc, associative = TRUE)
+	var/list/sorted = sortTim(GLOB.uid_log, GLOBAL_PROC_REF(cmp_numeric_dsc), TRUE)
 	var/list/text = list("<h1>UID Log</h1>", "<p>Current UID: [GLOB.next_unique_datum_id]</p>", "<ul>")
 	for(var/key in sorted)
 		text += "<li>[key] - [sorted[key]]</li>"

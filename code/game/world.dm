@@ -1,17 +1,18 @@
 GLOBAL_LIST_INIT(map_transition_config, list(CC_TRANSITION_CONFIG))
 
+#ifdef TEST_RUNNER
+GLOBAL_DATUM(test_runner, /datum/test_runner)
+#endif
+
 /world/New()
 	// IMPORTANT
 	// If you do any SQL operations inside this proc, they must ***NOT*** be ran async. Otherwise players can join mid query
 	// This is BAD.
 
-	// Right off the bat
-	enable_auxtools_debugger()
-
 	SSmetrics.world_init_time = REALTIMEOFDAY
 
 	// Do sanity checks to ensure RUST actually exists
-	if(!fexists(RUST_G))
+	if((!fexists(RUST_G)) && world.system_type == MS_WINDOWS)
 		DIRECT_OUTPUT(world.log, "ERROR: RUSTG was not found and is required for the game to function. Server will now exit.")
 		del(world)
 
@@ -25,12 +26,18 @@ GLOBAL_LIST_INIT(map_transition_config, list(CC_TRANSITION_CONFIG))
 	GLOB.configuration.load_configuration() // Load up the base config.toml
 	// Load up overrides for this specific instance, based on port
 	// If this instance is listening on port 6666, the server will look for config/overrides_6666.toml
-	GLOB.configuration.load_overrides()
+	GLOB.configuration.load_overrides("config/overrides_[world.port].toml")
+
+	#ifdef TEST_CONFIG_OVERRIDE
+	GLOB.configuration.load_overrides("config/tests/config_[TEST_CONFIG_OVERRIDE].toml")
+	#endif
 
 	// Right off the bat, load up the DB
 	SSdbcore.CheckSchemaVersion() // This doesnt just check the schema version, it also connects to the db! This needs to happen super early! I cannot stress this enough!
 	SSdbcore.SetRoundID() // Set the round ID here
+	#ifdef MULTIINSTANCE
 	SSinstancing.seed_data() // Set us up in the DB
+	#endif
 
 	// Setup all log paths and stamp them with startups, including round IDs
 	SetupLogs()
@@ -45,16 +52,17 @@ GLOBAL_LIST_INIT(map_transition_config, list(CC_TRANSITION_CONFIG))
 	GLOB.revision_info.log_info()
 	load_admins(run_async = FALSE) // This better happen early on.
 
-	#ifdef UNIT_TESTS
-	log_world("Unit Tests Are Enabled!")
+	if(TgsAvailable())
+		world.log = file("[GLOB.log_directory]/dd.log") //not all runtimes trigger world/Error, so this is the only way to ensure we can see all of them.
+
+	#ifdef TEST_RUNNER
+	log_world("Test runner enabled.")
 	#endif
 
 	if(byond_version < MIN_COMPILER_VERSION || byond_build < MIN_COMPILER_BUILD)
 		log_world("Your server's byond version does not meet the recommended requirements for this code. Please update BYOND")
 
-	GLOB.timezoneOffset = text2num(time2text(0, "hh")) * 36000
-
-	startup_procs() // Call procs that need to occur on startup (Generate lists, load MOTD, etc)
+	GLOB.timezoneOffset = world.timezone * 36000
 
 	update_status()
 
@@ -65,21 +73,15 @@ GLOBAL_LIST_INIT(map_transition_config, list(CC_TRANSITION_CONFIG))
 	Master.Initialize(10, FALSE, TRUE)
 
 
-	#ifdef UNIT_TESTS
-	HandleTestRun()
+	#ifdef TEST_RUNNER
+	GLOB.test_runner = new
+	GLOB.test_runner.Start()
 	#endif
 
 
 /world/proc/InitTGS()
 	TgsNew(new /datum/tgs_event_handler/impl, TGS_SECURITY_TRUSTED) // creates a new TGS object
 	GLOB.revision_info.load_tgs_info() // Loads git and TM info from TGS itself
-
-// This is basically a replacement for hook/startup. Please dont shove random bullshit here
-// If it doesnt need to happen IMMEDIATELY on world load, make a subsystem for it
-/world/proc/startup_procs()
-	LoadBans() // Load up who is banned and who isnt. DONT PUT THIS IN A SUBSYSTEM IT WILL TAKE TOO LONG TO BE CALLED
-	jobban_loadbanfile() // Load up jobbans. Again, DO NOT PUT THIS IN A SUBSYSTEM IT WILL TAKE TOO LONG TO BE CALLED
-	investigate_reset() // This is part of the admin investigate system. PLEASE DONT SS THIS EITHER
 
 /// List of all world topic spam prevention handlers. See code/modules/world_topic/_spam_prevention_handler.dm
 GLOBAL_LIST_EMPTY(world_topic_spam_prevention_handlers)
@@ -128,7 +130,7 @@ GLOBAL_LIST_EMPTY(world_topic_handlers)
 				return
 			message_admins("[key_name_admin(usr)] has requested an immediate world restart via client side debugging tools")
 			log_admin("[key_name(usr)] has requested an immediate world restart via client side debugging tools")
-			to_chat(world, "<span class='boldannounce'>Rebooting world immediately due to host request</span>")
+			to_chat(world, "<span class='boldannounceooc'>Rebooting world immediately due to host request</span>")
 		rustg_log_close_all() // Past this point, no logging procs can be used, at risk of data loss.
 		// Now handle a reboot
 		if(GLOB.configuration.system.shutdown_on_reboot)
@@ -146,22 +148,30 @@ GLOBAL_LIST_EMPTY(world_topic_handlers)
 	Master.Shutdown() // Shutdown subsystems
 
 	// If we were running unit tests, finish that run
-	#ifdef UNIT_TESTS
-	FinishTestRun()
+	#ifdef TEST_RUNNER
+	GLOB.test_runner.Finalize()
 	return
 	#endif
 
+	// Send the stats URL if applicable
+	if(GLOB.configuration.url.round_stats_url && GLOB.round_id)
+		var/stats_link = "[GLOB.configuration.url.round_stats_url][GLOB.round_id]"
+		to_chat(world, "<span class='notice'>Stats for this round can be viewed at <a href=\"[stats_link]\">[stats_link]</a></span>")
+
 	// If the server has been gracefully shutdown in TGS, have a 60 seconds grace period for SQL updates and stuff
-	var/secs_before_auto_reconnect = 10
 	if(GLOB.slower_restart)
-		secs_before_auto_reconnect = 60
 		server_announce_global("Reboot will take a little longer due to pending backend changes.")
 
 	// Send the reboot banner to all players
 	for(var/client/C in GLOB.clients)
-		C << output(list2params(list(secs_before_auto_reconnect)), "browseroutput:reboot")
-		if(GLOB.configuration.url.server_url) // If you set a server location in config.txt, it sends you there instead of trying to reconnect to the same world address. -- NeoFite
-			C << link("byond://[GLOB.configuration.url.server_url]")
+		C?.tgui_panel?.send_roundrestart()
+		if(C.prefs.server_region)
+			// Keep them on the same relay
+			C << link(GLOB.configuration.system.region_map[C.prefs.server_region])
+		else
+			// Use the default
+			if(GLOB.configuration.url.server_url) // If you set a server location in config.txt, it sends you there instead of trying to reconnect to the same world address. -- NeoFite
+				C << link("byond://[GLOB.configuration.url.server_url]")
 
 	// And begin the real shutdown
 	rustg_log_close_all() // Past this point, no logging procs can be used, at risk of data loss.
@@ -179,7 +189,7 @@ GLOBAL_LIST_EMPTY(world_topic_handlers)
 
 /world/proc/load_mode()
 	var/list/Lines = file2list("data/mode.txt")
-	if(Lines.len)
+	if(length(Lines))
 		if(Lines[1])
 			GLOB.master_mode = Lines[1]
 			log_game("Saved mode is '[GLOB.master_mode]'")
@@ -201,18 +211,27 @@ GLOBAL_LIST_EMPTY(world_topic_handlers)
 	var/s = ""
 
 	if(GLOB.configuration.general.server_name)
-		s += "<b>[GLOB.configuration.general.server_name]</b> &#8212; "
-	s += "<b>[station_name()]</b> "
+		s += "<b>[GLOB.configuration.general.server_name]</b>] &#8212; "
+
+		s += "<b>[station_name()]</b>"
+	else // else so it neatly closes the byond hub initial square bracket even without a server name
+		s += "<b>[station_name()]</b>]"
+
+	if(GLOB.configuration.url.discord_url)
+		s += " (<a href=\"[GLOB.configuration.url.discord_url]\">Discord</a>)"
 
 	if(GLOB.configuration.general.server_tag_line)
 		s += "<br>[GLOB.configuration.general.server_tag_line]"
 
 	if(SSticker && ROUND_TIME > 0)
-		s += "<br>[round(ROUND_TIME / 36000)]:[add_zero(num2text(ROUND_TIME / 600 % 60), 2)], [capitalize(get_security_level())]"
+		s += "<br>[round(ROUND_TIME / 36000)]:[add_zero(num2text(ROUND_TIME / 600 % 60), 2)], [capitalize(SSsecurity_level.get_current_level_as_text())]"
 	else
 		s += "<br><b>STARTING</b>"
 
 	s += "<br>"
+
+	s += "\["
+
 	var/list/features = list()
 
 	if(!GLOB.enter_allowed)
@@ -220,9 +239,6 @@ GLOBAL_LIST_EMPTY(world_topic_handlers)
 
 	if(GLOB.configuration.general.server_features)
 		features += GLOB.configuration.general.server_features
-
-	if(GLOB.configuration.vote.allow_restart_votes)
-		features += "vote"
 
 	if(GLOB.configuration.url.wiki_url)
 		features += "<a href=\"[GLOB.configuration.url.wiki_url]\">Wiki</a>"
@@ -281,4 +297,11 @@ GLOBAL_LIST_EMPTY(world_topic_handlers)
 /world/Del()
 	rustg_close_async_http_client() // Close the HTTP client. If you dont do this, youll get phantom threads which can crash DD from memory access violations
 	disable_auxtools_debugger() // Disables the debugger if running. See above comment
+
+	if(SSredis.connected)
+		rustg_redis_disconnect() // Disconnects the redis connection. See above.
+
+	#ifdef ENABLE_BYOND_TRACY
+	CALL_EXT("prof.dll", "destroy")() // Setup Tracy integration
+	#endif
 	..()

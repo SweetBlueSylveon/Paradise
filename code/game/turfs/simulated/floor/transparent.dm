@@ -2,21 +2,24 @@
 	name = "glass floor"
 	desc = "Don't jump on it... Or do, I'm not your mom."
 	icon = 'icons/turf/floors/glass.dmi'
-	icon_state = "unsmooth"
+	icon_state = "glass-0"
+	base_icon_state = "glass"
 	baseturf = /turf/space
-	smooth = SMOOTH_TRUE
-	canSmoothWith = list(/turf/simulated/floor/transparent/glass, /turf/simulated/floor/transparent/glass/reinforced, /turf/simulated/floor/transparent/glass/plasma, /turf/simulated/floor/transparent/glass/reinforced/plasma)
+	smoothing_flags = SMOOTH_BITMASK
+	smoothing_groups = list(SMOOTH_GROUP_SIMULATED_TURFS, SMOOTH_GROUP_GLASS_FLOOR)
+	canSmoothWith = list(SMOOTH_GROUP_GLASS_FLOOR)
 	footstep = FOOTSTEP_GLASS
 	barefootstep = FOOTSTEP_GLASS_BAREFOOT
 	clawfootstep = FOOTSTEP_GLASS_BAREFOOT
 	heavyfootstep = FOOTSTEP_GLASS_BAREFOOT
 	light_power = 0.25
 	light_range = 2
-	layer = TRANSPARENT_TURF_LAYER
 	keep_dir = FALSE
 	intact = FALSE
 	transparent_floor = TRUE
 	heat_capacity = 800
+	/// Amount of SSobj ticks (Roughly 2 seconds) that a extinguished glass floor tile has been lit up
+	var/light_process = 0
 
 /turf/simulated/floor/transparent/glass/Initialize(mapload)
 	. = ..()
@@ -42,20 +45,28 @@
 /turf/simulated/floor/transparent/glass/crowbar_act(mob/user, obj/item/I)
 	if(!I || !user)
 		return
-	var/obj/item/stack/R = user.get_inactive_hand()
-	if(istype(R, /obj/item/stack/sheet/metal))
-		if(R.get_amount() < 2) //not enough metal in the stack
-			to_chat(user, "<span class='danger'>You also need to hold two sheets of metal to dismantle [src]!</span>")
-			return
-		else
-			to_chat(user, "<span class='notice'>You begin replacing [src]...</span>")
-			playsound(src, I.usesound, 80, TRUE)
-			if(do_after(user, 3 SECONDS * I.toolspeed, target = src))
-				if(R.get_amount() < 2 || !transparent_floor)
-					return
-	else //not holding metal at all
+	var/obj/item/stack/R
+	if(ishuman(user))
+		R = user.get_inactive_hand()
+	else if(isrobot(user))
+		var/mob/living/silicon/robot/robouser = user
+		var/metal_slot = robouser.get_module_by_item(/obj/item/stack/sheet/metal)
+		if(metal_slot)
+			R = robouser.all_active_items[metal_slot]
+
+	if(!istype(R, /obj/item/stack/sheet/metal) || R.get_amount() < 2)
 		to_chat(user, "<span class='danger'>You also need to hold two sheets of metal to dismantle \the [src]!</span>")
 		return
+
+	to_chat(user, "<span class='notice'>You begin replacing [src]...</span>")
+	playsound(src, I.usesound, 80, TRUE)
+
+	if(do_after(user, 3 SECONDS * I.toolspeed, target = src))
+		if(R.get_amount() < 2 || !transparent_floor)
+			return
+	else
+		return
+
 	switch(type) //What material is returned? Depends on the turf
 		if(/turf/simulated/floor/transparent/glass/reinforced)
 			new /obj/item/stack/sheet/rglass(src, 2)
@@ -73,11 +84,52 @@
 	playsound(src, 'sound/items/deconstruct.ogg', 80, TRUE)
 	ChangeTurf(/turf/simulated/floor/plating)
 
+/turf/simulated/floor/transparent/glass/extinguish_light(force)
+	light_power = 0
+	light_range = 0
+	update_light()
+	name = "dimmed glass flooring"
+	desc = "Something shadowy moves to cover the glass. Perhaps shining a light will force it to clear?"
+	START_PROCESSING(SSobj, src)
+
+/turf/simulated/floor/transparent/glass/process()
+	if(get_lumcount() > 0.2)
+		light_process++
+		if(light_process > 3)
+			reset_light()
+		return
+	light_process = 0
+
+/turf/simulated/floor/transparent/glass/proc/reset_light()
+	light_process = 0
+	light_power = initial(light_power)
+	light_range = initial(light_range)
+	update_light()
+	name = initial(name)
+	desc = initial(desc)
+	STOP_PROCESSING(SSobj, src)
+
+/turf/simulated/floor/transparent/glass/Destroy()
+	if(isprocessing)
+		STOP_PROCESSING(SSobj, src)
+	return ..()
+
+
+/turf/simulated/floor/transparent/glass/can_lay_cable()
+	return FALSE // this turf isn't "intact" but you also can't lay cable on it
+
+/turf/simulated/floor/transparent/glass/try_replace_tile(obj/item/stack/tile/T, mob/user, params)
+	var/obj/item/thing = user.get_inactive_hand()
+	if(!thing || !(thing.tool_behaviour in get_prying_tools()))
+		return
+	to_chat(user, "<span class='danger'>You need to hold two sheets of metal to dismantle \the [src]!</span>")
 
 /turf/simulated/floor/transparent/glass/reinforced
 	name = "reinforced glass floor"
 	desc = "Jump on it, it can cope. Promise..."
 	icon = 'icons/turf/floors/reinf_glass.dmi'
+	icon_state = "reinf_glass-0"
+	base_icon_state = "reinf_glass"
 	thermal_conductivity = 0.035
 	heat_capacity = 1600
 
@@ -89,6 +141,8 @@
 	name = "plasma glass floor"
 	desc = "Wait, was space always that color?"
 	icon = 'icons/turf/floors/plasmaglass.dmi'
+	icon_state = "plasmaglass-0"
+	base_icon_state = "plasmaglass"
 	thermal_conductivity = 0.030
 	heat_capacity = 32000
 
@@ -96,6 +150,8 @@
 	name = "reinforced plasma glass floor"
 	desc = "For when you REALLY don't want your floor choice to suffocate everyone."
 	icon = 'icons/turf/floors/reinf_plasmaglass.dmi'
+	icon_state = "reinf_plasmaglass-0"
+	base_icon_state = "reinf_plasmaglass"
 	thermal_conductivity = 0.025
 	heat_capacity = 325000
 
@@ -103,10 +159,15 @@
 	name = "titanium glass floor"
 	desc = "Stylish AND strong!"
 	icon = 'icons/turf/floors/titaniumglass.dmi'
-	canSmoothWith = list(/turf/simulated/floor/transparent/glass/titanium, /turf/simulated/floor/transparent/glass/titanium/plasma)
+	icon_state = "titaniumglass-0"
+	base_icon_state = "titaniumglass"
+	smoothing_groups = list(SMOOTH_GROUP_SIMULATED_TURFS, SMOOTH_GROUP_GLASS_FLOOR_TITANIUM)
+	canSmoothWith = list(SMOOTH_GROUP_GLASS_FLOOR_TITANIUM)
 	thermal_conductivity = 0.025
 	heat_capacity = 1600
 
 /turf/simulated/floor/transparent/glass/titanium/plasma
 	name = "plastitanium glass floor"
 	icon = 'icons/turf/floors/plastitaniumglass.dmi'
+	icon_state = "plastitaniumglass-0"
+	base_icon_state = "plastitaniumglass"

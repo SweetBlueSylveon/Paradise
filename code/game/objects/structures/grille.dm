@@ -10,54 +10,40 @@
 	pressure_resistance = 5*ONE_ATMOSPHERE
 	layer = BELOW_OBJ_LAYER
 	level = 3
-	armor = list(MELEE = 50, BULLET = 70, LASER = 70, ENERGY = 100, BOMB = 10, BIO = 100, RAD = 100, FIRE = 0, ACID = 0)
+	armor = list(MELEE = 50, BULLET = 70, LASER = 70, ENERGY = 100, BOMB = 10, RAD = 100, FIRE = 0, ACID = 0)
 	max_integrity = 50
 	integrity_failure = 20
+	cares_about_temperature = TRUE
 	var/rods_type = /obj/item/stack/rods
 	var/rods_amount = 2
 	var/rods_broken = 1
 	var/grille_type
 	var/broken_type = /obj/structure/grille/broken
 	var/shockcooldown = 0
-	var/my_shockcooldown = 1 SECONDS
-
-/obj/structure/grille/detailed_examine()
-	return "A powered and knotted wire underneath this will cause the grille to shock anyone not wearing insulated gloves.<br>\
-			Wirecutters will turn the grille into metal rods instantly. Grilles are made with metal rods."
-
-/obj/structure/grille/fence
-	var/width = 3
-
-/obj/structure/grille/fence/Initialize(mapload)
-	. = ..()
-	if(width > 1)
-		if(dir in list(EAST, WEST))
-			bound_width = width * world.icon_size
-			bound_height = world.icon_size
-		else
-			bound_width = world.icon_size
-			bound_height = width * world.icon_size
-
-/obj/structure/grille/fence/east_west
-	//width=80
-	//height=42
-	icon='icons/fence-ew.dmi'
-
-/obj/structure/grille/fence/north_south
-	//width=80
-	//height=42
-	icon='icons/fence-ns.dmi'
-
-/obj/structure/grille/take_damage(damage_amount, damage_type = BRUTE, damage_flag = 0, sound_effect = 1, attack_dir)
-	. = ..()
-	update_icon()
+	var/my_shockcooldown = 2 SECONDS
 
 /obj/structure/grille/examine(mob/user)
 	. = ..()
+	. += "<span class='notice'>A powered wire underneath this will cause the grille to shock anyone who touches the grill. An electric shock may leap forth if the grill is damaged.</span>"
+	. += "<span class='notice'>Use <b>wirecutters</b> to deconstruct this item.</span>"
 	if(anchored)
 		. += "<span class='notice'>It's secured in place with <b>screws</b>. The rods look like they could be <b>cut</b> through.</span>"
-	if(!anchored)
+	else
 		. += "<span class='notice'>The anchoring screws are <i>unscrewed</i>. The rods look like they could be <b>cut</b> through.</span>"
+
+/obj/structure/grille/take_damage(damage_amount, damage_type = BRUTE, damage_flag = 0, sound_effect = 1, attack_dir)
+	. = ..()
+	update_icon(UPDATE_ICON_STATE)
+
+/obj/structure/grille/update_icon_state()
+	if(QDELETED(src) || broken)
+		return
+
+	var/ratio = obj_integrity / max_integrity
+
+	if(ratio > 0.5)
+		return
+	icon_state = "grille50_[rand(0,3)]"
 
 /obj/structure/grille/Bumped(atom/user)
 	if(ismob(user))
@@ -66,10 +52,18 @@
 		shock(user, 70)
 		shockcooldown = world.time + my_shockcooldown
 
-/obj/structure/grille/attack_animal(mob/user)
+/obj/structure/grille/attack_animal(mob/living/simple_animal/user)
 	. = ..()
-	if(. && !QDELETED(src) && !shock(user, 70))
-		take_damage(rand(5,10), BRUTE, MELEE, 1)
+	if(!. || QDELETED(src) || shock(user, 70))
+		return
+
+	if(user.environment_smash >= ENVIRONMENT_SMASH_STRUCTURES)
+		playsound(src, 'sound/effects/grillehit.ogg', 80, TRUE)
+		obj_break()
+		user.visible_message("<span class='danger'>[user] smashes through [src]!</span>", "<span class='notice'>You smash through [src].</span>")
+		return
+
+	take_damage(rand(5,10), BRUTE, MELEE, 1)
 
 /obj/structure/grille/hulk_damage()
 	return 60
@@ -97,24 +91,19 @@
 	if(!shock(user, 70))
 		take_damage(20, BRUTE, MELEE, 1)
 
-/obj/structure/grille/CanPass(atom/movable/mover, turf/target, height=0)
-	if(height==0)
-		return 1
-	if(istype(mover) && mover.checkpass(PASSGRILLE))
-		return 1
-	else
-		if(istype(mover, /obj/item/projectile))
-			return prob(30)
-		else
-			return !density
-
-/obj/structure/grille/CanAStarPass(ID, dir, caller)
+/obj/structure/grille/CanPass(atom/movable/mover, border_dir)
 	. = !density
-	if(ismovable(caller))
-		var/atom/movable/mover = caller
-		. = . || mover.checkpass(PASSGRILLE)
+	if(istype(mover) && mover.checkpass(PASSGRILLE))
+		return TRUE
+	if(isprojectile(mover))
+		return (prob(30) || !density)
 
-/obj/structure/grille/attackby(obj/item/I, mob/user, params)
+/obj/structure/grille/CanPathfindPass(to_dir, datum/can_pass_info/pass_info)
+	. = !density
+	if(pass_info.is_movable)
+		. = . || pass_info.pass_flags & PASSGRILLE
+
+/obj/structure/grille/attackby__legacy__attackchain(obj/item/I, mob/user, params)
 	user.changeNext_move(CLICK_CD_MELEE)
 	add_fingerprint(user)
 	if(istype(I, /obj/item/stack/rods) && broken)
@@ -146,7 +135,7 @@
 	deconstruct()
 
 /obj/structure/grille/screwdriver_act(mob/user, obj/item/I)
-	if(!(istype(loc, /turf/simulated) || anchored))
+	if(!(anchored || issimulatedturf(loc) || locate(/obj/structure/lattice) in get_turf(src)))
 		return
 	. = TRUE
 	if(shock(user, 90))
@@ -154,8 +143,11 @@
 	if(!I.use_tool(src, user, 0, volume = I.tool_volume))
 		return
 	anchored = !anchored
+	var/support = locate(/obj/structure/lattice) in get_turf(src)
+	if(!support)
+		support = get_turf(src)
 	user.visible_message("<span class='notice'>[user] [anchored ? "fastens" : "unfastens"] [src].</span>", \
-							"<span class='notice'>You [anchored ? "fasten [src] to" : "unfasten [src] from"] the floor.</span>")
+							"<span class='notice'>You [anchored ? "fasten [src] to" : "unfasten [src] from"] \the [support].</span>")
 
 /obj/structure/grille/proc/build_window(obj/item/stack/sheet/S, mob/user)
 	var/dir_to_set = SOUTHWEST
@@ -184,7 +176,7 @@
 		W.setDir(dir_to_set)
 		W.ini_dir = dir_to_set
 		W.anchored = FALSE
-		air_update_turf(TRUE)
+		recalculate_atmos_connectivity()
 		W.update_nearby_icons()
 		W.state = WINDOW_OUT_OF_FRAME
 		S.use(2)
@@ -237,7 +229,7 @@
 			return FALSE
 	return FALSE
 
-/obj/structure/grille/temperature_expose(datum/gas_mixture/air, exposed_temperature, exposed_volume)
+/obj/structure/grille/temperature_expose(exposed_temperature, exposed_volume)
 	..()
 	if(!broken)
 		if(exposed_temperature > T0C + 1500)
@@ -252,15 +244,16 @@
 				var/obj/structure/cable/C = T.get_cable_node()
 				if(C)
 					playsound(src, 'sound/magic/lightningshock.ogg', 100, TRUE, extrarange = 5)
-					tesla_zap(src, 3, C.newavail() * 0.01, ZAP_MOB_DAMAGE | ZAP_OBJ_DAMAGE | ZAP_MOB_STUN | ZAP_ALLOW_DUPLICATES) //Zap for 1/100 of the amount of power. At a million watts in the grid, it will be as powerful as a tesla revolver shot.
-					C.add_delayedload(C.newavail() * 0.0375) // you can gain up to 3.5 via the 4x upgrades power is halved by the pole so thats 2x then 1X then .5X for 3.5x the 3 bounces shock.
+					tesla_zap(src, 3, C.get_queued_available_power() * 0.01, ZAP_MOB_DAMAGE | ZAP_OBJ_DAMAGE | ZAP_MOB_STUN | ZAP_ALLOW_DUPLICATES) //Zap for 1/100 of the amount of power. At a million watts in the grid, it will be as powerful as a tesla revolver shot.
+					C.add_queued_power_demand(C.get_queued_available_power() * 0.0375) // you can gain up to 3.5 via the 4x upgrades power is halved by the pole so thats 2x then 1X then .5X for 3.5x the 3 bounces shock.
 	return ..()
 
-/obj/structure/grille/broken // Pre-broken grilles for map placement
+/// Pre-broken grilles for map placement
+/obj/structure/grille/broken
 	icon_state = "brokengrille"
-	density = 0
+	density = FALSE
 	obj_integrity = 20
-	broken = 1
+	broken = TRUE
 	rods_amount = 1
 	rods_broken = 0
 	grille_type = /obj/structure/grille

@@ -10,6 +10,7 @@
 	var/shoes = null
 	var/head = null
 	var/mask = null
+	var/neck = null
 	var/l_ear = null
 	var/r_ear = null
 	var/glasses = null
@@ -25,7 +26,7 @@
 	var/internals_slot = null //ID of slot containing a gas tank
 	var/list/backpack_contents = list() // In the list(path=count,otherpath=count) format
 	var/box // Internals box. Will be inserted at the start of backpack_contents
-	var/list/implants = list()
+	var/list/bio_chips = list()
 	var/list/cybernetic_implants = list()
 	var/list/accessories = list()
 
@@ -50,38 +51,61 @@
 
 /datum/outfit/proc/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
 	//to be overriden for toggling internals, id binding, access etc
-	return
+	SHOULD_CALL_PARENT(TRUE)
+	if(visualsOnly)
+		return
+
+	if(H.mind)
+		on_mind_initialize(H)
+		return
+	RegisterSignal(H, COMSIG_MIND_INITIALIZE, PROC_REF(on_mind_initialize))
+
+// Guaranteed access to mind, will never be called if visualsOnly = TRUE
+/datum/outfit/proc/on_mind_initialize(mob/living/carbon/human/H)
+	SIGNAL_HANDLER // COMSIG_MIND_INITIALIZE
+	SHOULD_CALL_PARENT(TRUE)
+	UnregisterSignal(H, COMSIG_MIND_INITIALIZE) // prevent this call from being called multiple times on a human
 
 /datum/outfit/proc/equip(mob/living/carbon/human/H, visualsOnly = FALSE)
 	pre_equip(H, visualsOnly)
 
 	//Start with uniform,suit,backpack for additional slots
 	if(uniform)
-		equip_item(H, uniform, slot_w_uniform)
+		equip_item(H, uniform, ITEM_SLOT_JUMPSUIT)
 	if(suit)
-		equip_item(H, suit, slot_wear_suit)
+		equip_item(H, suit, ITEM_SLOT_OUTER_SUIT)
 	if(back)
-		equip_item(H, back, slot_back)
+		equip_item(H, back, ITEM_SLOT_BACK)
 	if(belt)
-		equip_item(H, belt, slot_belt)
+		equip_item(H, belt, ITEM_SLOT_BELT)
 	if(gloves)
-		equip_item(H, gloves, slot_gloves)
+		equip_item(H, gloves, ITEM_SLOT_GLOVES)
 	if(shoes)
-		equip_item(H, shoes, slot_shoes)
+		equip_item(H, shoes, ITEM_SLOT_SHOES)
 	if(head)
-		equip_item(H, head, slot_head)
+		equip_item(H, head, ITEM_SLOT_HEAD)
 	if(mask)
-		equip_item(H, mask, slot_wear_mask)
+		equip_item(H, mask, ITEM_SLOT_MASK)
+	if(neck)
+		equip_item(H, neck, ITEM_SLOT_NECK)
 	if(l_ear)
-		equip_item(H, l_ear, slot_l_ear)
+		equip_item(H, l_ear, ITEM_SLOT_LEFT_EAR)
 	if(r_ear)
-		equip_item(H, r_ear, slot_r_ear)
+		equip_item(H, r_ear, ITEM_SLOT_RIGHT_EAR)
 	if(glasses)
-		equip_item(H, glasses, slot_glasses)
+		equip_item(H, glasses, ITEM_SLOT_EYES)
 	if(id)
-		equip_item(H, id, slot_wear_id)
+		equip_item(H, id, ITEM_SLOT_ID)
+
+	if(!H.head && toggle_helmet && istype(H.wear_suit, /obj/item/clothing/suit/space/hardsuit))
+		var/obj/item/clothing/suit/space/hardsuit/HS = H.wear_suit
+		HS.ToggleHelmet()
+	else if(toggle_helmet && ismodcontrol(H.back))
+		var/obj/item/mod/control/C = H.back
+		C.quick_activation()
+
 	if(suit_store)
-		equip_item(H, suit_store, slot_s_store)
+		equip_item(H, suit_store, ITEM_SLOT_SUIT_STORE)
 
 	if(l_hand)
 		H.put_in_l_hand(new l_hand(H))
@@ -89,7 +113,7 @@
 		H.put_in_r_hand(new r_hand(H))
 
 	if(pda)
-		equip_item(H, pda, slot_wear_pda)
+		equip_item(H, pda, ITEM_SLOT_PDA)
 
 	if(uniform)
 		for(var/path in accessories)
@@ -99,9 +123,9 @@
 
 	if(!visualsOnly) // Items in pockets or backpack don't show up on mob's icon.
 		if(l_pocket)
-			equip_item(H, l_pocket, slot_l_store)
+			equip_item(H, l_pocket, ITEM_SLOT_LEFT_POCKET)
 		if(r_pocket)
-			equip_item(H, r_pocket, slot_r_store)
+			equip_item(H, r_pocket, ITEM_SLOT_RIGHT_POCKET)
 
 		if(box)
 			if(!backpack_contents)
@@ -114,15 +138,11 @@
 			if(!number)
 				number = 1
 			for(var/i in 1 to number)
-				H.equip_or_collect(new path(H), slot_in_backpack)
+				H.equip_or_collect(new path(H), ITEM_SLOT_IN_BACKPACK)
 
 		for(var/path in cybernetic_implants)
 			var/obj/item/organ/internal/O = new path
 			O.insert(H)
-
-	if(!H.head && toggle_helmet && istype(H.wear_suit, /obj/item/clothing/suit/space/hardsuit))
-		var/obj/item/clothing/suit/space/hardsuit/HS = H.wear_suit
-		HS.ToggleHelmet()
 
 	post_equip(H, visualsOnly)
 
@@ -132,9 +152,9 @@
 			H.internal = H.get_item_by_slot(internals_slot)
 			H.update_action_buttons_icon()
 
-	if(implants)
-		for(var/implant_type in implants)
-			var/obj/item/implant/I = new implant_type(H)
+	if(bio_chips)
+		for(var/bio_chip_type in bio_chips)
+			var/obj/item/bio_chip/I = new bio_chip_type(H)
 			I.implant(H, null)
 
 	H.update_body()
@@ -155,6 +175,8 @@
 		H.wear_suit.add_fingerprint(H, 1)
 	if(H.wear_mask)
 		H.wear_mask.add_fingerprint(H, 1)
+	if(H.neck)
+		H.neck.add_fingerprint(H, 1)
 	if(H.head)
 		H.head.add_fingerprint(H, 1)
 	if(H.shoes)
@@ -182,7 +204,7 @@
 	return 1
 
 /datum/outfit/proc/get_chameleon_disguise_info()
-	var/list/types = list(uniform, suit, back, belt, gloves, shoes, head, mask, l_ear, r_ear, glasses, id, l_pocket, r_pocket, suit_store, r_hand, l_hand, pda)
+	var/list/types = list(uniform, suit, back, belt, gloves, shoes, head, mask, neck, l_ear, r_ear, glasses, id, l_pocket, r_pocket, suit_store, r_hand, l_hand, pda)
 	types += chameleon_extras
 	listclearnulls(types)
 	return types
@@ -208,6 +230,7 @@
 	shoes = text2path(outfit_data["shoes"])
 	head = text2path(outfit_data["head"])
 	mask = text2path(outfit_data["mask"])
+	neck = text2path(outfit_data["neck"])
 	l_ear = text2path(outfit_data["l_ear"])
 	r_ear = text2path(outfit_data["r_ear"])
 	glasses = text2path(outfit_data["glasses"])
@@ -228,12 +251,12 @@
 			backpack_contents[itype] = backpack[item]
 	box = text2path(outfit_data["box"])
 
-	var/list/impl = outfit_data["implants"]
-	implants = list()
+	var/list/impl = outfit_data["bio_chips"]
+	bio_chips = list()
 	for(var/I in impl)
 		var/imptype = text2path(I)
 		if(imptype)
-			implants += imptype
+			bio_chips += imptype
 
 	var/list/cybernetic_impl = outfit_data["cybernetic_implants"]
 	cybernetic_implants = list()
@@ -264,6 +287,7 @@
 	.["shoes"] = shoes
 	.["head"] = head
 	.["mask"] = mask
+	.["neck"] = neck
 	.["l_ear"] = l_ear
 	.["r_ear"] = r_ear
 	.["glasses"] = glasses
@@ -277,6 +301,15 @@
 	.["internals_slot"] = internals_slot
 	.["backpack_contents"] = backpack_contents
 	.["box"] = box
-	.["implants"] = implants
+	.["bio_chips"] = bio_chips
 	.["cybernetic_implants"] = cybernetic_implants
 	.["accessories"] = accessories
+
+// Butler outfit
+/datum/outfit/butler
+	name = "Butler"
+	uniform = /obj/item/clothing/under/suit/really_black
+	shoes = /obj/item/clothing/shoes/laceup
+	head = /obj/item/clothing/head/bowlerhat
+	glasses = /obj/item/clothing/glasses/monocle
+	gloves = /obj/item/clothing/gloves/color/white

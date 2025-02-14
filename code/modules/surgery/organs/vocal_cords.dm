@@ -35,7 +35,8 @@ GLOBAL_DATUM_INIT(clap_words, /regex, regex("clap|applaud"))
 GLOBAL_DATUM_INIT(honk_words, /regex, regex("ho+nk")) //hooooooonk
 GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 
-/obj/item/organ/internal/vocal_cords //organs that are activated through speech with the :x channel
+/// organs that are activated through speech with the :x channel
+/obj/item/organ/internal/vocal_cords
 	name = "vocal cords"
 	icon_state = "appendix"
 	slot = "vocal_cords"
@@ -64,10 +65,10 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 	actions_types = list(/datum/action/item_action/organ_action/use/adamantine_vocal_cords)
 	icon_state = "adamantine_cords"
 
-/datum/action/item_action/organ_action/use/adamantine_vocal_cords/Trigger()
+/datum/action/item_action/organ_action/use/adamantine_vocal_cords/Trigger(left_click)
 	if(!IsAvailable())
 		return
-	var/message = input(owner, "Resonate a message to all nearby golems.", "Resonate")
+	var/message = tgui_input_text(owner, "Resonate a message to all nearby golems.", "Resonate")
 	if(QDELETED(src) || QDELETED(owner) || !message)
 		return
 	owner.say(".~[message]")
@@ -117,13 +118,13 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 		return FALSE
 	return TRUE
 
-/datum/action/item_action/organ_action/colossus/Trigger()
+/datum/action/item_action/organ_action/colossus/Trigger(left_click)
 	. = ..()
 	if(!IsAvailable())
 		if(world.time < cords.next_command)
 			to_chat(owner, "<span class='notice'>You must wait [(cords.next_command - world.time)/10] seconds before Speaking again.</span>")
 		return
-	var/command = input(owner, "Speak with the Voice of God", "Command")
+	var/command = tgui_input_text(owner, "Speak with the Voice of God", "Command")
 	if(!command)
 		return
 	owner.say(".~[command]")
@@ -149,25 +150,30 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 
 /obj/item/organ/internal/vocal_cords/colossus/handle_speech(message)
 	spans = "colossus yell" //reset spans, just in case someone gets deculted or the cords change owner
-	if(iscultist(owner))
+	if(IS_CULTIST(owner))
 		spans += "narsiesmall"
 	return "<span class=\"[spans]\">[uppertext(message)]</span>"
 
 /obj/item/organ/internal/vocal_cords/colossus/speak_with(message)
 	var/log_message = uppertext(message)
 	message = lowertext(message)
-	playsound(get_turf(owner), 'sound/magic/invoke_general.ogg', 300, 1, 5)
+	playsound(get_turf(owner), 'sound/magic/invoke_general.ogg', 300, TRUE, 5)
 
 	var/list/mob/living/listeners = list()
-	for(var/mob/living/L in get_mobs_in_view(8, owner, TRUE))
+	for(var/mob/living/L as anything in get_mobs_in_view(8, owner, TRUE))
 		if(L.can_hear() && !L.null_rod_check() && L != owner && L.stat != DEAD)
 			if(ishuman(L))
 				var/mob/living/carbon/human/H = L
 				if(H.check_ear_prot() >= HEARING_PROTECTION_TOTAL)
 					continue
-			listeners += L
+			if(istype(L, /mob/camera/eye/ai))
+				var/mob/camera/eye/ai/ai_eye = L
+				if(ai_eye.relay_speech && ai_eye.ai)
+					listeners += ai_eye.ai
+			else
+				listeners += L
 
-	if(!listeners.len)
+	if(!length(listeners))
 		next_command = world.time + cooldown_none
 		return
 
@@ -175,7 +181,7 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 
 	if(owner.mind)
 		//Holy characters are very good at speaking with the voice of god
-		if(owner.mind.isholy)
+		if(HAS_MIND_TRAIT(owner, TRAIT_HOLY))
 			power_multiplier *= 2
 		//Command staff has authority
 		if(owner.mind.assigned_role in GLOB.command_positions)
@@ -185,7 +191,7 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 			power_multiplier *= 0.5
 
 	//Cultists are closer to their gods and are more powerful, but they'll give themselves away
-	if(iscultist(owner))
+	if(IS_CULTIST(owner))
 		power_multiplier *= 2
 
 	//It's magic, they are a wizard.
@@ -208,30 +214,30 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 			//Cut out the job so it doesn't trigger commands
 			found_string = L.mind.assigned_role
 
-	if(specific_listeners.len)
+	if(length(specific_listeners))
 		listeners = specific_listeners
-		power_multiplier *= (1 + (1/specific_listeners.len)) //2x on a single guy, 1.5x on two and so on
+		power_multiplier *= (1 + (1/length(specific_listeners))) //2x on a single guy, 1.5x on two and so on
 		message = copytext(message, 0, 1)+copytext(message, 1 + length(found_string), length(message) + 1)
 
 	//STUN
 	if(findtext(message, GLOB.stun_words))
 		for(var/V in listeners)
 			var/mob/living/L = V
-			L.Stun(3 * power_multiplier)
+			L.Stun(6 SECONDS * power_multiplier)
 		next_command = world.time + cooldown_stun
 
 	//WEAKEN
 	else if(findtext(message, GLOB.weaken_words))
 		for(var/V in listeners)
 			var/mob/living/L = V
-			L.Weaken(3 * power_multiplier)
+			L.Weaken(6 SECONDS * power_multiplier)
 		next_command = world.time + cooldown_stun
 
 	//SLEEP
 	else if((findtext(message, GLOB.sleep_words)))
 		for(var/V in listeners)
 			var/mob/living/L = V
-			L.Sleeping(2 * power_multiplier)
+			L.Sleeping(4 SECONDS * power_multiplier)
 		next_command = world.time + cooldown_stun
 
 	//VOMIT
@@ -245,7 +251,7 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 		for(var/mob/living/carbon/C in listeners)
 			if(owner.mind && (owner.mind.assigned_role == "Librarian" || owner.mind.assigned_role == "Mime"))
 				power_multiplier *= 3
-			C.silent += (10 * power_multiplier)
+			C.AdjustSilence(20 SECONDS * power_multiplier)
 		next_command = world.time + cooldown_stun
 
 	//HALLUCINATE
@@ -396,7 +402,7 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 	else if((findtext(message, GLOB.rest_words)))
 		for(var/V in listeners)
 			var/mob/living/L = V
-			if(!L.resting)
+			if(!IS_HORIZONTAL(L))
 				L.lay_down()
 		next_command = world.time + cooldown_meme
 
@@ -404,10 +410,12 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 	else if((findtext(message, GLOB.getup_words)))
 		for(var/V in listeners)
 			var/mob/living/L = V
-			if(L.resting)
-				L.lay_down() //aka get up
+			if(IS_HORIZONTAL(L))
+				L.resting = FALSE
+				L.stand_up()
 			L.SetStunned(0)
 			L.SetWeakened(0)
+			L.SetKnockDown(0)
 			L.SetParalysis(0) //i said get up i don't care if you're being tazed
 		next_command = world.time + cooldown_damage
 
@@ -425,7 +433,7 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 		for(var/V in listeners)
 			var/mob/living/L = V
 			if(L.buckled && istype(L.buckled, /obj/structure/chair))
-				L.buckled.unbuckle_mob(L)
+				L.unbuckle()
 		next_command = world.time + cooldown_meme
 
 	//DANCE
@@ -470,7 +478,7 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 			playsound(get_turf(owner), 'sound/items/bikehorn.ogg', 300, 1)
 		if(owner.mind && owner.mind.assigned_role == "Clown")
 			for(var/mob/living/carbon/C in listeners)
-				C.slip("your feet", 0, 7 * power_multiplier)
+				C.slip("your feet", 14 SECONDS * power_multiplier)
 			next_command = world.time + cooldown_stun
 		else
 			next_command = world.time + cooldown_meme
@@ -489,8 +497,12 @@ GLOBAL_DATUM_INIT(multispin_words, /regex, regex("like a record baby"))
 	log_game("[key_name(owner)] has said '[log_message]' with a Voice of God, affecting [english_list(listeners)], with a power multiplier of [power_multiplier].")
 
 /obj/item/organ/internal/vocal_cords/colossus/wizard
-	desc = "They carry the voice of an ancient god. This one is enchanted to implant it into yourself when used in hand"
+	desc = "They carry the voice of an ancient god. This one is enchanted to implant it into yourself when used in hand."
+	var/has_implanted = FALSE
 
-/obj/item/organ/internal/vocal_cords/colossus/wizard/attack_self(mob/living/user)
+/obj/item/organ/internal/vocal_cords/colossus/wizard/attack_self__legacy__attackchain(mob/living/user)
+	if(has_implanted)
+		return
 	user.drop_item()
 	insert(user)
+	has_implanted = TRUE

@@ -11,7 +11,6 @@
 	to_chat(user, "<span class='notice'>Left Mouse Button + alt on turf/obj    = Copy object type")
 	to_chat(user, "<span class='notice'>Left Mouse Button on turf/obj          = Place objects</span>")
 	to_chat(user, "<span class='notice'>Right Mouse Button                     = Delete objects</span>")
-	to_chat(user, "")
 	to_chat(user, "<span class='notice'>Use the button in the upper left corner to</span>")
 	to_chat(user, "<span class='notice'>change the direction of built objects.</span>")
 	to_chat(user, "<span class='notice'>***********************************************************</span>")
@@ -36,7 +35,7 @@
 	var/alt_click = pa.Find("alt")
 
 	if(left_click && alt_click)
-		if (isturf(object) || isobj(object) || ismob(object))
+		if(isturf(object) || isobj(object) || ismob(object))
 			objholder = object.type
 			to_chat(user, "<span class='notice'>[initial(object.name)] ([object.type]) selected.</span>")
 		else
@@ -47,13 +46,15 @@
 			log_admin("Build Mode: [key_name(user)] modified [T] ([T.x],[T.y],[T.z]) to [objholder]")
 			T.ChangeTurf(objholder)
 		else if(!isnull(objholder))
-			var/obj/A = new objholder (get_turf(object))
-			A.setDir(BM.build_dir)
-			log_admin("Build Mode: [key_name(user)] modified [A]'s ([A.x],[A.y],[A.z]) dir to [BM.build_dir]")
+			//we only want to set the direction of mobs or objects, not turfs or areas.
+			var/atom/movable/A = new objholder(get_turf(object))
+			if(istype(A))
+				A.setDir(BM.build_dir)
+				log_admin("Build Mode: [key_name(user)] modified [A]'s ([A.x],[A.y],[A.z]) dir to [BM.build_dir]")
 		else
 			to_chat(user, "<span class='warning'>Select object type first.</span>")
 	else if(right_click)
 		if(isobj(object))
 			log_admin("Build Mode: [key_name(user)] deleted [object] at ([object.x],[object.y],[object.z])")
 			qdel(object)
-	
+

@@ -20,7 +20,7 @@
 	attack_sound = 'sound/items/bikehorn.ogg'
 	del_on_death = TRUE
 	pass_flags = PASSTABLE | PASSGRILLE | PASSMOB | LETPASSTHROW | PASSGLASS | PASSBLOB//it's practically a ghost when unmanifested (under the floor)
-	loot = list(/obj/item/clothing/mask/cursedclown)
+	loot = list(/obj/item/clothing/mask/false_cluwne_mask)
 	a_intent = INTENT_HARM
 	wander = FALSE
 	minimum_distance = 2
@@ -44,7 +44,7 @@
 	var/admincluwne = FALSE
 
 
-/mob/living/simple_animal/hostile/floor_cluwne/New()
+/mob/living/simple_animal/hostile/floor_cluwne/Initialize(mapload)
 	. = ..()
 	remove_from_all_data_huds()
 	var/obj/item/card/id/access_card = new (src)
@@ -59,8 +59,8 @@
 			return
 		Acquire_Victim()
 
-
 /mob/living/simple_animal/hostile/floor_cluwne/Destroy()
+	current_victim = null
 	return ..()
 
 
@@ -69,7 +69,7 @@
 	playsound(src.loc, 'sound/items/bikehorn.ogg', 50, 1)
 
 
-/mob/living/simple_animal/hostile/floor_cluwne/CanPass(atom/A, turf/target)
+/mob/living/simple_animal/hostile/floor_cluwne/CanPass(atom/A, border_dir)
 	return TRUE
 
 
@@ -151,7 +151,7 @@
 
 /mob/living/simple_animal/hostile/floor_cluwne/proc/Acquire_Victim(specific)
 	var/list/players_copy = GLOB.player_list.Copy()
-	while(players_copy.len)
+	while(length(players_copy))
 		var/mob/living/carbon/human/H = pick_n_take(players_copy)
 		if(!ishuman(H))
 			continue
@@ -177,7 +177,7 @@
 /mob/living/simple_animal/hostile/floor_cluwne/proc/Manifest()//handles disappearing and appearance anim
 	if(manifested)
 		new /obj/effect/temp_visual/fcluwne_manifest(loc)
-		addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Appear), MANIFEST_DELAY)
+		addtimer(CALLBACK(src, TYPE_PROC_REF(/mob/living/simple_animal/hostile/floor_cluwne, Appear)), MANIFEST_DELAY)
 
 	else
 		layer = GAME_PLANE
@@ -209,7 +209,7 @@
 		if(STAGE_HAUNT)
 
 			if(prob(5))
-				H.AdjustEyeBlurry(1)
+				H.AdjustEyeBlurry(2 SECONDS)
 
 			if(prob(5))
 				H.playsound_local(src,'sound/spookoween/insane_low_laugh.ogg', 1)
@@ -226,7 +226,7 @@
 		if(STAGE_SPOOK)
 
 			if(prob(4))
-				H.slip("???", 5, 2)
+				H.slip("???", 10 SECONDS)
 				to_chat(H, "<span class='warning'>The floor shifts underneath you!</span>")
 
 			if(prob(3))
@@ -249,12 +249,12 @@
 				to_chat(H, "<font face='Comic Sans MS'><i>yalp ot tnaw I</i></font>")
 				Appear()
 				manifested = FALSE
-				addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Manifest), 1)
+				addtimer(CALLBACK(src, TYPE_PROC_REF(/mob/living/simple_animal/hostile/floor_cluwne, Manifest)), 1)
 
 		if(STAGE_TORMENT)
 
 			if(prob(5))
-				H.slip("???", 5, 2)
+				H.slip("???", 10 SECONDS)
 				to_chat(H, "<span class='warning'>The floor shifts underneath you!</span>")
 
 			if(prob(5))
@@ -279,7 +279,7 @@
 				to_chat(H, "<font face='Comic Sans MS'><i>!?REHTOMKNOH eht esiarp uoy oD</i></font>")
 				to_chat(H, "<span class='warning'>Something grabs your foot!</span>")
 				H.playsound_local(src,'sound/hallucinations/i_see_you1.ogg', 25)
-				H.Stun(10)
+				H.Stun(20 SECONDS)
 
 			if(prob(5))
 				to_chat(H, "<font face='Comic Sans MS'><i>!KNOH ?od nottub siht seod tahW</i></font>")
@@ -298,14 +298,14 @@
 				H.reagents.add_reagent("lsd", 3)
 				Appear()
 				manifested = FALSE
-				addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Manifest), 2)
+				addtimer(CALLBACK(src, TYPE_PROC_REF(/mob/living/simple_animal/hostile/floor_cluwne, Manifest)), 2)
 				for(var/obj/machinery/light/L in range(H, 8))
-					L.flicker()
+					L.forced_flicker()
 
 		if(STAGE_ATTACK)
 
 			if(!eating)
-				for(var/I in getline(src, get_turf(H)))
+				for(var/I in get_line(src, get_turf(H)))
 					var/turf/T = I
 					for(var/obj/structure/O in T)
 						if(istype(O, /obj/structure/closet))
@@ -316,15 +316,15 @@
 					if(T.density)
 						forceMove(H.loc)
 					if(H.buckled)
-						H.buckled.unbuckle_mob(H, force = TRUE)
+						H.unbuckle(force = TRUE)
 				manifested = TRUE
 				Manifest()
 				to_chat(H, "<span class='userdanger'>You feel the floor closing in on your feet!</span>")
-				H.Weaken(30)
+				H.Weaken(60 SECONDS)
 				H.emote("scream")
 				H.adjustBruteLoss(10)
 				if(!eating)
-					addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Grab, H), 70)
+					addtimer(CALLBACK(src, TYPE_PROC_REF(/mob/living/simple_animal/hostile/floor_cluwne, Grab), H), 70)
 					for(var/turf/simulated/floor/O in range(src, 6))
 						O.MakeSlippery(TURF_WET_LUBE, 20 SECONDS)
 						playsound(src, 'sound/effects/meteorimpact.ogg', 30, 1)
@@ -338,7 +338,7 @@
 
 		if(do_after(src, 10, target = H))
 			step_towards(H, src)
-			playsound(H, pick('sound/effects/bodyscrape-01.ogg', 'sound/effects/bodyscrape-02.ogg'), 20, 1, -4)
+			playsound(H, pick('sound/effects/bodyscrape-01.ogg', 'sound/effects/bodyscrape-02.ogg'), 20, TRUE, -4)
 			H.emote("scream")
 			if(prob(25))
 				playsound(src, pick('sound/hallucinations/growl1.ogg', 'sound/hallucinations/growl2.ogg', 'sound/items/bikehorn.ogg'), 50, 1)
@@ -353,7 +353,7 @@
 			H.mouse_opacity = 0
 			H.density = FALSE
 			H.anchored = TRUE
-			addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Kill, H), 100)
+			addtimer(CALLBACK(src, TYPE_PROC_REF(/mob/living/simple_animal/hostile/floor_cluwne, Kill), H), 100)
 			H.visible_message("<span class='userdanger'>[src] pulls [H] under the floor!</span>")
 		else//some fuck pulled away our food
 			stage = STAGE_TORMENT
@@ -370,7 +370,9 @@
 /mob/living/simple_animal/hostile/floor_cluwne/proc/Kill(mob/living/carbon/human/H)
 	playsound(H, 'sound/spookoween/scary_horn2.ogg', 100, 0)
 	var/old_color = H.client?.color
-	client_kill_animation(H)
+
+	if(H?.client?.prefs.colourblind_mode == COLOURBLIND_MODE_NONE)
+		client_kill_animation(H)
 
 	for(var/turf/T in orange(H, 4))
 		H.add_splatter_floor(T)
@@ -400,7 +402,7 @@
 	if(prob(2))
 		switch_stage = max(switch_stage * 0.75, switch_stage_min) //he gets a chance to be faster after each feast
 	if(smiting)
-		playsound(loc, 'sound/spookoween/scary_horn2.ogg', 100, 0, -4)
+		playsound(loc, 'sound/spookoween/scary_horn2.ogg', 100, FALSE, -4)
 		qdel(src)
 	else
 		Acquire_Victim()

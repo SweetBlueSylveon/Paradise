@@ -16,7 +16,7 @@
 	name = "Hallucinate"
 	activation_messages = list("Your mind says 'Hello'.")
 	deactivation_messages = list("Sanity returns. Or does it?")
-	instability = -GENE_INSTABILITY_MODERATE
+	instability = -GENE_INSTABILITY_MAJOR
 
 /datum/mutation/disability/hallucinate/New()
 	..()
@@ -24,7 +24,7 @@
 
 /datum/mutation/disability/hallucinate/on_life(mob/living/carbon/human/H)
 	if(prob(1))
-		H.AdjustHallucinate(45)
+		H.AdjustHallucinate(45 SECONDS)
 
 /datum/mutation/disability/epilepsy
 	name = "Epilepsy"
@@ -37,10 +37,10 @@
 	block = GLOB.epilepsyblock
 
 /datum/mutation/disability/epilepsy/on_life(mob/living/carbon/human/H)
-	if((prob(1) && H.paralysis < 1))
+	if((prob(1) && !H.IsParalyzed()))
 		H.visible_message("<span class='danger'>[H] starts having a seizure!</span>","<span class='alert'>You have a seizure!</span>")
-		H.Paralyse(10)
-		H.Jitter(1000)
+		H.Paralyse(20 SECONDS)
+		H.Jitter(2000 SECONDS)
 
 /datum/mutation/disability/cough
 	name = "Coughing"
@@ -53,7 +53,7 @@
 	block = GLOB.coughblock
 
 /datum/mutation/disability/cough/on_life(mob/living/carbon/human/H)
-	if((prob(5) && H.paralysis <= 1))
+	if((prob(5) && H.AmountParalyzed() <= 1))
 		H.drop_item()
 		H.emote("cough")
 
@@ -61,37 +61,12 @@
 	name = "Clumsiness"
 	activation_messages = list("You feel lightheaded.")
 	deactivation_messages = list("You regain some control of your movements")
-	instability = -GENE_INSTABILITY_MINOR
+	instability = -GENE_INSTABILITY_MODERATE
 	traits_to_add = list(TRAIT_CLUMSY)
 
 /datum/mutation/disability/clumsy/New()
 	..()
 	block = GLOB.clumsyblock
-
-/datum/mutation/disability/tourettes
-	name = "Tourettes"
-	activation_messages = list("You twitch.")
-	deactivation_messages = list("Your mouth tastes like soap.")
-	instability = -GENE_INSTABILITY_MODERATE
-
-/datum/mutation/disability/tourettes/New()
-	..()
-	block = GLOB.twitchblock
-
-/datum/mutation/disability/tourettes/on_life(mob/living/carbon/human/H)
-	if((prob(10) && H.paralysis <= 1))
-		H.Stun(10)
-		switch(rand(1, 3))
-			if(1)
-				H.emote("twitch")
-			if(2 to 3)
-				H.say("[prob(50) ? ";" : ""][pick("SHIT", "PISS", "FUCK", "CUNT", "COCKSUCKER", "MOTHERFUCKER", "TITS")]")
-		var/x_offset_old = H.pixel_x
-		var/y_offset_old = H.pixel_y
-		var/x_offset = H.pixel_x + rand(-2, 2)
-		var/y_offset = H.pixel_y + rand(-1, 1)
-		animate(H, pixel_x = x_offset, pixel_y = y_offset, time = 1)
-		animate(H, pixel_x = x_offset_old, pixel_y = y_offset_old, time = 1)
 
 /datum/mutation/disability/nervousness
 	name = "Nervousness"
@@ -104,7 +79,7 @@
 
 /datum/mutation/disability/nervousness/on_life(mob/living/carbon/human/H)
 	if(prob(10))
-		H.Stuttering(10)
+		H.Stuttering(20 SECONDS)
 
 /datum/mutation/disability/blindness
 	name = "Blindness"
@@ -125,12 +100,11 @@
 	..()
 	M.update_blind_effects()
 
-
 /datum/mutation/disability/colourblindness
 	name = "Colourblindness"
 	activation_messages = list("You feel a peculiar prickling in your eyes while your perception of colour changes.")
-	deactivation_messages = list("Your eyes tingle unsettlingly, though everything seems to become alot more colourful.")
-	instability = -GENE_INSTABILITY_MODERATE
+	deactivation_messages = list("Your eyes tingle unsettlingly, though everything seems to become a lot more colourful.")
+	instability = -GENE_INSTABILITY_MINOR
 	traits_to_add = list(TRAIT_COLORBLIND)
 
 /datum/mutation/disability/colourblindness/New()
@@ -210,7 +184,7 @@
 	desc = "Garbles the subject's voice into an incomprehensible speech."
 	activation_messages = list("<span class='wingdings'>Your vocal cords feel alien.</span>")
 	deactivation_messages = list("Your vocal cords no longer feel alien.")
-	instability = -GENE_INSTABILITY_MINOR
+	instability = -GENE_INSTABILITY_MODERATE
 	traits_to_add = list(TRAIT_WINGDINGS)
 
 /datum/mutation/disability/wingdings/New()
@@ -234,7 +208,7 @@
 //////////////////
 
 ////////////////////////////////////////
-// Totally Crippling
+// MARK: Totally Crippling
 ////////////////////////////////////////
 
 // WAS: /datum/bioEffect/mute
@@ -243,7 +217,7 @@
 	desc = "Completely shuts down the speech center of the subject's brain."
 	activation_messages = list("You feel unable to express yourself at all.")
 	deactivation_messages = list("You feel able to speak freely again.")
-	instability = -GENE_INSTABILITY_MODERATE
+	instability = -GENE_INSTABILITY_MAJOR
 	traits_to_add = list(TRAIT_MUTE)
 
 /datum/mutation/disability/mute/New()
@@ -253,8 +227,20 @@
 /datum/mutation/disability/mute/on_say(mob/M, message)
 	return ""
 
+/datum/mutation/disability/paraplegic
+	name = "Paraplegic"
+	desc = "Your legs don't work, even with prosthetics."
+	activation_messages = list("MY LEG!")
+	deactivation_messages = list("You can feel your legs again.")
+	instability = -GENE_INSTABILITY_MAJOR
+	traits_to_add = list(TRAIT_PARAPLEGIC)
+
+/datum/mutation/disability/paraplegic/New()
+	..()
+	block = GLOB.paraplegicblock
+
 ////////////////////////////////////////
-// Harmful to others as well as self
+// MARK: Harmful to everyone
 ////////////////////////////////////////
 
 /datum/mutation/disability/radioactive
@@ -285,7 +271,7 @@
 	return "rads_s"
 
 ////////////////////////////////////////
-// Other disabilities
+// MARK: Other disabilities
 ////////////////////////////////////////
 
 // WAS: /datum/bioEffect/fat
@@ -294,7 +280,6 @@
 	desc = "Greatly slows the subject's metabolism, enabling greater buildup of lipid tissue."
 	activation_messages = list("You feel blubbery and lethargic!")
 	deactivation_messages = list("You feel fit!")
-	instability = -GENE_INSTABILITY_MINOR
 	traits_to_add = list(TRAIT_SLOWDIGESTION)
 
 /datum/mutation/disability/fat/New()
@@ -307,6 +292,7 @@
 	desc = "Forces the language center of the subject's brain to construct sentences in a more rudimentary manner."
 	activation_messages = list("Ye feel like a rite prat like, innit?")
 	deactivation_messages = list("You no longer feel like being rude and sassy.")
+	traits_to_add = list(TRAIT_CHAV)
 	//List of swappable words. Normal word first, chav word second.
 	var/static/list/chavlinks = list(
 	"arrest" = "nick",
@@ -382,6 +368,7 @@
 	return message
 
 /datum/mutation/disability/speech/chav/proc/replace_speech(matched)
+	REGEX_REPLACE_HANDLER
 	return chavlinks[matched]
 
 // WAS: /datum/bioEffect/swedish
@@ -395,7 +382,7 @@
 	..()
 	block = GLOB.swedeblock
 
-/datum/mutation/disability/speech/swedish/on_say(mob/M, message)
+/datum/mutation/disability/speech/swedish/on_say(mob/living/M, message)
 	// svedish
 	message = replacetextEx(message,"W","V")
 	message = replacetextEx(message,"w","v")
@@ -408,7 +395,7 @@
 	message = replacetextEx(message,"bo","bjo")
 	message = replacetextEx(message,"O",pick("Ö","Ø","O"))
 	message = replacetextEx(message,"o",pick("ö","ø","o"))
-	if(prob(30) && !M.is_muzzled())
+	if(prob(30) && !M.is_muzzled() && !M.is_facehugged())
 		message += " Bork[pick("",", bork",", bork, bork")]!"
 	return message
 
@@ -436,7 +423,7 @@
 
 	var/list/words = splittext(message," ")
 	var/list/rearranged = list()
-	for(var/i=1;i<=words.len;i++)
+	for(var/i=1;i<=length(words);i++)
 		var/cword = pick(words)
 		words.Remove(cword)
 		var/suffix = copytext(cword,length(cword)-1,length(cword))
@@ -448,7 +435,7 @@
 	return "[prefix][uppertext(jointext(rearranged," "))]!!"
 
 //////////////////
-// USELESS SHIT //
+// MARK: USELESS SHIT
 //////////////////
 
 // WAS: /datum/bioEffect/strong
@@ -482,31 +469,29 @@
 	desc = "The subject becomes able to convert excess cellular energy into thermal energy."
 	activation_messages = list("You suddenly feel rather hot.")
 	deactivation_messages = list("You no longer feel uncomfortably hot.")
-	spelltype = /obj/effect/proc_holder/spell/targeted/immolate
+	spelltype = /datum/spell/immolate
 
 /datum/mutation/grant_spell/immolate/New()
 	..()
 	block = GLOB.immolateblock
 
-/obj/effect/proc_holder/spell/targeted/immolate
+/datum/spell/immolate
 	name = "Incendiary Mitochondria"
 	desc = "The subject becomes able to convert excess cellular energy into thermal energy."
-	panel = "Abilities"
 
-	charge_type = "recharge"
-	charge_max = 600
+	base_cooldown = 600
 
-	clothes_req = 0
-	stat_allowed = 0
+	clothes_req = FALSE
+	stat_allowed = CONSCIOUS
 	invocation_type = "none"
-	range = -1
-	selection_type = "range"
 	var/list/compatible_mobs = list(/mob/living/carbon/human)
-	include_user = 1
 
 	action_icon_state = "genetic_incendiary"
 
-/obj/effect/proc_holder/spell/targeted/immolate/cast(list/targets, mob/living/user = usr)
+/datum/spell/immolate/create_new_targeting()
+	return new /datum/spell_targeting/self
+
+/datum/spell/immolate/cast(list/targets, mob/living/user = usr)
 	var/mob/living/carbon/L = user
 	L.adjust_fire_stacks(0.5)
 	L.visible_message("<span class='danger'>[L.name]</b> suddenly bursts into flames!</span>")
@@ -536,7 +521,7 @@
 	desc = "Causes the cerebellum to shut down in some places."
 	activation_messages = list("You feel very dizzy...")
 	deactivation_messages = list("You regain your balance.")
-	instability = -GENE_INSTABILITY_MINOR
+	instability = -GENE_INSTABILITY_MODERATE
 
 /datum/mutation/disability/dizzy/New()
 	..()
@@ -546,7 +531,7 @@
 /datum/mutation/disability/dizzy/on_life(mob/living/carbon/human/M)
 	if(!istype(M))
 		return
-	M.Dizzy(300)
+	M.Dizzy(600 SECONDS)
 
 /datum/mutation/disability/dizzy/deactivate(mob/living/M)
 	..()

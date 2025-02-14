@@ -4,24 +4,55 @@
 	icon_state = "jetpack"
 	w_class = WEIGHT_CLASS_BULKY
 	item_state = "jetpack"
+	lefthand_file = 'icons/mob/inhands/jetpack_lefthand.dmi'
+	righthand_file = 'icons/mob/inhands/jetpack_righthand.dmi'
 	distribute_pressure = ONE_ATMOSPHERE * O2STANDARD
 	actions_types = list(/datum/action/item_action/set_internals, /datum/action/item_action/toggle_jetpack, /datum/action/item_action/jetpack_stabilization)
 	var/gas_type = "oxygen"
-	var/on = 0
-	var/stabilizers = 0
+	var/on = FALSE
 	var/volume_rate = 500              //Needed for borg jetpack transfer
+	var/stabilize = FALSE
+	var/thrust_callback
+
+/obj/item/tank/jetpack/Initialize(mapload)
+	. = ..()
+	thrust_callback = CALLBACK(src, PROC_REF(allow_thrust), 0.01)
+	configure_jetpack(stabilize)
+
+/obj/item/tank/jetpack/Destroy()
+	thrust_callback = null
+	return ..()
+
+/**
+ * configures/re-configures the jetpack component
+ *
+ * Arguments
+ * stabilize - Should this jetpack be stabalized
+ */
+/obj/item/tank/jetpack/proc/configure_jetpack(stabilize)
+	src.stabilize = stabilize
+
+	AddComponent( \
+		/datum/component/jetpack, \
+		src.stabilize, \
+		COMSIG_JETPACK_ACTIVATED, \
+		COMSIG_JETPACK_DEACTIVATED, \
+		JETPACK_ACTIVATION_FAILED, \
+		thrust_callback, \
+		/datum/effect_system/trail_follow/ion \
+	)
 
 /obj/item/tank/jetpack/populate_gas()
 	if(gas_type)
 		switch(gas_type)
 			if("oxygen")
-				air_contents.oxygen = ((6 * ONE_ATMOSPHERE) * volume / (R_IDEAL_GAS_EQUATION * T20C))
+				air_contents.set_oxygen(((6 * ONE_ATMOSPHERE) * volume / (R_IDEAL_GAS_EQUATION * T20C)))
 			if("carbon dioxide")
-				air_contents.carbon_dioxide = ((6 * ONE_ATMOSPHERE) * volume / (R_IDEAL_GAS_EQUATION * T20C))
+				air_contents.set_carbon_dioxide(((6 * ONE_ATMOSPHERE) * volume / (R_IDEAL_GAS_EQUATION * T20C)))
 
 /obj/item/tank/jetpack/on_mob_move(direction, mob/user)
 	if(on)
-		var/turf/T = get_step(src, GetOppositeDir(direction))
+		var/turf/T = get_step(src, REVERSE_DIR(direction))
 		if(!has_gravity(T))
 			new /obj/effect/particle_effect/ion_trails(T, direction)
 
@@ -35,8 +66,8 @@
 
 /obj/item/tank/jetpack/proc/toggle_stabilization(mob/user)
 	if(on)
-		stabilizers = !stabilizers
-		to_chat(user, "<span class='notice'>You turn [src]'s stabilization [stabilizers ? "on" : "off"].</span>")
+		configure_jetpack(!stabilize)
+		to_chat(user, "<span class='notice'>You turn [src]'s stabilization [stabilize ? "on" : "off"].</span>")
 
 /obj/item/tank/jetpack/proc/cycle(mob/user)
 	if(user.incapacitated())
@@ -48,35 +79,42 @@
 	else
 		turn_off(user)
 		to_chat(user, "<span class='notice'>You turn the jetpack off.</span>")
-	for(var/X in actions)
-		var/datum/action/A = X
-		A.UpdateButtonIcon()
-
+	update_action_buttons()
 
 /obj/item/tank/jetpack/proc/turn_on(mob/user)
+	if(SEND_SIGNAL(src, COMSIG_JETPACK_ACTIVATED, user) & JETPACK_ACTIVATION_FAILED)
+		return FALSE
+
 	on = TRUE
 	icon_state = "[initial(icon_state)]-on"
 
 /obj/item/tank/jetpack/proc/turn_off(mob/user)
+	SEND_SIGNAL(src, COMSIG_JETPACK_DEACTIVATED, user)
 	on = FALSE
-	stabilizers = FALSE
 	icon_state = initial(icon_state)
 
-/obj/item/tank/jetpack/proc/allow_thrust(num, mob/living/user)
-	if(!on)
-		return 0
+/obj/item/tank/jetpack/dropped(mob/user, silent)
+	. = ..()
+	if(on)
+		turn_off(user)
+
+/obj/item/tank/jetpack/proc/allow_thrust(num)
+	if(!ismob(loc))
+		return FALSE
+	var/mob/user = loc
+
 	if((num < 0.005 || air_contents.total_moles() < num))
 		turn_off(user)
-		return 0
+		return FALSE
 
 	var/datum/gas_mixture/removed = air_contents.remove(num)
 	if(removed.total_moles() < 0.005)
 		turn_off(user)
-		return 0
+		return FALSE
 
 	var/turf/T = get_turf(user)
-	T.assume_air(removed)
-	return 1
+	T.blind_release_air(removed)
+	return TRUE
 
 /obj/item/tank/jetpack/improvised
 	name = "improvised jetpack"
@@ -102,10 +140,12 @@
 /obj/item/tank/jetpack/void/grey
 	name = "Void Jetpack (Oxygen)"
 	icon_state = "jetpack-void-grey"
+	item_state = "jetpack-void-grey"
 
 /obj/item/tank/jetpack/void/gold
 	name = "Retro Jetpack (Oxygen)"
 	icon_state = "jetpack-void-gold"
+	item_state = "jetpack-void-gold"
 
 /obj/item/tank/jetpack/oxygen
 	name = "Jetpack (Oxygen)"
@@ -129,7 +169,6 @@
 	item_state = "jetpack-captain"
 	volume = 90
 	w_class = WEIGHT_CLASS_NORMAL
-	resistance_flags = INDESTRUCTIBLE | LAVA_PROOF | FIRE_PROOF | ACID_PROOF //steal objective items are hard to destroy.
 
 /obj/item/tank/jetpack/oxygen/security
 	name = "security jetpack (oxygen)"
@@ -165,7 +204,7 @@
 	STOP_PROCESSING(SSobj, src)
 	temp_air_contents = air_contents
 
-/obj/item/tank/jetpack/suit/attack_self()
+/obj/item/tank/jetpack/suit/attack_self__legacy__attackchain()
 	return
 
 /obj/item/tank/jetpack/suit/cycle(mob/user)

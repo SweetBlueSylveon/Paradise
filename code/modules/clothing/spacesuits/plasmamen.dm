@@ -4,10 +4,11 @@
 	desc = "A special containment helmet that allows plasma-based lifeforms to exist safely in an oxygenated environment. It is space-worthy, and may be worn in tandem with other EVA gear."
 	icon_state = "plasmaman-helm"
 	item_state = "plasmaman-helm"
+	base_icon_state = "plasmaman-helm"
 	strip_delay = 80
-	flash_protect = 2
-	tint = 2
-	armor = list(MELEE = 0, BULLET = 0, LASER = 0, ENERGY = 0, BOMB = 0, BIO = 100, RAD = 0, FIRE = 100, ACID = 75)
+	flash_protect = FLASH_PROTECTION_WELDER
+	tint = FLASH_PROTECTION_WELDER
+	armor = list(MELEE = 0, BULLET = 0, LASER = 0, ENERGY = 0, BOMB = 0, RAD = 0, FIRE = INFINITY, ACID = 150)
 	resistance_flags = FIRE_PROOF
 	var/brightness_on = 4 //luminosity when the light is on
 	var/on = FALSE
@@ -15,6 +16,9 @@
 	var/smile_color = "#FF0000"
 	var/visor_icon = "envisor"
 	var/smile_state = "envirohelm_smile"
+
+	dyeable = TRUE
+	dyeing_key = DYE_REGISTRY_PLASMAMEN_HELMET
 	actions_types = list(/datum/action/item_action/toggle_helmet_light, /datum/action/item_action/toggle_welding_screen/plasmaman)
 	visor_vars_to_toggle = VISOR_FLASHPROTECT | VISOR_TINT
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE
@@ -23,71 +27,67 @@
 	icon = 'icons/obj/clothing/species/plasmaman/hats.dmi'
 	species_restricted = list("Plasmaman")
 	sprite_sheets = list("Plasmaman" = 'icons/mob/clothing/species/plasmaman/helmet.dmi')
+	can_have_hats = TRUE
+	can_be_hat = FALSE
 
-/obj/item/clothing/head/helmet/space/plasmaman/New()
-	..()
+/obj/item/clothing/head/helmet/space/plasmaman/Initialize(mapload)
+	. = ..()
+	base_icon_state = icon_state
 	visor_toggling()
 	update_icon()
-	cut_overlays()
 
 /obj/item/clothing/head/helmet/space/plasmaman/AltClick(mob/user)
 	if(!user.incapacitated() && Adjacent(user))
 		toggle_welding_screen(user)
 
-/obj/item/clothing/head/helmet/space/plasmaman/visor_toggling() //handles all the actual toggling of flags
-	up = !up
-	flags ^= visor_flags
-	flags_inv ^= visor_flags_inv
-	icon_state = "[initial(icon_state)]"
-	if(visor_vars_to_toggle & VISOR_FLASHPROTECT)
-		flash_protect ^= initial(flash_protect)
-	if(visor_vars_to_toggle & VISOR_TINT)
-		tint ^= initial(tint)
-
 /obj/item/clothing/head/helmet/space/plasmaman/proc/toggle_welding_screen(mob/living/user)
 	if(weldingvisortoggle(user))
 		if(on)
-			to_chat(user, "<span class='notice'>Your helmet's torch can't pass through your welding visor!</span>")
-			on = FALSE
-			playsound(src, 'sound/mecha/mechmove03.ogg', 50, 1) //Visors don't just come from nothing
-			update_icon()
+			toggle_light(update_light = TRUE)
 		else
-			playsound(src, 'sound/mecha/mechmove03.ogg', 50, 1) //Visors don't just come from nothing
 			update_icon()
+		playsound(src, 'sound/mecha/mechmove03.ogg', 50, 1) //Visors don't just come from nothing
 
-/obj/item/clothing/head/helmet/space/plasmaman/update_icon()
-	cut_overlays()
-	add_overlay(visor_icon)
-	..()
-	actions_types = list(/datum/action/item_action/toggle_helmet_light)
+/obj/item/clothing/head/helmet/space/plasmaman/update_icon(updates=ALL)
+	. = ..()
+	update_action_buttons()
 
-/obj/item/clothing/head/helmet/space/plasmaman/attack_self(mob/user)
-	toggle_light(user)
-
-/obj/item/clothing/head/helmet/space/plasmaman/proc/toggle_light(mob/user)
-	on = !on
-	icon_state = "[initial(icon_state)][on ? "-light":""]"
+/obj/item/clothing/head/helmet/space/plasmaman/update_icon_state()
+	if(!up)
+		icon_state = base_icon_state
+	else
+		icon_state = "[base_icon_state][on ? "-light":""]"
 	item_state = icon_state
 
+/obj/item/clothing/head/helmet/space/plasmaman/update_overlays()
+	. = ..()
+	if(!up)
+		. += visor_icon
+
+/obj/item/clothing/head/helmet/space/plasmaman/attack_self__legacy__attackchain(mob/user)
+	toggle_light(user)
+
+/obj/item/clothing/head/helmet/space/plasmaman/proc/toggle_light(mob/user, update_light)
+	if(!update_light)
+		on = !on
+	update_icon()
+	if(isnull(user))
+		user = loc
 	var/mob/living/carbon/human/H = user
 	if(istype(H))
 		H.update_inv_head()
+		if(!update_light)
+			to_chat(user, "<span class='notice'>You turn \the [src]'s torch [on ? "on":"off"].</span>")
+		if(on && !up)
+			to_chat(user, "<span class='notice'>[src]'s torch can't pass through your welding visor!</span>")
 
-	if(on)
-		if(!up)
-			if(istype(H))
-				to_chat(user, "<span class='notice'>Your helmet's torch can't pass through your welding visor!</span>")
-			set_light(0)
-		else
-			set_light(brightness_on)
-	else
+	if(!on || !up)
 		set_light(0)
+		return
 
-	for(var/X in actions)
-		var/datum/action/A=X
-		A.UpdateButtonIcon()
+	set_light(brightness_on)
 
-/obj/item/clothing/head/helmet/space/plasmaman/extinguish_light()
+/obj/item/clothing/head/helmet/space/plasmaman/extinguish_light(force = FALSE)
 	if(on)
 		toggle_light()
 
@@ -96,19 +96,21 @@
 	desc = "A plasmaman containment helmet designed for security officers, protecting them from being flashed and burning alive, alongside other undesirables."
 	icon_state = "security_envirohelm"
 	item_state = "security_envirohelm"
-	armor = list(MELEE = 10, BULLET = 0, LASER = 0, ENERGY = 0, BOMB = 0, BIO = 100, RAD = 0, FIRE = 100, ACID = 75)
+	armor = list(MELEE = 25, BULLET = 20, LASER = 20, ENERGY = 5, BOMB = 15, RAD = 0, FIRE = INFINITY, ACID = 150)
 
 /obj/item/clothing/head/helmet/space/plasmaman/security/warden
 	name = "warden's plasma envirosuit helmet"
 	desc = "A plasmaman containment helmet designed for the warden, a pair of white stripes being added to differentiate them from other members of security."
 	icon_state = "warden_envirohelm"
 	item_state = "warden_envirohelm"
+	armor = list(MELEE = 35, BULLET = 20, LASER = 20, ENERGY = 5, BOMB = 15, RAD = 0, FIRE = INFINITY, ACID = 150)
 
 /obj/item/clothing/head/helmet/space/plasmaman/security/hos
 	name = "security plasma envirosuit helmet"
 	desc = "A plasmaman containment helmet designed for the head of security."
 	icon_state = "hos_envirohelm"
 	item_state = "hos_envirohelm"
+	armor = list(MELEE = 35, BULLET = 20, LASER = 20, ENERGY = 5, BOMB = 15, RAD = 0, FIRE = INFINITY, ACID = 150)
 
 /obj/item/clothing/head/helmet/space/plasmaman/medical
 	name = "medical plasma envirosuit helmet"
@@ -163,7 +165,7 @@
 	desc = "A space-worthy helmet specially designed for engineer plasmamen, the usual purple stripes being replaced by engineering's orange."
 	icon_state = "engineer_envirohelm"
 	item_state = "engineer_envirohelm"
-	armor = list(MELEE = 0, BULLET = 0, LASER = 0, ENERGY = 0, BOMB = 0, BIO = 100, RAD = 10, FIRE = 100, ACID = 75)
+	armor = list(MELEE = 0, BULLET = 0, LASER = 0, ENERGY = 0, BOMB = 0, RAD = 10, FIRE = INFINITY, ACID = 75)
 
 /obj/item/clothing/head/helmet/space/plasmaman/engineering/ce
 	name = "chief engineer's plasma envirosuit helmet"
@@ -189,6 +191,13 @@
 	icon_state = "explorer_envirohelm"
 	item_state = "explorer_envirohelm"
 	visor_icon = "explorer_envisor"
+
+/obj/item/clothing/head/helmet/space/plasmaman/expedition
+	name = "expedition plasma envirosuit helmet"
+	desc = "A brown and blue helmet given to plasmaman explorers operating in Space.."
+	icon_state = "expedition_envirohelm"
+	item_state = "expedition_envirohelm"
+	armor = list(MELEE = 25, BULLET = 20, LASER = 20, ENERGY = 5, BOMB = 15, RAD = 0, FIRE = INFINITY, ACID = 150)
 
 /obj/item/clothing/head/helmet/space/plasmaman/chaplain
 	name = "chaplain's plasma envirosuit helmet"
@@ -267,7 +276,7 @@
 	item_state = "wizard_envirohelm"
 	gas_transfer_coefficient = 0.01
 	permeability_coefficient = 0.01
-	armor = list(MELEE = 30, BULLET = 20, LASER = 20, ENERGY = 20, BOMB = 20, BIO = 20, RAD = 20, FIRE = 100, ACID = 100)
+	armor = list(MELEE = 20, BULLET = 10, LASER = 10, ENERGY = 10, BOMB = 10, RAD = 10, FIRE = INFINITY, ACID = INFINITY)
 	resistance_flags = FIRE_PROOF | ACID_PROOF
 	magical = TRUE
 
@@ -276,3 +285,81 @@
 	desc = "A plasmaman envirohelm designed for the common, maint-dwelling masses."
 	icon_state = "assistant_envirohelm"
 	item_state = "assistant_envirohelm"
+
+/obj/item/clothing/head/helmet/space/plasmaman/coke
+	name = "coke envirosuit helmet"
+	desc = "A plasmaman envirohelm designed by Space Cola Co for the plasmamen."
+	icon_state = "coke_envirohelm"
+	item_state = "coke_envirohelm"
+
+/obj/item/clothing/head/helmet/space/plasmaman/tacticool
+	name = "diver envirosuit helmet"
+	desc = "A plasmaman helm resembling old diver helms."
+	icon_state = "diver_envirohelm"
+	base_icon_state = "diver_envirohelm"
+	item_state = "diver_envirohelm"
+	/// Different icons and names for the helm to use when reskinning
+	var/list/static/plasmaman_helm_options = list("Diver" = "diver_envirohelm", "Knight" = "knight_envirohelm", "Skull" = "skull_envirohelm")
+	/// Checks if the helm has been reskinned already
+	var/reskinned = FALSE
+
+/obj/item/clothing/head/helmet/space/plasmaman/tacticool/examine(mob/user)
+	. = ..()
+	if(!reskinned)
+		. += "<span class='notice'>You can <b>Alt-Click</b> to reskin it when held.</span>"
+
+/obj/item/clothing/head/helmet/space/plasmaman/tacticool/AltClick(mob/user)
+	..()
+	if(HAS_TRAIT(user, TRAIT_HANDS_BLOCKED))
+		to_chat(user, "<span class='warning'>You can't do that right now!</span>")
+		return
+	if(reskin_radial_check(user) && !reskinned)
+		reskin(user)
+
+/obj/item/clothing/head/helmet/space/plasmaman/tacticool/update_icon_state()
+	if(!up)
+		icon_state = base_icon_state
+	else
+		icon_state = "[base_icon_state][on ? "-light":""]"
+	item_state = icon_state
+
+/obj/item/clothing/head/helmet/space/plasmaman/tacticool/proc/reskin(mob/M)
+	var/list/skins = list()
+	for(var/I in plasmaman_helm_options)
+		skins[I] = image(icon, icon_state = plasmaman_helm_options[I])
+	var/choice = show_radial_menu(M, src, skins, radius = 40, custom_check = CALLBACK(src, PROC_REF(reskin_radial_check), M), require_near = TRUE)
+
+	if(!choice || !reskin_radial_check(M))
+		return
+	switch(choice)
+		if("Diver")
+			name = initial(name)
+			desc = initial(desc)
+			base_icon_state = initial(base_icon_state)
+		if("Knight")
+			name = "knight envirosuit helmet"
+			desc = "A plasmaman envirohelm designed in the shape of a knight helm."
+			base_icon_state = "knight_envirohelm"
+			visor_icon = "knight_envisor"
+		if("Skull")
+			name = "skull envirosuit helmet"
+			desc = "A plasmaman envirohelm designed in the shape of a skull."
+			base_icon_state = "skull_envirohelm"
+			visor_icon = "skull_envisor"
+	update_icon()
+	M.update_inv_head()
+	reskinned = TRUE
+
+/obj/item/clothing/head/helmet/space/plasmaman/tacticool/proc/reskin_radial_check(mob/user)
+	if(!ishuman(user))
+		return FALSE
+	var/mob/living/carbon/human/H = user
+	if(!H.is_in_hands(src) || HAS_TRAIT(H, TRAIT_HANDS_BLOCKED))
+		return FALSE
+	return TRUE
+
+/obj/item/clothing/head/helmet/space/plasmaman/trainer
+	name = "\improper NT Career Trainer envirosuit helmet"
+	desc = "A plasmaman envirohelm designed for the nanotrasen career trainer."
+	icon_state = "trainer_envirohelm"
+	item_state = "trainer_envirohelm"

@@ -7,9 +7,9 @@
 	icon_state = "chronobackpack"
 	item_state = "backpack"
 	w_class = WEIGHT_CLASS_BULKY
-	slot_flags = SLOT_BACK
+	slot_flags = ITEM_SLOT_BACK
 	slowdown = 1
-	actions_types = list(/datum/action/item_action/equip_unequip_TED_Gun)
+	actions_types = list(/datum/action/item_action/equip_unequip_ted_gun)
 	var/obj/item/gun/energy/chrono_gun/PA = null
 	var/list/erased_minds = list() //a collection of minds from the dead
 
@@ -36,7 +36,7 @@
 				user.put_in_hands(PA)
 
 /obj/item/chrono_eraser/item_action_slot_check(slot, mob/user)
-	if(slot == slot_back)
+	if(slot == ITEM_SLOT_BACK)
 		return 1
 
 
@@ -49,7 +49,7 @@
 	w_class = WEIGHT_CLASS_NORMAL
 	flags = NODROP | DROPDEL
 	ammo_type = list(/obj/item/ammo_casing/energy/chrono_beam)
-	can_charge = 0
+	can_charge = FALSE
 	fire_delay = 50
 	var/obj/item/chrono_eraser/TED = null
 	var/obj/structure/chrono_field/field = null
@@ -63,8 +63,8 @@
 		TED = new(src.loc)
 		qdel(src)
 
-/obj/item/gun/energy/chrono_gun/update_icon()
-	return
+/obj/item/gun/energy/chrono_gun/update_overlays()
+	return list()
 
 /obj/item/gun/energy/chrono_gun/process_fire(atom/target as mob|obj|turf, mob/living/user as mob|obj, message = 1, params, zone_override, bonus_spread = 0)
 	if(field)
@@ -108,7 +108,7 @@
 		if(field == F)
 			var/turf/currentpos = get_turf(src)
 			var/mob/living/user = src.loc
-			if((currentpos == startpos) && (field in view(CHRONO_BEAM_RANGE, currentpos)) && !user.lying && (user.stat == CONSCIOUS))
+			if((currentpos == startpos) && (field in view(CHRONO_BEAM_RANGE, currentpos)) && !IS_HORIZONTAL(user) && (user.stat == CONSCIOUS))
 				return 1
 		field_disconnect(F)
 		return 0
@@ -143,6 +143,7 @@
 	projectile_type = /obj/item/projectile/energy/chrono_beam
 	muzzle_flash_effect = /obj/effect/temp_visual/target_angled/muzzle_flash/energy
 	muzzle_flash_color = null
+	icon = 'icons/obj/projectiles.dmi'
 	icon_state = "chronobolt"
 	e_cost = 0
 
@@ -177,9 +178,9 @@
 			cached_icon.Insert(mob_icon, "frame[i]")
 
 		mob_underlay = mutable_appearance(cached_icon, "frame1")
-		update_icon()
+		update_icon(UPDATE_ICON_STATE)
 
-		desc = initial(desc) + "<br><span class='info'>It appears to contain [target.name].</span>"
+		desc = initial(desc) + "<br><span class='notice'>It appears to contain [target.name].</span>"
 	START_PROCESSING(SSobj, src)
 	return ..()
 
@@ -188,7 +189,7 @@
 		gun.field_disconnect(src)
 	return ..()
 
-/obj/structure/chrono_field/update_icon()
+/obj/structure/chrono_field/update_icon_state()
 	var/ttk_frame = 1 - (tickstokill / initial(tickstokill))
 	ttk_frame = clamp(CEILING(ttk_frame * CHRONO_FRAME_COUNT, 1), 1, CHRONO_FRAME_COUNT)
 	if(ttk_frame != RPpos)
@@ -214,10 +215,10 @@
 			qdel(captured)
 			qdel(src)
 		else
-			captured.Paralyse(4)
+			captured.Paralyse(8 SECONDS)
 			if(captured.loc != src)
 				captured.forceMove(src)
-			update_icon()
+			update_icon(UPDATE_ICON_STATE)
 			if(gun)
 				if(gun.field_check(src))
 					tickstokill--
@@ -239,14 +240,13 @@
 	else
 		return 0
 
-/obj/structure/chrono_field/assume_air()
-	return 0
-
-/obj/structure/chrono_field/return_air() //we always have nominal air and temperature
+/obj/structure/chrono_field/return_obj_air()
+	//we always have nominal air and temperature
+	RETURN_TYPE(/datum/gas_mixture)
 	var/datum/gas_mixture/GM = new
-	GM.oxygen = MOLES_O2STANDARD
-	GM.nitrogen = MOLES_N2STANDARD
-	GM.temperature = T20C
+	GM.set_oxygen(MOLES_O2STANDARD)
+	GM.set_nitrogen(MOLES_N2STANDARD)
+	GM.set_temperature(T20C)
 	return GM
 
 /obj/structure/chrono_field/Move()

@@ -2,9 +2,11 @@
 	name = "reinforced wall"
 	desc = "A huge chunk of reinforced metal used to separate rooms."
 	icon = 'icons/turf/walls/reinforced_wall.dmi'
-	icon_state = "r_wall"
-	opacity = 1
-	density = 1
+	icon_state = "reinforced_wall-0"
+	base_icon_state = "reinforced_wall"
+	smoothing_flags = SMOOTH_BITMASK
+	opacity = TRUE
+	density = TRUE
 	explosion_block = 2
 	rad_insulation = RAD_HEAVY_INSULATION
 	damage_cap = 600
@@ -13,6 +15,9 @@
 	sheet_amount = 1
 	girder_type = /obj/structure/girder/reinforced
 	can_dismantle_with_welder = FALSE
+	smoothing_groups = list(SMOOTH_GROUP_SIMULATED_TURFS, SMOOTH_GROUP_WALLS, SMOOTH_GROUP_REINFORCED_WALLS)
+	canSmoothWith = list(SMOOTH_GROUP_WALLS, SMOOTH_GROUP_REGULAR_WALLS, SMOOTH_GROUP_REINFORCED_WALLS)
+	heat_resistance = 20000 // Ain't getting through this soon
 
 	var/d_state = RWALL_INTACT
 	var/can_be_reinforced = 1
@@ -35,48 +40,41 @@
 		if(RWALL_SHEATH)
 			. += "<span class='notice'>The support rods have been <i>sliced through</i>, and the outer sheath is <b>connected loosely</b> to the girder.</span>"
 
-/turf/simulated/wall/r_wall/attackby(obj/item/I, mob/user, params)
-	if(d_state == RWALL_COVER && istype(I, /obj/item/gun/energy/plasmacutter))
+/turf/simulated/wall/r_wall/attack_by(obj/item/attacking, mob/user, params)
+	if(..())
+		return FINISH_ATTACK
+
+	if(d_state == RWALL_COVER && istype(attacking, /obj/item/gun/energy/plasmacutter))
 		to_chat(user, "<span class='notice'>You begin slicing through the metal cover...</span>")
-		if(I.use_tool(src, user, 40, volume = I.tool_volume) && d_state == RWALL_COVER)
+		if(attacking.use_tool(src, user, 40, volume = attacking.tool_volume) && d_state == RWALL_COVER)
 			d_state = RWALL_CUT_COVER
 			update_icon()
 			to_chat(user, "<span class='notice'>You press firmly on the cover, dislodging it.</span>")
-		return
-	else if(d_state == RWALL_SUPPORT_RODS && istype(I, /obj/item/gun/energy/plasmacutter))
+		return FINISH_ATTACK
+	else if(d_state == RWALL_SUPPORT_RODS && istype(attacking, /obj/item/gun/energy/plasmacutter))
 		to_chat(user, "<span class='notice'>You begin slicing through the support rods...</span>")
-		if(I.use_tool(src, user, 70, volume = I.tool_volume) && d_state == RWALL_SUPPORT_RODS)
+		if(attacking.use_tool(src, user, 70, volume = attacking.tool_volume) && d_state == RWALL_SUPPORT_RODS)
 			d_state = RWALL_SHEATH
 			update_icon()
-		return
-	else if(d_state == RWALL_SUPPORT_LINES && istype(I, /obj/item/stack/rods))
-		var/obj/item/stack/S = I
-		if(S.use(1))
-			d_state = RWALL_INTACT
-			update_icon()
-			to_chat(user, "<span class='notice'>You replace the outer grille.</span>")
-		else
-			to_chat(user, "<span class='warning'>You don't have enough rods for that!</span>")
-		return
+		return FINISH_ATTACK
+
 	else if(d_state)
 		// Repairing
-		if(istype(I, /obj/item/stack/sheet/metal))
-			var/obj/item/stack/sheet/metal/MS = I
+		if(istype(attacking, /obj/item/stack/sheet/metal))
+			var/obj/item/stack/sheet/metal/MS = attacking
 			to_chat(user, "<span class='notice'>You begin patching-up the wall with [MS]...</span>")
 			if(do_after(user, max(20 * d_state, 100) * MS.toolspeed, target = src) && d_state)
 				if(!MS.use(1))
 					to_chat(user, "<span class='warning'>You don't have enough [MS.name] for that!</span>")
-					return
+					return FINISH_ATTACK
 				d_state = RWALL_INTACT
 				update_icon()
-				queue_smooth_neighbors(src)
+				QUEUE_SMOOTH_NEIGHBORS(src)
 				to_chat(user, "<span class='notice'>You repair the last of the damage.</span>")
-			return
-	else
-		return ..()
+			return FINISH_ATTACK
 
 /turf/simulated/wall/r_wall/welder_act(mob/user, obj/item/I)
-	if(thermite && I.use_tool(src, user, volume = I.tool_volume))
+	if(reagents?.get_reagent_amount("thermite") && I.use_tool(src, user, volume = I.tool_volume))
 		thermitemelt(user)
 		return TRUE
 	if(!(d_state in list(RWALL_COVER, RWALL_SUPPORT_RODS, RWALL_CUT_COVER)))
@@ -151,15 +149,18 @@
 	update_icon()
 
 /turf/simulated/wall/r_wall/wirecutter_act(mob/user, obj/item/I)
-	if(d_state != RWALL_INTACT)
+	if(d_state != RWALL_INTACT && d_state != RWALL_SUPPORT_LINES)
 		return
 	. = TRUE
 	if(!I.use_tool(src, user, 0, volume = I.tool_volume))
 		return
-	d_state = RWALL_SUPPORT_LINES
+	if(d_state == RWALL_INTACT)
+		d_state = RWALL_SUPPORT_LINES
+		to_chat(user, "<span class='notice'>You cut the outer grille.</span>")
+	else
+		d_state = RWALL_INTACT
+		to_chat(user, "<span class='notice'>You mend the outer grille.</span>")
 	update_icon()
-	new /obj/item/stack/rods(src)
-	to_chat(user, "<span class='notice'>You cut the outer grille.</span>")
 
 /turf/simulated/wall/r_wall/wrench_act(mob/user, obj/item/I)
 	if(d_state != RWALL_BOLTS && d_state != RWALL_SUPPORT_RODS)
@@ -202,22 +203,34 @@
 			dismantle_wall()
 		return TRUE
 
+	if(istype(I, /obj/item/pyro_claws))
+		to_chat(user, "<span class='notice'>You begin to melt the wall...</span>")
+		if(do_after(user, 50 * I.toolspeed, target = src)) // claws has 0.5 toolspeed, so 2.5 seconds
+			to_chat(user, "<span class='notice'>Your [I] melt the reinforced plating.</span>")
+			dismantle_wall()
+		return TRUE
+
+	if(istype(I, /obj/item/zombie_claw))
+		to_chat(user, "<span class='notice'>You begin to claw apart the wall.</span>")
+		if(do_after(user, 2 MINUTES * I.toolspeed, target = src))
+			to_chat(user, "<span class='notice'>Your [I.name] rip apart the reinforced plating.</span>")
+			dismantle_wall()
+		return TRUE
 
 /turf/simulated/wall/r_wall/wall_singularity_pull(current_size)
 	if(current_size >= STAGE_FIVE)
 		if(prob(30))
 			dismantle_wall()
 
-/turf/simulated/wall/r_wall/update_icon()
-	. = ..()
-
+/turf/simulated/wall/r_wall/update_icon_state()
 	if(d_state)
 		icon_state = "r_wall-[d_state]"
-		smooth = SMOOTH_FALSE
-		clear_smooth_overlays()
+		smoothing_flags = NONE
 	else
-		smooth = SMOOTH_TRUE
-		icon_state = ""
+		smoothing_flags = SMOOTH_BITMASK
+		icon_state = "[base_icon_state]-[smoothing_junction]"
+		QUEUE_SMOOTH_NEIGHBORS(src)
+		QUEUE_SMOOTH(src)
 
 /turf/simulated/wall/r_wall/devastate_wall()
 	new sheet_type(src, sheet_amount)

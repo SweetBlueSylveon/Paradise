@@ -17,28 +17,28 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 	. = ..()
 	. += "It has [uses_left] use\s remaining."
 
-/obj/item/extraction_pack/attack_self(mob/user)
+/obj/item/extraction_pack/attack_self__legacy__attackchain(mob/user)
 	var/list/possible_beacons = list()
 	for(var/B in GLOB.total_extraction_beacons)
 		var/obj/structure/extraction_point/EP = B
 		if(EP.beacon_network in beacon_networks)
 			possible_beacons += EP
 
-	if(!possible_beacons.len)
+	if(!length(possible_beacons))
 		to_chat(user, "There are no extraction beacons in existence!")
 		return
 
 	else
 		var/A
 
-		A = input("Select a beacon to connect to", "Balloon Extraction Pack", A) as null|anything in possible_beacons
+		A = tgui_input_list(user, "Select a beacon to connect to", "Balloon Extraction Pack", possible_beacons)
 
 		if(!A)
 			return
 		beacon = A
 		to_chat(user, "You link the extraction pack to the beacon system.")
 
-/obj/item/extraction_pack/afterattack(atom/movable/A, mob/living/carbon/human/user, flag, params)
+/obj/item/extraction_pack/afterattack__legacy__attackchain(atom/movable/A, mob/living/carbon/human/user, flag, params)
 	. = ..()
 	if(!beacon)
 		to_chat(user, "<span class='warning'>[src] is not linked to a beacon, and cannot be used!</span>")
@@ -47,6 +47,9 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 		var/area/area = get_area(A)
 		if(!area.outdoors)
 			to_chat(user, "<span class='warning'>[src] can only be used on things that are outdoors!</span>")
+			return
+		if(area.tele_proof || !is_teleport_allowed(A.z))
+			to_chat(user, "<span class='warning'>Bluespace distortions prevent the fulton from inflating!</span>")
 			return
 	if(!flag)
 		return
@@ -63,10 +66,7 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 		to_chat(user, "<span class='notice'>You start attaching the pack to [A]...</span>")
 		if(do_after(user, 50, target = A))
 			to_chat(user, "<span class='notice'>You attach the pack to [A] and activate it.</span>")
-			if(loc == user && istype(user.back, /obj/item/storage/backpack))
-				var/obj/item/storage/backpack/B = user.back
-				if(B.can_be_inserted(src, stop_messages = TRUE))
-					B.handle_item_insertion(src)
+			user.equip_to_slot_if_possible(src, ITEM_SLOT_IN_BACKPACK, FALSE, TRUE)
 			uses_left--
 			if(uses_left <= 0)
 				user.drop_item(src)
@@ -76,8 +76,8 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 			var/mutable_appearance/balloon3
 			if(isliving(A))
 				var/mob/living/M = A
-				M.Weaken(16) // Keep them from moving during the duration of the extraction
-				M.buckled = 0 // Unbuckle them to prevent anchoring problems
+				M.Weaken(32 SECONDS) // Keep them from moving during the duration of the extraction
+				unbuckle_mob(M, force = TRUE) // Unbuckle them to prevent anchoring problems
 			else
 				A.anchored = TRUE
 				A.density = FALSE
@@ -94,7 +94,7 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 			balloon.appearance_flags = RESET_COLOR | RESET_ALPHA | RESET_TRANSFORM
 			holder_obj.cut_overlay(balloon2)
 			holder_obj.add_overlay(balloon)
-			playsound(holder_obj.loc, 'sound/items/fultext_deploy.ogg', 50, 1, -3)
+			playsound(holder_obj.loc, 'sound/items/fultext_deploy.ogg', 50, TRUE, -3)
 			animate(holder_obj, pixel_z = 10, time = 20)
 			sleep(20)
 			animate(holder_obj, pixel_z = 15, time = 10)
@@ -105,12 +105,12 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 			sleep(10)
 			animate(holder_obj, pixel_z = 10, time = 10)
 			sleep(10)
-			playsound(holder_obj.loc, 'sound/items/fultext_launch.ogg', 50, 1, -3)
+			playsound(holder_obj.loc, 'sound/items/fultext_launch.ogg', 50, TRUE, -3)
 			animate(holder_obj, pixel_z = 1000, time = 30)
 			if(ishuman(A))
 				var/mob/living/carbon/human/L = A
 				L.SetParalysis(0)
-				L.drowsyness = 0
+				L.SetDrowsy(0)
 				L.SetSleeping(0)
 			sleep(30)
 			var/list/flooring_near_beacon = list()
@@ -118,6 +118,9 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 				if(floor.density)
 					continue
 				flooring_near_beacon += floor
+			if(!length(flooring_near_beacon))
+				to_chat(user, "<span class='notice'>Your fulton pack slowly brings you back down, it seems that the linked beacon has stopped functioning!</span>")
+				flooring_near_beacon = get_turf(user)
 			holder_obj.forceMove(pick(flooring_near_beacon))
 			animate(holder_obj, pixel_z = 10, time = 50)
 			sleep(50)
@@ -143,14 +146,15 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 
 
 /obj/item/fulton_core
-	name = "extraction beacon signaller"
-	desc = "Emits a signal which fulton recovery devices can lock onto. Activate in hand to create a beacon."
-	icon = 'icons/obj/stock_parts.dmi'
-	icon_state = "subspace_amplifier"
+	name = "extraction beacon assembly kit"
+	desc = "When built, emits a signal which fulton recovery devices can lock onto. Activate in hand to unfold into a beacon."
+	icon = 'icons/obj/fulton.dmi'
+	icon_state = "folded_extraction"
 
-/obj/item/fulton_core/attack_self(mob/user)
+/obj/item/fulton_core/attack_self__legacy__attackchain(mob/user)
 	if(do_after(user, 15, target = user) && !QDELETED(src))
 		new /obj/structure/extraction_point(get_turf(user))
+		playsound(loc, 'sound/items/deconstruct.ogg', 50, 1)
 		qdel(src)
 
 /obj/structure/extraction_point
@@ -166,6 +170,7 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 	. = ..()
 	name += " ([rand(100,999)]) ([get_location_name(src)])"
 	GLOB.total_extraction_beacons += src
+	update_icon(UPDATE_OVERLAYS)
 
 /obj/structure/extraction_point/Destroy()
 	GLOB.total_extraction_beacons -= src
@@ -173,8 +178,12 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 
 /obj/effect/extraction_holder
 	name = "extraction holder"
-	desc = "you shouldnt see this"
+	desc = "You shouldnt see this."
 	var/atom/movable/stored_obj
+
+/obj/effect/extraction_holder/Initialize(mapload)
+	. = ..()
+	ADD_TRAIT(src, TRAIT_EFFECT_CAN_TELEPORT, ROUNDSTART_TRAIT)
 
 /obj/item/extraction_pack/proc/check_for_living_mobs(atom/A)
 	if(isliving(A))
@@ -187,6 +196,10 @@ GLOBAL_LIST_EMPTY(total_extraction_beacons)
 			if(L.stat != DEAD)
 				return TRUE
 	return FALSE
+
+/obj/structure/extraction_point/update_overlays()
+	. = ..()
+	underlays += emissive_appearance(icon, "[icon_state]_light", src, alpha = src.alpha)
 
 /obj/effect/extraction_holder/singularity_act()
 	return

@@ -12,7 +12,7 @@
 	weather_duration_upper = 1200
 	weather_overlay = "ash_storm"
 
-	end_message = "<span class='boldannounce'>The shrieking wind whips away the last of the ash and falls to its usual murmur. It should be safe to go outside now.</span>"
+	end_message = "<span class='boldannounceic'>The shrieking wind whips away the last of the ash and falls to its usual murmur. It should be safe to go outside now.</span>"
 	end_duration = 300
 	end_overlay = "light_ash"
 
@@ -30,49 +30,82 @@
 	var/datum/looping_sound/weak_outside_ashstorm/sound_wo = new(list(), FALSE, TRUE)
 	var/datum/looping_sound/weak_inside_ashstorm/sound_wi = new(list(), FALSE, TRUE)
 
-/datum/weather/ash_storm/telegraph()
-	. = ..()
+/datum/weather/ash_storm/proc/is_shuttle_docked(shuttleId, dockId)
+	var/obj/docking_port/mobile/M = SSshuttle.getShuttle(shuttleId)
+	return M && M.getDockedId() == dockId
+
+/datum/weather/ash_storm/proc/update_eligible_areas()
 	var/list/inside_areas = list()
 	var/list/outside_areas = list()
 	var/list/eligible_areas = list()
 	for(var/z in impacted_z_levels)
 		eligible_areas += GLOB.space_manager.areas_in_z["[z]"]
-	for(var/i in 1 to eligible_areas.len)
+
+	// Don't play storm audio to shuttles that are not at lavaland
+	var/miningShuttleDocked = is_shuttle_docked("mining", "mining_away")
+	if(!miningShuttleDocked)
+		eligible_areas -= get_areas(/area/shuttle/mining)
+
+	var/laborShuttleDocked = is_shuttle_docked("laborcamp", "laborcamp_away")
+	if(!laborShuttleDocked)
+		eligible_areas -= get_areas(/area/shuttle/siberia)
+
+	var/golemShuttleOnPlanet = is_shuttle_docked("freegolem", "freegolem_lavaland")
+	if(!golemShuttleOnPlanet)
+		eligible_areas -= get_areas(/area/shuttle/freegolem)
+
+	for(var/i in 1 to length(eligible_areas))
 		var/area/place = eligible_areas[i]
 		if(place.outdoors)
 			outside_areas += place
 		else
 			inside_areas += place
-		CHECK_TICK
 
 	sound_ao.output_atoms = outside_areas
 	sound_ai.output_atoms = inside_areas
 	sound_wo.output_atoms = outside_areas
 	sound_wi.output_atoms = inside_areas
 
-	sound_wo.start()
-	sound_wi.start()
+/datum/weather/ash_storm/proc/update_audio()
+	switch(stage)
+		if(WEATHER_STARTUP_STAGE)
+			sound_wo.start()
+			sound_wi.start()
+
+		if(WEATHER_MAIN_STAGE)
+			sound_wo.stop()
+			sound_wi.stop()
+
+			sound_ao.start()
+			sound_ai.start()
+
+		if(WEATHER_WIND_DOWN_STAGE)
+			sound_ao.stop()
+			sound_ai.stop()
+
+			sound_wo.start()
+			sound_wi.start()
+
+		if(WEATHER_END_STAGE)
+			sound_wo.stop()
+			sound_wi.stop()
+
+/datum/weather/ash_storm/telegraph()
+	. = ..()
+	update_eligible_areas()
+	update_audio()
 
 /datum/weather/ash_storm/start()
 	. = ..()
-	sound_wo.stop()
-	sound_wi.stop()
-
-	sound_ao.start()
-	sound_ai.start()
+	update_audio()
 
 /datum/weather/ash_storm/wind_down()
 	. = ..()
-	sound_ao.stop()
-	sound_ai.stop()
-
-	sound_wo.start()
-	sound_wi.start()
+	update_audio()
 
 /datum/weather/ash_storm/end()
 	. = ..()
-	sound_wo.stop()
-	sound_wi.stop()
+	update_audio()
 
 /datum/weather/ash_storm/proc/is_ash_immune(atom/L)
 	while(L && !isturf(L))

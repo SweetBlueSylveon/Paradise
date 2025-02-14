@@ -58,7 +58,7 @@
 	colour = pick(lipstick_colors)
 	name = "[colour] lipstick"
 
-/obj/item/lipstick/attack_self(mob/user)
+/obj/item/lipstick/attack_self__legacy__attackchain(mob/user)
 	cut_overlays()
 	to_chat(user, "<span class='notice'>You twist \the [src] [open ? "closed" : "open"].</span>")
 	open = !open
@@ -70,7 +70,7 @@
 	else
 		icon_state = "lipstick"
 
-/obj/item/lipstick/attack(mob/M, mob/user)
+/obj/item/lipstick/attack__legacy__attackchain(mob/M, mob/user)
 	if(!open || !istype(M))
 		return
 
@@ -81,16 +81,16 @@
 			return
 		if(H == user)
 			user.visible_message("<span class='notice'>[user] does [user.p_their()] lips with [src].</span>", \
-								 "<span class='notice'>You take a moment to apply [src]. Perfect!</span>")
+								"<span class='notice'>You take a moment to apply [src]. Perfect!</span>")
 			H.lip_style = "lipstick"
 			H.lip_color = lipstick_colors[colour]
 			H.update_body()
 		else
 			user.visible_message("<span class='warning'>[user] begins to do [H]'s lips with \the [src].</span>", \
-								 "<span class='notice'>You begin to apply \the [src].</span>")
+								"<span class='notice'>You begin to apply \the [src].</span>")
 			if(do_after(user, 20, target = H))
 				user.visible_message("<span class='notice'>[user] does [H]'s lips with \the [src].</span>", \
-									 "<span class='notice'>You apply \the [src].</span>")
+									"<span class='notice'>You apply \the [src].</span>")
 				H.lip_style = "lipstick"
 				H.lip_color = lipstick_colors[colour]
 				H.update_body()
@@ -107,10 +107,13 @@
 	usesound = 'sound/items/welder2.ogg'
 	toolspeed = 1
 
-/obj/item/razor/attack(mob/living/carbon/M as mob, mob/user as mob)
+/obj/item/razor/attack__legacy__attackchain(mob/living/carbon/M as mob, mob/user as mob)
 	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		var/obj/item/organ/external/head/C = H.get_organ("head")
+		if(!istype(C))
+			to_chat(user, "<span class='warning'>There's nothing to cut, [M] [M.p_are()] missing [M.p_their()] head!</span>")
+			return ..()
 		var/datum/robolimb/robohead = GLOB.all_robolimbs[C.model]
 		if(user.zone_selected == "mouth")
 			if(!get_location_accessible(H, "mouth"))

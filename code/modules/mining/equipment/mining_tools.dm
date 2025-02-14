@@ -1,10 +1,11 @@
 /*****************Pickaxes & Drills & Shovels****************/
 /obj/item/pickaxe
 	name = "pickaxe"
-	icon = 'icons/obj/items.dmi'
+	desc = "A tool for digging rock and stone. Better get to work."
+	icon = 'icons/obj/mining_tool.dmi'
 	icon_state = "pickaxe"
 	flags = CONDUCT
-	slot_flags = SLOT_BELT
+	slot_flags = ITEM_SLOT_BELT
 	force = 15
 	throwforce = 10
 	item_state = "pickaxe"
@@ -14,7 +15,7 @@
 	attack_verb = list("hit", "pierced", "sliced", "attacked")
 	var/list/digsound = list('sound/effects/picaxe1.ogg','sound/effects/picaxe2.ogg','sound/effects/picaxe3.ogg')
 	var/drill_verb = "picking"
-	sharp = 1
+	sharp = TRUE
 	var/excavation_amount = 100
 	usesound = 'sound/effects/picaxe1.ogg'
 	toolspeed = 1
@@ -105,7 +106,8 @@
 	origin_tech = "materials=6;powerstorage=4;engineering=4"
 	toolspeed = 0.2
 
-/obj/item/pickaxe/drill/cyborg/diamond //This is the BORG version!
+/// This is the BORG version!
+/obj/item/pickaxe/drill/cyborg/diamond
 	name = "diamond-tipped cyborg mining drill" //To inherit the NODROP flag, and easier to change borg specific drill mechanics.
 	icon_state = "diamonddrill"
 	toolspeed = 0.2
@@ -120,29 +122,31 @@
 	hitsound = 'sound/weapons/sonic_jackhammer.ogg'
 	usesound = 'sound/weapons/sonic_jackhammer.ogg'
 	toolspeed = 0.1 //the epitome of powertools. extremely fast mining, laughs at puny walls
+	force = 20 //This thing breaks rwalls, it should be able to hit harder than a DIY bone pickaxe.
 
 /obj/item/shovel
 	name = "shovel"
 	desc = "A large tool for digging and moving dirt."
-	icon = 'icons/obj/items.dmi'
+	icon = 'icons/obj/mining_tool.dmi'
 	icon_state = "shovel"
 	flags = CONDUCT
-	slot_flags = SLOT_BELT
+	slot_flags = ITEM_SLOT_BELT
 	force = 8
 	throwforce = 4
 	item_state = "shovel"
 	w_class = WEIGHT_CLASS_NORMAL
-	materials = list(MAT_METAL = 50)
+	materials = list(MAT_METAL = 200)
 	origin_tech = "materials=2;engineering=2"
 	attack_verb = list("bashed", "bludgeoned", "thrashed", "whacked")
 	usesound = 'sound/effects/shovel_dig.ogg'
-	toolspeed = 1
+	toolspeed = 0.5
 
 /obj/item/shovel/spade
 	name = "spade"
 	desc = "A small tool for digging and moving dirt."
 	icon_state = "spade"
 	item_state = "spade"
+	belt_icon = "spade"
 	force = 5
 	throwforce = 7
 	w_class = WEIGHT_CLASS_SMALL

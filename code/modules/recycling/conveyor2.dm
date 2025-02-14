@@ -3,8 +3,8 @@
 #define DIRECTION_REVERSED	-1
 #define IS_OPERATING		(operating && can_conveyor_run())
 
-GLOBAL_LIST_INIT(conveyor_belts, list()) //Saves us having to look through the entire machines list for our things
-GLOBAL_LIST_INIT(conveyor_switches, list())
+GLOBAL_LIST_EMPTY(conveyor_belts) //Saves us having to look through the entire machines list for our things
+GLOBAL_LIST_EMPTY(conveyor_switches)
 
 //conveyor2 is pretty much like the original, except it supports corners, but not diverters.
 //Except this is pretty heavily modified so it's more like conveyor2.5
@@ -41,8 +41,12 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	update_move_direction()
 	for(var/I in GLOB.conveyor_switches)
 		var/obj/machinery/conveyor_switch/S = I
-		if(id == S.id)
-			S.conveyors += src
+		S.link_conveyers(src)
+
+	var/static/list/loc_connections = list(
+		COMSIG_ATOM_ENTERED = PROC_REF(on_atom_entered)
+	)
+	AddElement(/datum/element/connect_loc, loc_connections)
 
 /obj/machinery/conveyor/Destroy()
 	GLOB.conveyor_belts -= src
@@ -53,24 +57,27 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	update_move_direction()
 
 // attack with item, place item on conveyor
-/obj/machinery/conveyor/attackby(obj/item/I, mob/user)
+/obj/machinery/conveyor/item_interaction(mob/living/user, obj/item/used, list/modifiers)
 	if(stat & BROKEN)
 		return ..()
-	else if(istype(I, /obj/item/conveyor_switch_construct))
-		var/obj/item/conveyor_switch_construct/S = I
+
+	if(istype(used, /obj/item/conveyor_switch_construct))
+		var/obj/item/conveyor_switch_construct/S = used
 		if(S.id == id)
 			return ..()
 		for(var/obj/machinery/conveyor_switch/CS in GLOB.conveyor_switches)
 			if(CS.id == id)
 				CS.conveyors -= src
 		id = S.id
-		to_chat(user, "<span class='notice'>You link [I] with [src].</span>")
-	else if(user.a_intent != INTENT_HARM)
-		if(user.drop_item())
-			I.forceMove(loc)
-	else
-		return ..()
+		to_chat(user, "<span class='notice'>You link [used] with [src].</span>")
+		return ITEM_INTERACT_COMPLETE
 
+	if(user.a_intent == INTENT_HELP)
+		if(user.drop_item())
+			used.forceMove(loc)
+		return ITEM_INTERACT_COMPLETE
+
+	return ..()
 
 /obj/machinery/conveyor/crowbar_act(mob/user, obj/item/I)
 	. = TRUE
@@ -94,8 +101,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 /obj/machinery/conveyor/attack_hand(mob/user as mob)
 	user.Move_Pulled(src)
 
-/obj/machinery/conveyor/update_icon()
-	..()
+/obj/machinery/conveyor/update_icon_state()
 	if(IS_OPERATING)
 		icon_state = "conveyor_started_[clockwise ? "cw" : "ccw"]"
 		if(reversed)
@@ -169,7 +175,8 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 		clockwise = FALSE
 
 /obj/machinery/conveyor/power_change()
-	..()
+	if(!..())
+		return
 	update_icon()
 
 /obj/machinery/conveyor/process()
@@ -186,7 +193,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 		// spawn hundreds of callbacks for the same thing.
 		// (they don't behave weirdly or anything, just eat CPU)
 		affecting.Add(AM)
-		addtimer(CALLBACK(src, .proc/move_thing, AM), slow_factor)
+		addtimer(CALLBACK(src, PROC_REF(move_thing), AM), slow_factor)
 		CHECK_TICK
 
 	// Use speedy process only if the belt is actually in use, and use normal process otherwise.
@@ -196,10 +203,9 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	else if(still_stuff_to_move && !speed_process)
 		makeSpeedProcess()
 
-/obj/machinery/conveyor/Crossed(atom/movable/AM, oldloc)
-	if(!speed_process && !AM.anchored)
+/obj/machinery/conveyor/proc/on_atom_entered(datum/source, atom/movable/entered)
+	if(!speed_process && !entered.anchored)
 		makeSpeedProcess()
-	..()
 
 /obj/machinery/conveyor/proc/move_thing(atom/movable/AM)
 	affecting.Remove(AM)
@@ -211,7 +217,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 		return
 
 	var/move_time = 0
-	if (slow_factor>1) // yes, 1 is special
+	if(slow_factor>1) // yes, 1 is special
 		move_time=CEILING(slow_factor, 2) // yes.
 	AM.Move(get_step(loc, forwards), forwards, move_time)
 
@@ -270,8 +276,16 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 		id = new_id
 	for(var/I in GLOB.conveyor_belts)
 		var/obj/machinery/conveyor/C = I
-		if(C.id == id)
-			conveyors += C
+		link_conveyers(C)
+
+/obj/machinery/conveyor_switch/proc/link_conveyers(obj/machinery/conveyor/C)
+	if(C.id != id)
+		return
+	conveyors += C
+	RegisterSignal(C, COMSIG_PARENT_QDELETING, PROC_REF(unlink_conveyer)) // so it GCs properly
+
+/obj/machinery/conveyor_switch/proc/unlink_conveyer(obj/machinery/conveyor/C)
+	conveyors -= C
 
 /obj/machinery/conveyor_switch/Destroy()
 	GLOB.conveyor_switches -= src
@@ -279,18 +293,20 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 
 // update the icon depending on the position
 
-/obj/machinery/conveyor_switch/update_icon()
-	overlays.Cut()
+/obj/machinery/conveyor_switch/update_icon_state()
 	if(!position)
 		icon_state = "switch-off"
 	else if(position == DIRECTION_REVERSED)
 		icon_state = "switch-rev"
-		if(!(stat & NOPOWER))
-			overlays += "redlight"
 	else if(position == DIRECTION_FORWARDS)
 		icon_state = "switch-fwd"
-		if(!(stat & NOPOWER))
-			overlays += "greenlight"
+
+/obj/machinery/conveyor_switch/update_overlays()
+	. = ..()
+	if(position == DIRECTION_REVERSED && !(stat & NOPOWER))
+		. += "redlight"
+	if(position == DIRECTION_FORWARDS && !(stat & NOPOWER))
+		. += "greenlight"
 
 /obj/machinery/conveyor_switch/oneway
 	one_way = TRUE
@@ -307,6 +323,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 
 /obj/machinery/conveyor_switch/proc/toggle(mob/user)
 	add_fingerprint(user)
+	playsound(loc, 'sound/machines/switch.ogg', 10, TRUE)
 	if(!allowed(user) && !user.can_advanced_admin_interact()) //this is in Para but not TG. I don't think there's any which are set anyway.
 		to_chat(user, "<span class='warning'>Access denied.</span>")
 		return
@@ -359,11 +376,13 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 		return
 	ui_interact(user)
 
-/obj/machinery/conveyor_switch/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
-	user.set_machine(src)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/machinery/conveyor_switch/ui_state(mob/user)
+	return GLOB.default_state
+
+/obj/machinery/conveyor_switch/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "ConveyorSwitch", name, 350, 150, master_ui, state)
+		ui = new(user, src, "ConveyorSwitch", name)
 		ui.open()
 
 /obj/machinery/conveyor_switch/ui_data(mob/user)
@@ -381,7 +400,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	switch(action)
 		if("slowFactor")
 			var/value = text2num(params["value"])
-			if (value!=null)
+			if(value!=null)
 				slow_factor = clamp(value, 1, 50)
 		if("toggleOneWay")
 			if(position != DIRECTION_REVERSED) // If you want to forbid reversing - stop using reverse first!
@@ -393,7 +412,8 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 
 
 /obj/machinery/conveyor_switch/power_change()
-	..()
+	if(!..())
+		return
 	update_icon()
 
 // CONVEYOR CONSTRUCTION STARTS HERE
@@ -408,7 +428,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	w_class = WEIGHT_CLASS_BULKY
 	var/id
 
-/obj/item/conveyor_construct/attackby(obj/item/I, mob/user, params)
+/obj/item/conveyor_construct/attackby__legacy__attackchain(obj/item/I, mob/user, params)
 	..()
 	if(!istype(I, /obj/item/conveyor_switch_construct))
 		return
@@ -416,12 +436,12 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	to_chat(user, "<span class='notice'>You link [src] to [C].</span>")
 	id = C.id
 
-/obj/item/conveyor_construct/afterattack(turf/T, mob/user, proximity)
+/obj/item/conveyor_construct/afterattack__legacy__attackchain(turf/T, mob/user, proximity)
 	if(!proximity)
 		return
 	if(user.incapacitated())
 		return
-	if(!istype(T, /turf/simulated/floor))
+	if(!isfloorturf(T))
 		return
 	if(T == get_turf(user))
 		to_chat(user, "<span class='notice'>You cannot place [src] under yourself.</span>")
@@ -451,12 +471,12 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 		id = world.time + rand() //this couldn't possibly go wrong
 
 
-/obj/item/conveyor_switch_construct/afterattack(turf/T, mob/user, proximity)
+/obj/item/conveyor_switch_construct/afterattack__legacy__attackchain(turf/T, mob/user, proximity)
 	if(!proximity)
 		return
 	if(user.incapacitated())
 		return
-	if(!istype(T, /turf/simulated/floor))
+	if(!isfloorturf(T))
 		return
 	var/found = FALSE
 	for(var/obj/machinery/conveyor/C in view())
@@ -470,7 +490,7 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	transfer_fingerprints_to(NC)
 	qdel(src)
 
-/obj/item/conveyor_switch_construct/attackby(obj/item/I, mob/user)
+/obj/item/conveyor_switch_construct/attackby__legacy__attackchain(obj/item/I, mob/user)
 	if(!istype(I, /obj/item/conveyor_switch_construct))
 		return ..()
 	var/obj/item/conveyor_switch_construct/S = I
@@ -495,6 +515,10 @@ GLOBAL_LIST_INIT(conveyor_switches, list())
 	..(loc, newdir)
 	operating = TRUE
 	update_icon()
+
+/obj/machinery/conveyor/auto/ccw
+	icon_state = "conveyor_stopped_ccw"
+	clockwise = FALSE
 
 //Other types of conveyor, mostly for saving yourself a headache during mapping
 

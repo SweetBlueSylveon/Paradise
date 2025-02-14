@@ -1,26 +1,27 @@
+/// this type path is a crime, ponies what the fuck
 /obj/structure/closet/statue
 	name = "statue"
-	desc = "An incredibly lifelike marble carving"
+	desc = "An incredibly lifelike marble carving."
 	icon = 'icons/obj/statue.dmi'
 	icon_state = "human_male"
-	density = 1
-	anchored = 1
+	density = TRUE
+	anchored = TRUE
 	max_integrity = 0 //destroying the statue kills the mob within
 	var/intialTox = 0 	//these are here to keep the mob from taking damage from things that logically wouldn't affect a rock
 	var/intialFire = 0	//it's a little sloppy I know but it was this or the GODMODE flag. Lesser of two evils.
 	var/intialBrute = 0
 	var/intialOxy = 0
-	var/timer = 240 //eventually the person will be freed
+	var/timer = 240 // timer counts down durring process, eventually the person will be freed
 
 /obj/structure/closet/statue/Initialize(mapload, mob/living/L)
 	. = ..()
 	if(ishuman(L) || iscorgi(L))
 		if(L.buckled)
-			L.buckled = 0
-			L.anchored = 0
+			L.unbuckle_mob()
 		L.forceMove(src)
 		ADD_TRAIT(L, TRAIT_MUTE, STATUE_MUTE)
-		max_integrity = L.health + 100 //stoning damaged mobs will result in easier to shatter statues
+		ADD_TRAIT(L, TRAIT_EMOTE_MUTE, STATUE_MUTE)
+		max_integrity = max(L.health + 100, 100) //stoning damaged mobs will result in easier to shatter statues
 		intialTox = L.getToxLoss()
 		intialFire = L.getFireLoss()
 		intialBrute = L.getBruteLoss()
@@ -50,6 +51,7 @@
 		M.adjustFireLoss(intialFire - M.getFireLoss())
 		M.adjustBruteLoss(intialBrute - M.getBruteLoss())
 		M.setOxyLoss(intialOxy)
+		M.Stun(2.5 SECONDS) // No using items inside a statue
 	if(timer <= 0)
 		dump_contents()
 		STOP_PROCESSING(SSobj, src)
@@ -69,16 +71,16 @@
 	for(var/mob/living/M in src)
 		M.forceMove(loc)
 		REMOVE_TRAIT(M, TRAIT_MUTE, STATUE_MUTE)
+		REMOVE_TRAIT(M, TRAIT_EMOTE_MUTE, STATUE_MUTE)
 		M.take_overall_damage((M.health - obj_integrity - 100),0) //any new damage the statue incurred is transfered to the mob
 
 	..()
 
-/obj/structure/closet/statue/open()
-	return
+/obj/structure/closet/statue/shove_impact(mob/living/target, mob/living/attacker)
+	return FALSE
 
 /obj/structure/closet/statue/open()
 	return
-
 
 /obj/structure/closet/statue/close()
 	return
@@ -103,14 +105,28 @@
 /obj/structure/closet/statue/attack_hand()
 	return
 
-/obj/structure/closet/statue/verb_toggleopen()
+/obj/structure/closet/statue/update_icon_state()
 	return
 
-/obj/structure/closet/statue/update_icon()
-	return
+/obj/structure/closet/statue/update_overlays()
+	return list()
 
 /obj/structure/closet/statue/proc/shatter(mob/user)
 	if(user)
 		user.dust()
 	dump_contents()
-	visible_message("<span class='warning'>[src] shatters!. </span>")
+	visible_message("<span class='warning'>[src] shatters!</span>")
+
+/obj/structure/closet/statue/indestructible
+	resistance_flags = INDESTRUCTIBLE | LAVA_PROOF | FIRE_PROOF | ACID_PROOF
+	timer = 120 SECONDS_TO_LIFE_CYCLES
+
+/obj/structure/closet/statue/indestructible/ex_act(severity)
+	return //No delimbing them
+
+/obj/structure/closet/statue/indestructible/shatter(mob/user)
+	return //No. Failsafe.
+
+/obj/structure/closet/statue/indestructible/singularity_act()
+	return //I mean maybe but no.
+

@@ -14,9 +14,8 @@
 	speed = 0
 	mob_biotypes = NONE
 	a_intent = INTENT_HARM
-	can_change_intents = 0
-	stop_automated_movement = 1
-	flying = TRUE
+	can_change_intents = FALSE
+	stop_automated_movement = TRUE
 	attack_sound = 'sound/weapons/punch1.ogg'
 	minbodytemp = 0
 	maxbodytemp = INFINITY
@@ -29,11 +28,13 @@
 	melee_damage_lower = 15
 	melee_damage_upper = 15
 	AIStatus = AI_OFF
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/ectoplasm = 1)
+	butcher_results = list(/obj/item/food/ectoplasm = 1)
+	hud_type = /datum/hud/guardian
+	initial_traits = list(TRAIT_FLYING)
 	var/summoned = FALSE
 	var/cooldown = 0
 	var/damage_transfer = 1 //how much damage from each attack we transfer to the owner
-	var/light_on = 0
+	var/light_on = FALSE
 	var/luminosity_on = 3
 	var/mob/living/summoner
 	var/range = 10 //how far from the user the spirit can be
@@ -43,6 +44,8 @@
 	var/bio_fluff_string = "Your scarabs fail to mutate. This shouldn't happen! Submit a bug report!"
 	var/admin_fluff_string = "URK URF!"//the wheels on the bus...
 	var/name_color = "white"//only used with protector shields for the time being
+	/// If true, it will not make a message on host when hit, or make an effect when deploying or recalling
+	var/stealthy_deploying = FALSE
 
 /mob/living/simple_animal/hostile/guardian/Initialize(mapload, mob/living/host)
 	. = ..()
@@ -50,6 +53,19 @@
 		return
 	summoner = host
 	host.grant_guardian_actions(src)
+	RegisterSignal(summoner, COMSIG_LIVING_HEALTH_UPDATE, PROC_REF(update_health_hud))
+
+/mob/living/simple_animal/hostile/guardian/can_buckle()
+	return FALSE
+
+/mob/living/simple_animal/hostile/guardian/rest()
+	return
+
+/mob/living/simple_animal/hostile/guardian/lay_down()
+	set_body_position(STANDING_UP)
+
+/mob/living/simple_animal/hostile/guardian/stand_up(instant, work_when_dead)
+	set_body_position(STANDING_UP)
 
 /mob/living/simple_animal/hostile/guardian/med_hud_set_health()
 	if(summoner)
@@ -84,17 +100,17 @@
 /mob/living/simple_animal/hostile/guardian/proc/snapback()
 	// If the summoner dies instantly, the summoner's ghost may be drawn into null space as the protector is deleted. This check should prevent that.
 	if(summoner && loc && summoner.loc)
-		if(get_dist(get_turf(summoner),get_turf(src)) <= range)
+		if(get_dist(get_turf(summoner), get_turf(src)) <= range)
 			return
+		to_chat(src, "<span class='holoparasite'>You moved out of range, and were pulled back! You can only move [range] meters from [summoner.real_name]!</span>")
+		visible_message("<span class='danger'>[src] jumps back to its user.</span>")
+		if(iseffect(summoner.loc) || istype(summoner.loc, /obj/machinery/atmospherics))
+			Recall(TRUE)
 		else
-			to_chat(src, "<span class='holoparasite'>You moved out of range, and were pulled back! You can only move [range] meters from [summoner.real_name]!</span>")
-			visible_message("<span class='danger'>\The [src] jumps back to its user.</span>")
-			if(istype(summoner.loc, /obj/effect))
-				Recall(TRUE)
-			else
-				new /obj/effect/temp_visual/guardian/phase/out(loc)
-				forceMove(summoner.loc) //move to summoner's tile, don't recall
-				new /obj/effect/temp_visual/guardian/phase(loc)
+			if(!stealthy_deploying)
+				new /obj/effect/temp_visual/guardian/phase/out(get_turf(src))
+				new /obj/effect/temp_visual/guardian/phase(get_turf(summoner))
+			forceMove(summoner.loc) //move to summoner's tile, don't recall
 
 /mob/living/simple_animal/hostile/guardian/proc/is_deployed()
 	return loc != summoner
@@ -109,7 +125,7 @@
 		return ..()
 
 /mob/living/simple_animal/hostile/guardian/Move() //Returns to summoner if they move out of range
-	..()
+	. = ..()
 	snapback()
 
 /mob/living/simple_animal/hostile/guardian/death(gibbed)
@@ -118,6 +134,7 @@
 	if(!.)
 		return FALSE
 	to_chat(summoner, "<span class='danger'>Your [name] died somehow!</span>")
+	UnregisterSignal(summoner, COMSIG_LIVING_HEALTH_UPDATE)
 	summoner.death()
 
 
@@ -125,24 +142,30 @@
 	if(summoner)
 		var/resulthealth
 		if(iscarbon(summoner))
-			resulthealth = round((abs(HEALTH_THRESHOLD_DEAD - summoner.health) / abs(HEALTH_THRESHOLD_DEAD - summoner.maxHealth)) * 100)
+			resulthealth = round(((summoner.health - HEALTH_THRESHOLD_CRIT) / abs(HEALTH_THRESHOLD_CRIT - summoner.maxHealth)) * 100)
 		else
-			resulthealth = round((summoner.health / summoner.maxHealth) * 100)
+			resulthealth = round((summoner.health / (summoner.maxHealth / 2)) * 100)
 		if(hud_used)
-			hud_used.guardianhealthdisplay.maptext = "<div align='center' valign='middle' style='position:relative; top:0px; left:6px'><font face='Small Fonts' color='#efeeef'>[resulthealth]%</font></div>"
+			hud_used.guardianhealthdisplay.maptext = "<div align='center' valign='middle' style='position:relative; top:0px; left:6px'><font face='Small Fonts' color=[summoner.health < HEALTH_THRESHOLD_CRIT ? "#db2828" : "#efeeef"]>[resulthealth]%</font></div>"
 
-/mob/living/simple_animal/hostile/guardian/adjustHealth(amount, updating_health = TRUE) //The spirit is invincible, but passes on damage to the summoner
+/mob/living/simple_animal/hostile/guardian/adjustHealth(amount, updating_health = TRUE) //The spirit is invincible, but passes on damage/healing to the summoner
 	var/damage = amount * damage_transfer
-	if(summoner)
-		if(loc == summoner)
-			return
-		summoner.adjustBruteLoss(damage)
-		if(damage)
-			to_chat(summoner, "<span class='danger'>Your [name] is under attack! You take damage!</span>")
+	if(!summoner)
+		return
+	if(loc == summoner)
+		return
+
+	summoner.adjustBruteLoss(damage)
+	if(damage < 0)
+		to_chat(summoner, "<span class='notice'>Your [name] is receiving healing. It heals you!</span>")
+	else
+		to_chat(summoner, "<span class='danger'>Your [name] is under attack! You take damage!</span>")
+		if(!stealthy_deploying)
 			summoner.visible_message("<span class='danger'>Blood sprays from [summoner] as [src] takes damage!</span>")
-		if(summoner.stat == UNCONSCIOUS)
-			to_chat(summoner, "<span class='danger'>Your body can't take the strain of sustaining [src] in this condition, it begins to fall apart!</span>")
-			summoner.adjustCloneLoss(damage/2)
+
+	if(summoner.stat == UNCONSCIOUS)
+		to_chat(summoner, "<span class='danger'>Your body can't take the strain of sustaining [src] in this condition, it begins to fall apart!</span>")
+		summoner.adjustCloneLoss(damage / 2)
 
 /mob/living/simple_animal/hostile/guardian/ex_act(severity, target)
 	switch(severity)
@@ -158,9 +181,12 @@
 /mob/living/simple_animal/hostile/guardian/gib()
 	if(summoner)
 		to_chat(summoner, "<span class='danger'>Your [src] was blown up!</span>")
-		summoner.Weaken(10)// your fermillier has died! ROLL FOR CON LOSS!
+		summoner.Weaken(20 SECONDS)// your fermillier has died! ROLL FOR CON LOSS!
 	ghostize()
 	qdel(src)
+
+/mob/living/simple_animal/hostile/guardian/Process_Spacemove(movement_dir = 0, continuous_move = FALSE)
+	return TRUE	//Works better in zero G, and not useless in space
 
 //Manifest, Recall, Communicate
 
@@ -169,16 +195,20 @@
 		return
 	if(!summoner) return
 	if(loc == summoner)
-		forceMove(get_turf(summoner))
-		new /obj/effect/temp_visual/guardian/phase(loc)
+		var/turf/T = get_turf(summoner)
+		forceMove(T)
+		if(!stealthy_deploying)
+			new /obj/effect/temp_visual/guardian/phase(T)
 		reset_perspective()
 		cooldown = world.time + 30
 
 /mob/living/simple_animal/hostile/guardian/proc/Recall(forced = FALSE)
 	if(!summoner || loc == summoner || (cooldown > world.time && !forced))
 		return
-	if(!summoner) return
-	new /obj/effect/temp_visual/guardian/phase/out(get_turf(src))
+	if(!summoner)
+		return
+	if(!stealthy_deploying)
+		new /obj/effect/temp_visual/guardian/phase/out(get_turf(src))
 	forceMove(summoner)
 	buckled = null
 	cooldown = world.time + 30
@@ -186,10 +216,10 @@
 /mob/living/simple_animal/hostile/guardian/proc/Communicate(message)
 	var/input
 	if(!message)
-		input = stripped_input(src, "Please enter a message to tell your summoner.", "Guardian", "")
+		input = tgui_input_text(src, "Please enter a message to tell your summoner.", "Guardian")
 	else
 		input = message
-	if(!input)
+	if(!input || !summoner)
 		return
 
 	// Show the message to the host and to the guardian.
@@ -228,7 +258,7 @@
 /obj/item/guardiancreator
 	name = "deck of tarot cards"
 	desc = "An enchanted deck of tarot cards, rumored to be a source of unimaginable power. "
-	icon = 'icons/obj/toy.dmi'
+	icon = 'icons/obj/playing_cards.dmi'
 	icon_state = "deck_syndicate_full"
 	var/used = FALSE
 	var/theme = "magic"
@@ -238,7 +268,7 @@
 	var/used_message = "All the cards seem to be blank now."
 	var/failure_message = "..And draw a card! It's...blank? Maybe you should try again later."
 	var/ling_failure = "The deck refuses to respond to a souless creature such as you."
-	var/list/possible_guardians = list("Chaos", "Standard", "Ranged", "Support", "Explosive", "Assassin", "Lightning", "Charger", "Protector")
+	var/list/possible_guardians = list("Gaseous", "Standard", "Ranged", "Support", "Explosive", "Assassin", "Lightning", "Charger", "Protector")
 	var/random = FALSE
 	/// What type was picked the first activation
 	var/picked_random_type
@@ -249,19 +279,19 @@
 		"Blue" = "#0000FF")
 	var/name_list = list("Aries", "Leo", "Sagittarius", "Taurus", "Virgo", "Capricorn", "Gemini", "Libra", "Aquarius", "Cancer", "Scorpio", "Pisces")
 
-/obj/item/guardiancreator/attack_self(mob/living/user)
+/obj/item/guardiancreator/attack_self__legacy__attackchain(mob/living/user)
 	if(has_guardian(user))
 		to_chat(user, "You already have a [mob_name]!")
 		return
-	if(user.mind && (user.mind.changeling || user.mind.vampire))
+	if(user.mind && (IS_CHANGELING(user) || user.mind.has_antag_datum(/datum/antagonist/vampire) || IS_MINDFLAYER(user)))
 		to_chat(user, "[ling_failure]")
 		return
-	if(used == TRUE)
+	if(used)
 		to_chat(user, "[used_message]")
 		return
 	used = TRUE // Set this BEFORE the popup to prevent people using the injector more than once, polling ghosts multiple times, and receiving multiple guardians.
-	var/choice = alert(user, "[confirmation_message]",, "Yes", "No")
-	if(choice == "No")
+	var/choice = tgui_alert(user, "[confirmation_message]", "Confirm", list("Yes", "No"))
+	if(choice != "Yes")
 		to_chat(user, "<span class='warning'>You decide against using the [name].</span>")
 		used = FALSE
 		return
@@ -273,7 +303,7 @@
 			picked_random_type = pick(possible_guardians)
 		guardian_type = picked_random_type
 	else
-		guardian_type = input(user, "Pick the type of [mob_name]", "[mob_name] Creation") as null|anything in possible_guardians
+		guardian_type = tgui_input_list(user, "Pick the type of [mob_name]", "[mob_name] Creation", possible_guardians)
 		if(!guardian_type)
 			to_chat(user, "<span class='warning'>You decide against using the [name].</span>")
 			used = FALSE
@@ -282,12 +312,13 @@
 	var/list/mob/dead/observer/candidates = SSghost_spawns.poll_candidates("Do you want to play as the [mob_name] ([guardian_type]) of [user.real_name]?", ROLE_GUARDIAN, FALSE, 10 SECONDS, source = src, role_cleanname = "[mob_name] ([guardian_type])")
 	var/mob/dead/observer/theghost = null
 
-	if(candidates.len)
+	if(length(candidates))
 		theghost = pick(candidates)
 		if(has_guardian(user))
 			to_chat(user, "You already have a [mob_name]!")
 			used = FALSE
 			return
+		dust_if_respawnable(theghost)
 		spawn_guardian(user, theghost.key, guardian_type)
 	else
 		to_chat(user, "[failure_message]")
@@ -309,8 +340,8 @@
 	var/pickedtype = /mob/living/simple_animal/hostile/guardian/punch
 	switch(guardian_type)
 
-		if("Chaos")
-			pickedtype = /mob/living/simple_animal/hostile/guardian/fire
+		if("Gaseous")
+			pickedtype = /mob/living/simple_animal/hostile/guardian/gaseous
 
 		if("Standard")
 			pickedtype = /mob/living/simple_animal/hostile/guardian/punch
@@ -350,6 +381,8 @@
 	G.name_color = color_list[color]
 	var/picked_name = pick(name_list)
 	create_theme(G, user, picked_name, color)
+	SSblackbox.record_feedback("tally", "guardian_pick", 1, "[pickedtype]")
+	G.client?.init_verbs()
 
 /obj/item/guardiancreator/proc/create_theme(mob/living/simple_animal/hostile/guardian/G, mob/living/user, picked_name, color)
 	G.name = "[picked_name] [color]"
@@ -386,6 +419,10 @@
 		"Lilac" = "#C7A0F6",
 		"Orchid" = "#F62CF5")
 	name_list = list("Gallium", "Indium", "Thallium", "Bismuth", "Aluminium", "Mercury", "Iron", "Silver", "Zinc", "Titanium", "Chromium", "Nickel", "Platinum", "Tellurium", "Palladium", "Rhodium", "Cobalt", "Osmium", "Tungsten", "Iridium")
+	/// How much do we refund this for?
+	var/refund_cost = 0
+	/// Is this discounted?
+	var/is_discounted = FALSE
 
 /obj/item/guardiancreator/tech/create_theme(mob/living/simple_animal/hostile/guardian/G, mob/living/user, picked_name, color)
 	G.name = "[picked_name] [color]"
@@ -458,22 +495,32 @@
  <br>
  <b>Assassin</b>: Medium damage with no damage resistance, can enter stealth which massively increases the damage of the next attack causing it to ignore armour.
  <br>
- <b>Charger</b>: Medium damage and defense, very fast and has a special charge attack which damages a target and knocks items out of their hands.
+ <b>Charger</b>: Medium damage and defense, very fast and has a special charge attack which damages a target and knocks them to the ground.
  <br>
  <b>Lightning</b>: Applies lightning chains to any targets on attack with a link to your summoner, lightning chains will shock anyone nearby.
  <br>
  <b>Protector</b>: You will become leashed to your holoparasite instead of them to you. Has two modes, a medium attack/defense mode and a protection mode which greatly reduces incoming damage to the holoparasite.
 "}
 
-/obj/item/paper/guardian/update_icon()
+/obj/item/paper/guardian/update_icon_state()
 	return
-
 
 /obj/item/storage/box/syndie_kit/guardian
 	name = "holoparasite injector kit"
 
-/obj/item/storage/box/syndie_kit/guardian/New()
-	..()
+/obj/item/storage/box/syndie_kit/guardian/populate_contents()
 	new /obj/item/guardiancreator/tech/choose(src)
 	new /obj/item/paper/guardian(src)
-	return
+
+/obj/item/storage/box/syndie_kit/guardian/uplink
+	var/holopara_cost = 60
+
+/obj/item/storage/box/syndie_kit/guardian/uplink/Initialize(mapload, new_cost)
+	. = ..()
+	var/obj/item/guardiancreator/tech/choose/holopara = new(src)
+	if(holopara_cost != new_cost)
+		holopara.is_discounted = TRUE
+	holopara.refund_cost = new_cost
+
+/obj/item/storage/box/syndie_kit/guardian/uplink/populate_contents()
+	new /obj/item/paper/guardian(src)

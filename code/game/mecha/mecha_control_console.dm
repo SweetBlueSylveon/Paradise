@@ -7,7 +7,6 @@
 	req_access = list(ACCESS_ROBOTICS)
 	circuit = /obj/item/circuitboard/mecha_control
 	var/list/located = list()
-	var/screen = 0
 	var/stored_data = list()
 
 /obj/machinery/computer/mecha/attack_ai(mob/user)
@@ -16,10 +15,13 @@
 /obj/machinery/computer/mecha/attack_hand(mob/user)
 	ui_interact(user)
 
-/obj/machinery/computer/mecha/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = TRUE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/machinery/computer/mecha/ui_state(mob/user)
+	return GLOB.default_state
+
+/obj/machinery/computer/mecha/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "MechaControlConsole", name, 420, 500, master_ui, state)
+		ui = new(user, src, "MechaControlConsole", name)
 		ui.open()
 
 /obj/machinery/computer/mecha/ui_data(mob/user)
@@ -56,9 +58,14 @@
 				return TRUE
 		if("shock")
 			var/obj/item/mecha_parts/mecha_tracking/MT = locateUID(params["mt"])
-			if(istype(MT))
-				MT.shock()
-				return TRUE
+			if(!istype(MT))
+				return
+			// Is it sabotaged already?
+			var/error_message = MT.shock()
+			if(error_message)
+				atom_say(error_message)
+				return FALSE
+			return TRUE
 		if("get_log")
 			var/obj/item/mecha_parts/mecha_tracking/MT = locateUID(params["mt"])
 			if(istype(MT))
@@ -76,6 +83,7 @@
 	w_class = WEIGHT_CLASS_SMALL
 	origin_tech = "programming=2;magnets=2"
 	var/ai_beacon = FALSE //If this beacon allows for AI control. Exists to avoid using istype() on checking.
+	var/charges_left = 2
 
 /obj/item/mecha_parts/mecha_tracking/proc/get_mecha_info()
 	if(!in_mecha())
@@ -92,7 +100,7 @@
 	else
 		answer["cell"] = 0
 	answer["integrity"] = round((M.obj_integrity/M.max_integrity*100), 0.01)
-	answer["airtank"] = M.return_pressure()
+	answer["airtank"] = M.internal_tank.return_pressure()
 	answer["pilot"] = "[M.occupant||"None"]"
 	var/area/area = get_area(M)
 	answer["location"] = "[sanitize(area.name)||"Unknown"]"
@@ -113,7 +121,7 @@
 	var/answer = {"<b>Name:</b> [M.name]
 						<b>Integrity:</b> [M.obj_integrity / M.max_integrity * 100]%
 						<b>Cell charge:</b> [isnull(cell_charge)?"Not found":"[M.cell.percent()]%"]
-						<b>Airtank:</b> [M.return_pressure()]kPa
+						<b>Airtank:</b> [M.internal_tank.return_pressure()]kPa
 						<b>Pilot:</b> [M.occupant||"None"]
 						<b>Location:</b> [sanitize(A.name)||"Unknown"]
 						<b>Active equipment:</b> [M.selected||"None"]<br>"}
@@ -136,8 +144,8 @@
 	data["cell"] = M.cell
 	if(M.cell)
 		data["cellCharge"] = M.cell.charge
-		data["cellMaxCharge"] = M.cell.charge
-	data["airtank"] = M.return_pressure()
+		data["cellMaxCharge"] = M.cell.maxcharge
+	data["airtank"] = M.internal_tank.return_pressure()
 	data["pilot"] = M.occupant
 	data["location"] = get_area(M)
 	data["active"] = M.selected
@@ -151,15 +159,32 @@
 	qdel(src)
 
 /obj/item/mecha_parts/mecha_tracking/proc/in_mecha()
-	if(istype(loc, /obj/mecha))
+	if(ismecha(loc))
 		return loc
 	return FALSE
 
+// Makes the user lose control over the exosuit's coordination system.
+// They can still move around and use tools, they just cannot tell the exosuit which way to go.
 /obj/item/mecha_parts/mecha_tracking/proc/shock()
-	var/obj/mecha/M = in_mecha()
-	if(M)
-		M.emp_act(2)
-	qdel(src)
+	var/obj/mecha/mech = in_mecha()
+	var/error_message
+
+	if(!mech)
+		error_message = "This tracking beacon is no longer in an exosuit."
+		return error_message
+
+	if(mech.internal_damage & MECHA_INT_CONTROL_LOST)
+		error_message = "The exosuit's coordination system is not responding."
+		return error_message
+
+	mech.setInternalDamage(MECHA_INT_CONTROL_LOST)
+	if(mech.occupant)
+		mech.occupant_message("<span class='danger'>Coordination system calibration failure. Manual restart required.</span>")
+		SEND_SOUND(mech.occupant, sound('sound/machines/warning-buzzer.ogg'))
+
+	charges_left--
+	if(charges_left < 1)
+		qdel(src)
 
 /obj/item/mecha_parts/mecha_tracking/proc/get_mecha_log()
 	if(!in_mecha())
@@ -176,12 +201,6 @@
 /obj/item/storage/box/mechabeacons
 	name = "exosuit tracking beacons"
 
-/obj/item/storage/box/mechabeacons/New()
-	..()
-	new /obj/item/mecha_parts/mecha_tracking(src)
-	new /obj/item/mecha_parts/mecha_tracking(src)
-	new /obj/item/mecha_parts/mecha_tracking(src)
-	new /obj/item/mecha_parts/mecha_tracking(src)
-	new /obj/item/mecha_parts/mecha_tracking(src)
-	new /obj/item/mecha_parts/mecha_tracking(src)
-	new /obj/item/mecha_parts/mecha_tracking(src)
+/obj/item/storage/box/mechabeacons/populate_contents()
+	for(var/i in 1 to 7)
+		new /obj/item/mecha_parts/mecha_tracking(src)

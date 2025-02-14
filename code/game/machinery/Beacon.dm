@@ -6,22 +6,20 @@
 	level = 1		// underfloor
 	layer = WIRE_LAYER
 	plane = FLOOR_PLANE
-	anchored = 1
-	use_power = IDLE_POWER_USE
-	idle_power_usage = 0
-	var/syndicate = 0
+	anchored = TRUE
+	var/syndicate = FALSE
 	var/area_bypass = FALSE
-	var/obj/item/radio/beacon/Beacon
+	var/obj/item/beacon/Beacon
 	var/enabled = TRUE
 	var/cc_beacon = FALSE //can be teleported to even if on zlevel2
 
-/obj/machinery/bluespace_beacon/New()
-	..()
+/obj/machinery/bluespace_beacon/Initialize(mapload)
+	. = ..()
 	create_beacon()
 
 /obj/machinery/bluespace_beacon/proc/create_beacon()
 	var/turf/T = loc
-	Beacon = new /obj/item/radio/beacon
+	Beacon = new /obj/item/beacon
 	Beacon.invisibility = INVISIBILITY_MAXIMUM
 	Beacon.loc = T
 	Beacon.syndicate = syndicate
@@ -43,10 +41,10 @@
 
 /obj/machinery/bluespace_beacon/hide(intact)
 	invisibility = intact ? INVISIBILITY_MAXIMUM : 0
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
 // update the icon_state
-/obj/machinery/bluespace_beacon/update_icon()
+/obj/machinery/bluespace_beacon/update_icon_state()
 	var/state="floor_beacon"
 	if(invisibility)
 		icon_state = "[state]f"
@@ -60,11 +58,11 @@
 				Beacon.loc = loc
 		else
 			create_beacon()
-			update_icon()
+			update_icon(UPDATE_ICON_STATE)
 	else
 		if(Beacon)
 			destroy_beacon()
-			update_icon()
+			update_icon(UPDATE_ICON_STATE)
 
 
 /obj/machinery/bluespace_beacon/syndicate
@@ -73,8 +71,8 @@
 	area_bypass = TRUE // This enables teleports to this beacon to bypass the tele_proof flag of /area/s. Intended for depot syndi teleport computer.
 	var/obj/machinery/computer/syndicate_depot/teleporter/mycomputer
 
-/obj/machinery/bluespace_beacon/syndicate/New()
-	..()
+/obj/machinery/bluespace_beacon/syndicate/Initialize(mapload)
+	. = ..()
 	if(!GAMEMODE_IS_NUCLEAR && prob(50))
 		enabled = TRUE
 
@@ -83,9 +81,10 @@
 		mycomputer.mybeacon = null
 	return ..()
 
-/obj/machinery/bluespace_beacon/syndicate/infiltrator //beacon guaranteed offline at roundstart for infiltrator base
+/// beacon guaranteed offline at roundstart for infiltrator base
+/obj/machinery/bluespace_beacon/syndicate/infiltrator
 	cc_beacon = TRUE
 
-/obj/machinery/bluespace_beacon/syndicate/infiltrator/New()
-	..()
+/obj/machinery/bluespace_beacon/syndicate/infiltrator/Initialize(mapload)
+	. = ..()
 	enabled = FALSE

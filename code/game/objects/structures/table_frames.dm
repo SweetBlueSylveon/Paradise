@@ -18,52 +18,61 @@
 	anchored = FALSE
 	layer = PROJECTILE_HIT_THRESHHOLD_LAYER
 	max_integrity = 100
+	///The resource dropped when the table frame is destroyed or deconstructed
 	var/framestack = /obj/item/stack/rods
+	///How many of framestack resource are dropped
 	var/framestackamount = 2
+	///How long the table takes to make
+	var/construction_time = 5 SECONDS
+	///What stacks can be used to make the table, and if it will result in a unique table
+	var/list/restrict_table_types = list() //ex: list(/obj/item/stack/tile/carpet = /obj/structure/table/wood/poker, /obj/item/stack/sheet/wood = /obj/item/stack/sheet/wood::table_type), carpet will make poker table, wood will result in standard table_type. If the list is empty, any material can be used for its default table_type.
 
-/obj/structure/table_frame/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/stack/sheet/plasteel))
-		var/obj/item/stack/sheet/plasteel/P = I
-		if(P.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one plasteel sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [P] to [src]...</span>")
-		if(do_after(user, 50, target = src) && P.use(1))
-			make_new_table(/obj/structure/table/reinforced)
-	else if(istype(I, /obj/item/stack/sheet/metal))
-		var/obj/item/stack/sheet/metal/M = I
-		if(M.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one metal sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [M] to [src]...</span>")
-		if(do_after(user, 20, target = src) && M.use(1))
-			make_new_table(/obj/structure/table)
-	else if(istype(I, /obj/item/stack/sheet/glass))
-		var/obj/item/stack/sheet/glass/G = I
-		if(G.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one glass sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [G] to [src]...</span>")
-		if(do_after(user, 20, target = src) && G.use(1))
-			make_new_table(/obj/structure/table/glass)
-	else if(istype(I, /obj/item/stack/tile/carpet/black))
-		var/obj/item/stack/tile/carpet/black/C = I
-		if(C.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one black carpet sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [C] to [src]...</span>")
-		if(do_after(user, 20, target = src) && C.use(1))
-			make_new_table(/obj/structure/table/wood/fancy/black)
-	else if(istype(I, /obj/item/stack/tile/carpet))
-		var/obj/item/stack/tile/carpet/C = I
-		if(C.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one carpet sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [C] to [src]...</span>")
-		if(do_after(user, 20, target = src) && C.use(1))
-			make_new_table(/obj/structure/table/wood/fancy)
-	else
+/obj/structure/table_frame/attackby__legacy__attackchain(obj/item/I, mob/user, params)
+	if(!try_make_table(I, user))
 		return ..()
+
+///Try to make a table with the item used to attack. FALSE if you can't make a table and should attack. TRUE does not necessarily mean a table was made.
+/obj/structure/table_frame/proc/try_make_table(obj/item/stack/stack, mob/user)
+	if(!istype(stack))
+		return FALSE
+
+	var/obj/structure/table/new_table_type = stack.table_type
+	if(length(restrict_table_types))
+		var/valid_stack_type = FALSE
+		for(var/obj/item/stack/current_stack as anything in restrict_table_types)
+			if(istype(stack, current_stack))
+				new_table_type = restrict_table_types[current_stack]
+				valid_stack_type = TRUE
+				break
+		if(!valid_stack_type)
+			return FALSE
+
+	if(!new_table_type)
+		return FALSE
+
+	if(stack.get_amount() < 1)
+		to_chat(user, "<span class='warning'>You need at least one sheet of [stack] to do this!</span>")
+		return TRUE
+
+	to_chat(user, "<span class='notice'>You start adding [stack] to [src]...</span>")
+	if(!do_after(user, construction_time, target = src))
+		return TRUE
+
+	if(!stack.use(1))
+		to_chat(user, "<span class='warning'>You need at least one sheet of [stack] to do this!</span>")
+		return TRUE
+
+	var/obj/structure/table/table_already_there = locate(/obj/structure/table) in get_turf(src)
+	if(table_already_there) //check again after to make sure one wasnt added since
+		to_chat(user, "<span class='warning'>There is already [table_already_there] here.</span>")
+		return TRUE
+
+	if(!istype(new_table_type, /obj/structure/table)) //if its something unique, skip the table parts
+		new new_table_type(loc)
+		qdel(src)
+		return TRUE
+	make_new_table(new_table_type)
+	return TRUE
 
 /obj/structure/table_frame/wrench_act(mob/user, obj/item/I)
 	. = TRUE
@@ -102,47 +111,19 @@
 	framestack = /obj/item/stack/sheet/wood
 	framestackamount = 2
 	resistance_flags = FLAMMABLE
-
-/obj/structure/table_frame/wood/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/stack/sheet/wood))
-		var/obj/item/stack/sheet/wood/W = I
-		if(W.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one wood sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [W] to [src]...</span>")
-		if(do_after(user, 20, target = src) && W.use(1))
-			make_new_table(/obj/structure/table/wood)
-		return
-	else if(istype(I, /obj/item/stack/tile/carpet))
-		var/obj/item/stack/tile/carpet/C = I
-		if(C.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one carpet sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [C] to [src]...</span>")
-		if(do_after(user, 20, target = src) && C.use(1))
-			make_new_table(/obj/structure/table/wood/poker)
-	else
-		return ..()
+	restrict_table_types = list(/obj/item/stack/tile/carpet = /obj/structure/table/wood/poker, /obj/item/stack/sheet/wood = /obj/item/stack/sheet/wood::table_type)
 
 /obj/structure/table_frame/brass
 	name = "brass table frame"
 	desc = "Four pieces of brass arranged in a square. It's slightly warm to the touch."
 	icon_state = "brass_frame"
 	resistance_flags = FIRE_PROOF | ACID_PROOF
+	density = TRUE
+	anchored = TRUE
 	framestack = /obj/item/stack/tile/brass
 	framestackamount = 1
-
-/obj/structure/table_frame/brass/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/stack/tile/brass))
-		var/obj/item/stack/tile/brass/W = I
-		if(W.get_amount() < 1)
-			to_chat(user, "<span class='warning'>You need one brass sheet to do this!</span>")
-			return
-		to_chat(user, "<span class='notice'>You start adding [W] to [src]...</span>")
-		if(do_after(user, 20, target = src) && W.use(1))
-			make_new_table(/obj/structure/table/reinforced/brass)
-	else
-		return ..()
+	construction_time = 2 SECONDS
+	restrict_table_types = list(/obj/item/stack/tile/brass = /obj/item/stack/tile/brass::table_type)
 
 /obj/structure/table_frame/brass/narsie_act()
 	..()

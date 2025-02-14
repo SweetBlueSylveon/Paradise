@@ -10,6 +10,8 @@
 	init_sprite_accessory_subtypes(/datum/sprite_accessory/head_accessory, GLOB.head_accessory_styles_list)
 	//hair
 	init_sprite_accessory_subtypes(/datum/sprite_accessory/hair, GLOB.hair_styles_public_list, GLOB.hair_styles_male_list, GLOB.hair_styles_female_list, GLOB.hair_styles_full_list)
+	//hair gradients
+	init_sprite_accessory_subtypes(/datum/sprite_accessory/hair_gradient, GLOB.hair_gradients_list)
 	//facial hair
 	init_sprite_accessory_subtypes(/datum/sprite_accessory/facial_hair, GLOB.facial_hair_styles_list, GLOB.facial_hair_styles_male_list, GLOB.facial_hair_styles_female_list)
 	//underwear
@@ -27,6 +29,8 @@
 	__init_body_accessory(/datum/body_accessory/body)
 	// Different tails
 	__init_body_accessory(/datum/body_accessory/tail)
+	// Different wings
+	__init_body_accessory(/datum/body_accessory/wing)
 
 	// Setup species:accessory relations
 	initialize_body_accessory_by_species()
@@ -52,9 +56,6 @@
 		S.race_key = ++rkey //Used in mob icon caching.
 		GLOB.all_species[S.name] = S
 
-		if(IS_WHITELISTED in S.species_traits)
-			GLOB.whitelisted_species += S.name
-
 	init_subtypes(/datum/crafting_recipe, GLOB.crafting_recipes)
 
 	//Pipe list building
@@ -74,45 +75,52 @@
 		GLOB.pai_software_by_key[P.id] = P
 
 	// Setup loadout gear
-	for(var/geartype in subtypesof(/datum/gear))
-		var/datum/gear/G = geartype
+	for(var/gear_type in subtypesof(/datum/gear))
+		var/datum/gear/gear = gear_type
 
-		var/use_category = initial(G.sort_category)
-
-		if(G == initial(G.main_typepath))
+		if(gear == initial(gear.main_typepath))
 			continue
 
-		if(!initial(G.display_name))
-			stack_trace("Loadout - Missing display name: [G]")
+		if(!initial(gear.display_name))
+			stack_trace("Loadout - Missing display name: [gear]")
 			continue
-		if(!initial(G.cost))
-			stack_trace("Loadout - Missing cost: [G]")
+		if(!initial(gear.cost))
+			stack_trace("Loadout - Missing cost: [gear]")
 			continue
-		if(!initial(G.path))
-			stack_trace("Loadout - Missing path definition: [G]")
+		if(!initial(gear.path))
+			stack_trace("Loadout - Missing path definition: [gear]")
 			continue
 
-		if(!GLOB.loadout_categories[use_category])
-			GLOB.loadout_categories[use_category] = new /datum/loadout_category(use_category)
-		var/datum/loadout_category/LC = GLOB.loadout_categories[use_category]
-		GLOB.gear_datums[geartype] = new geartype
-		LC.gear[geartype] = GLOB.gear_datums[geartype]
+		gear = new gear_type
+		var/obj/gear_item = gear.path
+		var/list/tweaks = list()
+		for(var/datum/gear_tweak/tweak as anything in gear.gear_tweaks)
+			tweaks[tweak.type] += list(list(
+				"name" = tweak.display_type,
+				"icon" = tweak.fa_icon,
+				"tooltip" = tweak.info,
+			))
 
-	GLOB.loadout_categories = sortAssoc(GLOB.loadout_categories)
-	for(var/loadout_category in GLOB.loadout_categories)
-		var/datum/loadout_category/LC = GLOB.loadout_categories[loadout_category]
-		LC.gear = sortAssoc(LC.gear)
+		GLOB.gear_tgui_info[gear.sort_category] += list(
+			"[gear_type]" = list(
+				"name" = gear.display_name,
+				"desc" = gear.description,
+				"icon" = gear_item.icon,
+				"icon_state" = gear_item.icon_state,
+				"cost" = gear.cost,
+				"gear_tier" = gear.donator_tier,
+				"allowed_roles" = gear.allowed_roles,
+				"tweaks" = tweaks,
+			)
+		)
 
+		GLOB.gear_datums[gear_type] = gear
 
 	// Setup a list of robolimbs
 	GLOB.basic_robolimb = new()
 	for(var/limb_type in typesof(/datum/robolimb))
 		var/datum/robolimb/R = new limb_type()
 		GLOB.all_robolimbs[R.company] = R
-		if(!R.unavailable_at_chargen)
-			if(R != "head" && R != "chest" && R != "groin" ) //Part of the method that ensures only IPCs can access head, chest and groin prosthetics.
-				if(R.has_subtypes) //Ensures solos get added to the list as well be incorporating has_subtypes == 1 and has_subtypes == 2.
-					GLOB.chargen_robolimbs[R.company] = R //List only main brands and solo parts.
 		if(R.selectable)
 			GLOB.selectable_robolimbs[R.company] = R
 
@@ -132,7 +140,37 @@
 		var/datum/client_login_processor/CLP = new processor_type
 		GLOB.client_login_processors += CLP
 	// Sort them by priority, lowest first
-	sortTim(GLOB.client_login_processors, /proc/cmp_login_processor_priority)
+	sortTim(GLOB.client_login_processors, GLOBAL_PROC_REF(cmp_login_processor_priority))
+
+	GLOB.emote_list = init_emote_list()
+
+	// Keybindings
+	for(var/path in subtypesof(/datum/keybinding))
+		var/datum/keybinding/D = path
+		if(initial(D.name))
+			GLOB.keybindings += new path()
+
+	for(var/path in subtypesof(/datum/preference_toggle))
+		var/datum/preference_toggle/pref_toggle = path
+		if(initial(pref_toggle.name))
+			GLOB.preference_toggles[path] = new path()
+
+	for(var/path in subtypesof(/datum/objective))
+		var/datum/objective/O = path
+		if(isnull(initial(O.name)))
+			continue // These are not valid objectives to add.
+		GLOB.admin_objective_list[initial(O.name)] = path
+
+	for(var/path in subtypesof(/datum/tilt_crit))
+		var/datum/tilt_crit/crit = path
+		if(isnull(initial(crit.name)))
+			continue
+		crit = new path()
+		GLOB.tilt_crits[path] = crit
+
+	for(var/path in subtypesof(/datum/tech))
+		var/datum/tech/T = path
+		GLOB.rnd_tech_id_to_name[initial(T.id)] = initial(T.name)
 
 /* // Uncomment to debug chemical reaction list.
 /client/verb/debug_chemical_list()
@@ -166,3 +204,22 @@
 			if(assoc) //value gotten
 				L["[assoc]"] = D //put in association
 	return L
+
+
+/proc/init_emote_list()
+	. = list()
+	for(var/path in subtypesof(/datum/emote))
+		var/datum/emote/E = new path()
+		if(E.key)
+			if(!.[E.key])
+				.[E.key] = list(E)
+			else
+				.[E.key] += E
+		else if(E.message) //Assuming all non-base emotes have this
+			stack_trace("Keyless emote: [E.type]")
+
+		if(E.key_third_person) //This one is optional
+			if(!.[E.key_third_person])
+				.[E.key_third_person] = list(E)
+			else
+				.[E.key_third_person] |= E

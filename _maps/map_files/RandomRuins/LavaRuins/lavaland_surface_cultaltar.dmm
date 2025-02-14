@@ -3,14 +3,7 @@
 /turf/template_noop,
 /area/template_noop)
 "b" = (
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
-/area/ruin/unpowered/misc_lavaruin)
-"c" = (
-/turf/simulated/floor/plating/lava/smooth/lava_land_surface,
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "d" = (
 /turf/simulated/wall/cult,
@@ -25,51 +18,31 @@
 /area/ruin/unpowered/misc_lavaruin)
 "g" = (
 /obj/effect/decal/cleanable/blood/old,
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "h" = (
-/obj/effect/baseturf_helper/lava_land/surface,
+/obj/effect/baseturf_helper/lava/mapping_lava,
 /turf/simulated/wall/cult,
 /area/ruin/unpowered/misc_lavaruin)
 "i" = (
 /obj/effect/decal/remains/human,
 /obj/effect/decal/cleanable/blood/old,
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "k" = (
 /obj/effect/decal/remains/human,
 /obj/item/melee/cultblade,
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "l" = (
 /obj/effect/decal/remains/human,
 /obj/item/clothing/shoes/cult,
 /obj/item/clothing/suit/hooded/cultrobes,
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "m" = (
 /obj/effect/decal/remains/human,
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "o" = (
 /obj/effect/rune/narsie{
@@ -89,25 +62,20 @@
 	message = "<span class='cult italic'><b><span class='big'>You've made a grave mistake, haven't you?</span></b></span>";
 	name = "ohfuck"
 	},
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "q" = (
 /obj/effect/decal/remains/human,
 /obj/item/clothing/shoes/cult,
 /obj/item/clothing/suit/hooded/cultrobes,
 /obj/effect/decal/cleanable/blood/old,
-/turf/simulated/floor/engine/cult{
-	nitrogen = 23;
-	oxygen = 24;
-	temperature = 300
-	},
+/turf/simulated/floor/engine/cult/lavaland_air,
 /area/ruin/unpowered/misc_lavaruin)
 "s" = (
 /turf/simulated/floor/plating/asteroid/basalt/lava_land_surface,
+/area/ruin/unpowered/misc_lavaruin)
+"B" = (
+/turf/simulated/floor/lava/mapping_lava,
 /area/ruin/unpowered/misc_lavaruin)
 
 (1,1,1) = {"
@@ -118,7 +86,7 @@ a
 a
 a
 b
-c
+B
 b
 a
 a
@@ -131,15 +99,15 @@ a
 a
 d
 e
-c
+B
 s
-c
+B
 b
 b
 b
-c
+B
 s
-c
+B
 s
 d
 a
@@ -150,11 +118,11 @@ e
 f
 s
 d
-c
-c
+B
+B
 g
-c
-c
+B
+B
 d
 e
 f
@@ -163,43 +131,43 @@ a
 "}
 (4,1,1) = {"
 a
-c
+B
 s
-c
-c
-c
-c
+B
+B
+B
+B
 b
-c
-c
-c
-c
+B
+B
+B
+B
 e
-c
+B
 a
 "}
 (5,1,1) = {"
 a
 s
 d
-c
-c
+B
+B
 b
 b
 b
 b
 b
-c
-c
+B
+B
 d
 s
 a
 "}
 (6,1,1) = {"
 a
-c
-c
-c
+B
+B
+B
 b
 b
 l
@@ -207,16 +175,16 @@ d
 k
 b
 b
-c
-c
-c
+B
+B
+B
 a
 "}
 (7,1,1) = {"
 b
 b
-c
-c
+B
+B
 g
 i
 b
@@ -224,13 +192,13 @@ b
 b
 l
 b
-c
-c
+B
+B
 b
 b
 "}
 (8,1,1) = {"
-c
+B
 b
 g
 b
@@ -244,13 +212,13 @@ b
 b
 g
 b
-c
+B
 "}
 (9,1,1) = {"
 b
 b
-c
-c
+B
+B
 b
 k
 b
@@ -258,16 +226,16 @@ b
 b
 m
 b
-c
-c
+B
+B
 b
 b
 "}
 (10,1,1) = {"
 a
-c
-c
-c
+B
+B
+B
 g
 b
 m
@@ -275,43 +243,43 @@ h
 q
 b
 b
-c
-c
-c
+B
+B
+B
 a
 "}
 (11,1,1) = {"
 a
 s
 d
-c
-c
+B
+B
 b
 b
 b
 b
 b
-c
-c
+B
+B
 d
 s
 a
 "}
 (12,1,1) = {"
 a
-c
+B
 s
-c
-c
-c
-c
+B
+B
+B
+B
 b
-c
-c
-c
-c
+B
+B
+B
+B
 e
-c
+B
 a
 "}
 (13,1,1) = {"
@@ -320,11 +288,11 @@ e
 f
 s
 d
-c
-c
+B
+B
 g
-c
-c
+B
+B
 d
 e
 f
@@ -335,15 +303,15 @@ a
 a
 d
 e
-c
+B
 s
-c
+B
 b
 b
 b
-c
+B
 s
-c
+B
 s
 d
 a
@@ -356,7 +324,7 @@ a
 a
 a
 b
-c
+B
 b
 a
 a

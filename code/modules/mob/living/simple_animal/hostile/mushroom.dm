@@ -9,7 +9,7 @@
 	turns_per_move = 1
 	maxHealth = 10
 	health = 10
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/hugemushroomslice = 1)
+	butcher_results = list(/obj/item/food/hugemushroomslice = 1)
 	response_help  = "pets"
 	response_disarm = "gently pushes aside"
 	response_harm   = "whacks"
@@ -17,16 +17,16 @@
 	obj_damage = 0
 	melee_damage_lower = 1
 	melee_damage_upper = 1
-	attack_same = 2
+	attack_same = 2 // this is usually a bool, but mushrooms are a special case
 	attacktext = "chomps"
 	attack_sound = 'sound/weapons/bite.ogg'
-	faction = list("mushroom")
+	faction = list("mushroom", "jungle")
 	environment_smash = 0
 	stat_attack = DEAD
 	mouse_opacity = MOUSE_OPACITY_ICON
 	speed = 1
-	ventcrawler = 2
-	robust_searching = 1
+	ventcrawler = VENTCRAWLER_ALWAYS
+	robust_searching = TRUE
 	speak_emote = list("squeaks")
 	deathmessage = "fainted"
 	var/powerlevel = 0 //Tracks our general strength level gained from eating other shrooms
@@ -39,16 +39,17 @@
 /mob/living/simple_animal/hostile/mushroom/examine(mob/user)
 	. = ..()
 	if(health >= maxHealth)
-		. += "<span class='info'>It looks healthy.</span>"
+		. += "<span class='notice'>It looks healthy.</span>"
 	else
-		. += "<span class='info'>It looks like it's been roughed up.</span>"
+		. += "<span class='notice'>It looks like it's been roughed up.</span>"
 
 /mob/living/simple_animal/hostile/mushroom/Life(seconds, times_fired)
 	..()
-	if(!stat)//Mushrooms slowly regenerate if conscious, for people who want to save them from being eaten
+	if(stat == CONSCIOUS)//Mushrooms slowly regenerate if conscious, for people who want to save them from being eaten
 		adjustBruteLoss(-2)
 
-/mob/living/simple_animal/hostile/mushroom/New()//Makes every shroom a little unique
+/mob/living/simple_animal/hostile/mushroom/Initialize(mapload)  //Makes every shroom a little unique
+	. = ..()
 	melee_damage_lower += rand(3, 5)
 	melee_damage_upper += rand(10,20)
 	maxHealth += rand(40,60)
@@ -60,7 +61,6 @@
 	cap_dead.color = cap_color
 	UpdateMushroomCap()
 	health = maxHealth
-	..()
 
 /mob/living/simple_animal/hostile/mushroom/CanAttack(atom/the_target) // Mushroom-specific version of CanAttack to handle stupid attack_same = 2 crap so we don't have to do it for literally every single simple_animal/hostile because this shit never gets spawned
 	if(!the_target || isturf(the_target) || istype(the_target, /atom/movable/lighting_object))
@@ -72,7 +72,7 @@
 	if(isliving(the_target))
 		var/mob/living/L = the_target
 
-		if (!faction_check_mob(L) && attack_same == 2)
+		if(!faction_check_mob(L) && attack_same == 2)
 			return FALSE
 		if(L.stat > stat_attack)
 			return FALSE
@@ -84,7 +84,7 @@
 /mob/living/simple_animal/hostile/mushroom/adjustHealth(amount, updating_health = TRUE)//Possibility to flee from a fight just to make it more visually interesting
 	if(!retreat_distance && prob(33))
 		retreat_distance = 5
-		addtimer(CALLBACK(src, .proc/stop_retreat), 30)
+		addtimer(CALLBACK(src, PROC_REF(stop_retreat)), 30)
 	. = ..()
 
 /mob/living/simple_animal/hostile/mushroom/proc/stop_retreat()
@@ -147,12 +147,12 @@
 	adjustBruteLoss(-maxHealth) //They'll always heal, even if they don't gain a level, in case you want to keep this shroom around instead of harvesting it
 
 /mob/living/simple_animal/hostile/mushroom/proc/Bruise()
-	if(!bruised && !stat)
+	if(!bruised && stat == CONSCIOUS)
 		src.visible_message("<span class='notice'>[src] was bruised!</span>")
 		bruised = 1
 
-/mob/living/simple_animal/hostile/mushroom/attackby(obj/item/I as obj, mob/user as mob, params)
-	if(istype(I, /obj/item/reagent_containers/food/snacks/grown/mushroom))
+/mob/living/simple_animal/hostile/mushroom/attackby__legacy__attackchain(obj/item/I as obj, mob/user as mob, params)
+	if(istype(I, /obj/item/food/grown/mushroom))
 		if(stat == DEAD && !recovery_cooldown)
 			Recover()
 			qdel(I)
@@ -170,7 +170,7 @@
 
 /mob/living/simple_animal/hostile/mushroom/hitby(atom/movable/AM, skipcatch = FALSE, hitpush = TRUE, blocked = FALSE, datum/thrownthing/throwingdatum)
 	..()
-	if(istype(AM, /obj/item))
+	if(isitem(AM))
 		var/obj/item/T = AM
 		if(T.throwforce)
 			Bruise()
@@ -182,7 +182,7 @@
 /mob/living/simple_animal/hostile/mushroom/harvest()
 	var/counter
 	for(counter=0, counter<=powerlevel, counter++)
-		var/obj/item/reagent_containers/food/snacks/hugemushroomslice/S = new /obj/item/reagent_containers/food/snacks/hugemushroomslice(src.loc)
+		var/obj/item/food/hugemushroomslice/S = new (src.loc)
 		S.reagents.add_reagent("psilocybin", powerlevel)
 		S.reagents.add_reagent("omnizine", powerlevel)
 		S.reagents.add_reagent("synaptizine", powerlevel)

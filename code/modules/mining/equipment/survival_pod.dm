@@ -4,6 +4,7 @@
 	requires_power = FALSE
 	has_gravity = TRUE
 	dynamic_lighting = DYNAMIC_LIGHTING_FORCED
+	ambientsounds = MINING_SOUNDS
 
 /obj/item/survivalcapsule
 	name = "bluespace shelter capsule"
@@ -16,12 +17,19 @@
 	var/datum/map_template/shelter/template
 	var/used = FALSE
 
+/obj/item/survivalcapsule/emag_act()
+	if(!emagged)
+		to_chat(usr, "<span class='warning'>You short out the safeties, allowing it to be placed in the station sector.</span>")
+		emagged = TRUE
+		return TRUE
+	to_chat(usr, "<span class='warning'>The safeties are already shorted out!</span>")
+
 /obj/item/survivalcapsule/proc/get_template()
 	if(template)
 		return
 	template = GLOB.shelter_templates[template_id]
 	if(!template)
-		log_runtime("Shelter template ([template_id]) not found!", src)
+		stack_trace("Shelter template ([template_id]) not found!")
 		qdel(src)
 
 /obj/item/survivalcapsule/examine(mob/user)
@@ -30,15 +38,21 @@
 	. += "This capsule has the [template.name] stored."
 	. += template.description
 
-/obj/item/survivalcapsule/attack_self()
+/obj/item/survivalcapsule/attack_self__legacy__attackchain()
 	// Can't grab when capsule is New() because templates aren't loaded then
 	get_template()
-	if(used == FALSE)
+	if(!used)
 		loc.visible_message("<span class='warning'>[src] begins to shake. Stand back!</span>")
 		used = TRUE
 		sleep(50)
 		var/turf/deploy_location = get_turf(src)
 		var/status = template.check_deploy(deploy_location)
+		var/turf/UT = get_turf(usr)
+		if((UT.z == level_name_to_num(MAIN_STATION)) && !emagged)
+			to_chat(usr, "<span class='notice'>Error. Deployment was attempted on the station sector. Deployment aborted.</span>")
+			playsound(usr, 'sound/machines/terminal_error.ogg', 15, TRUE)
+			used = FALSE
+			return
 		switch(status)
 			if(SHELTER_DEPLOY_BAD_AREA)
 				loc.visible_message("<span class='warning'>[src] will not function in this area.</span>")
@@ -55,7 +69,7 @@
 
 		var/turf/T = deploy_location
 		if(!is_mining_level(T.z))//only report capsules away from the mining/lavaland level
-			message_admins("[key_name_admin(usr)] ([ADMIN_QUE(usr,"?")]) ([ADMIN_FLW(usr,"FLW")]) activated a bluespace capsule away from the mining level! (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[T.x];Y=[T.y];Z=[T.z]'>JMP</a>)")
+			message_admins("[key_name_admin(usr)] ([ADMIN_QUE(usr,"?")]) ([ADMIN_FLW(usr,"FLW")]) activated a bluespace capsule away from the mining level! (<A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[T.x];Y=[T.y];Z=[T.z]'>JMP</a>)")
 			log_admin("[key_name(usr)] activated a bluespace capsule away from the mining level at [T.x], [T.y], [T.z]")
 		template.load(deploy_location, centered = TRUE)
 		new /obj/effect/particle_effect/smoke(get_turf(src))
@@ -72,16 +86,22 @@
 //Window
 /obj/structure/window/full/shuttle/survival_pod
 	name = "pod window"
-	icon = 'icons/obj/smooth_structures/pod_window.dmi'
-	icon_state = "smooth"
-	smooth = SMOOTH_MORE
+	icon = 'icons/obj/smooth_structures/windows/pod_window.dmi'
+	icon_state = "pod_window-0"
+	base_icon_state = "pod_window"
+	smoothing_flags = SMOOTH_BITMASK
 	glass_type = /obj/item/stack/sheet/titaniumglass
-	canSmoothWith = list(/turf/simulated/wall/mineral/titanium/survival, /obj/machinery/door/airlock/survival_pod, /obj/structure/window/full/shuttle/survival_pod)
+	smoothing_groups = list(SMOOTH_GROUP_SHUTTLE_PARTS, SMOOTH_GROUP_SURVIVAL_TIANIUM_POD)
+	canSmoothWith = list(SMOOTH_GROUP_SURVIVAL_TIANIUM_POD)
 
 /obj/structure/window/reinforced/survival_pod
 	name = "pod window"
 	icon = 'icons/obj/lavaland/survival_pod.dmi'
 	icon_state = "pwindow"
+
+/obj/structure/window/full/shuttle/survival_pod/tinted
+	name = "tinted pod window"
+	opacity = TRUE
 
 //Floors
 /turf/simulated/floor/pod
@@ -95,10 +115,24 @@
 	icon_regular_floor = "podfloor_light"
 	floor_tile = /obj/item/stack/tile/pod/light
 
+/turf/simulated/floor/pod/light/lavaland_air
+	oxygen = LAVALAND_OXYGEN
+	nitrogen = LAVALAND_NITROGEN
+	temperature = LAVALAND_TEMPERATURE
+	atmos_mode = ATMOS_MODE_EXPOSED_TO_ENVIRONMENT
+	atmos_environment = ENVIRONMENT_LAVALAND
+
 /turf/simulated/floor/pod/dark
 	icon_state = "podfloor_dark"
 	icon_regular_floor = "podfloor_dark"
 	floor_tile = /obj/item/stack/tile/pod/dark
+
+/turf/simulated/floor/pod/dark/lavaland_air
+	oxygen = LAVALAND_OXYGEN
+	nitrogen = LAVALAND_NITROGEN
+	temperature = LAVALAND_TEMPERATURE
+	atmos_mode = ATMOS_MODE_EXPOSED_TO_ENVIRONMENT
+	atmos_environment = ENVIRONMENT_LAVALAND
 
 //Door
 /obj/machinery/door/airlock/survival_pod
@@ -128,7 +162,9 @@
 /obj/structure/table/survival_pod
 	icon = 'icons/obj/lavaland/survival_pod.dmi'
 	icon_state = "table"
-	smooth = SMOOTH_FALSE
+	smoothing_flags = NONE
+	smoothing_groups = null
+	canSmoothWith = null
 
 //Sleeper
 /obj/machinery/sleeper/survival_pod
@@ -136,8 +172,8 @@
 	icon_state = "sleeper-open"
 	density = FALSE
 
-/obj/machinery/sleeper/survival_pod/New()
-	..()
+/obj/machinery/sleeper/survival_pod/Initialize(mapload)
+	. = ..()
 	component_parts = list()
 	component_parts += new /obj/item/circuitboard/sleeper/survival(null)
 	var/obj/item/stock_parts/matter_bin/B = new(null)
@@ -150,7 +186,7 @@
 	RefreshParts()
 
 //NanoMed
-/obj/machinery/vending/wallmed/survival_pod
+/obj/machinery/economy/vending/wallmed/survival_pod
 	name = "survival pod medical supply"
 	desc = "Wall-mounted Medical Equipment dispenser. This one seems just a tiny bit smaller."
 	req_access = list()
@@ -158,27 +194,30 @@
 	products = list(/obj/item/stack/medical/splint = 2)
 	contraband = list()
 
+MAPPING_DIRECTIONAL_HELPERS(/obj/machinery/economy/vending/wallmed/survival_pod, 32, 32)
+
 //Computer
 /obj/item/gps/computer
 	name = "pod computer"
 	icon_state = "pod_computer"
 	icon = 'icons/obj/lavaland/pod_computer.dmi'
-	anchored = 1
-	density = 1
+	anchored = TRUE
+	density = TRUE
 	pixel_y = -32
 
-/obj/item/gps/computer/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/wrench))
-		playsound(loc, W.usesound, 50, 1)
-		user.visible_message("<span class='warning'>[user] disassembles the gps.</span>", \
-						"<span class='notice'>You start to disassemble the gps...</span>", "You hear clanking and banging noises.")
-		if(do_after(user, 20 * W.toolspeed, target = src))
-			new /obj/item/gps(loc)
-			qdel(src)
-			return ..()
+/obj/item/gps/computer/wrench_act(mob/living/user, obj/item/I)
+	. = TRUE
+	user.visible_message("<span class='warning'>[user] starts to disassemble [src].</span>", \
+						"<span class='notice'>You start to disassemble [src]...</span>", "You hear clanking and banging noises.")
+	if(!I.use_tool(src, user, 2 SECONDS, 0, 50))
+		return
+	user.visible_message("<span class='warning'>[user] disassembles [src].</span>", \
+				"<span class='notice'>You disassemble [src].</span>", "You hear clanking and banging noises.")
+	new /obj/item/gps(loc)
+	qdel(src)
 
 /obj/item/gps/computer/attack_hand(mob/user)
-	attack_self(user)
+	attack_self__legacy__attackchain(user)
 
 //Bed
 /obj/structure/bed/pod
@@ -206,22 +245,25 @@
 		return
 
 	for(var/i in 1 to 5)
-		var/obj/item/reagent_containers/food/snacks/warmdonkpocket_weak/W = new(src)
+		var/obj/item/food/warmdonkpocket_weak/W = new(src)
 		load(W)
 	if(prob(50))
-		var/obj/item/storage/pill_bottle/dice/D = new(src)
+		var/obj/item/storage/bag/dice/D = new(src)
 		load(D)
 	else
 		var/obj/item/instrument/guitar/G = new(src)
 		load(G)
 
-/obj/machinery/smartfridge/survival_pod/update_icon()
+/obj/machinery/smartfridge/survival_pod/update_icon_state()
 	return
+
+/obj/machinery/smartfridge/survival_pod/update_overlays()
+	return list()
 
 /obj/machinery/smartfridge/survival_pod/accept_check(obj/item/O)
 	return isitem(O)
 
-/obj/machinery/smartfridge/survival_pod/default_unfasten_wrench()
+/obj/machinery/smartfridge/survival_pod/default_unfasten_wrench(mob/user, obj/item/I, time)
 	return FALSE
 
 /obj/machinery/smartfridge/survival_pod/empty
@@ -235,22 +277,22 @@
 	icon_state = "fans"
 	name = "environmental regulation system"
 	desc = "A large machine releasing a constant gust of air."
-	anchored = 1
-	density = 1
+	anchored = TRUE
+	density = TRUE
 	var/arbitraryatmosblockingvar = 1
 	var/buildstacktype = /obj/item/stack/sheet/metal
 	var/buildstackamount = 5
 
-/obj/structure/fans/Initialize(loc)
-	..()
-	air_update_turf(1)
+/obj/structure/fans/Initialize(mapload, loc)
+	. = ..()
+	recalculate_atmos_connectivity()
 
 /obj/structure/fans/Destroy()
 	arbitraryatmosblockingvar = 0
-	air_update_turf(1)
+	recalculate_atmos_connectivity()
 	return ..()
 
-/obj/structure/fans/CanAtmosPass(turf/T)
+/obj/structure/fans/CanAtmosPass(direction)
 	return !arbitraryatmosblockingvar
 
 /obj/structure/fans/deconstruct()
@@ -259,22 +301,27 @@
 			new buildstacktype(loc, buildstackamount)
 	qdel(src)
 
-/obj/structure/fans/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/wrench))
-		playsound(loc, W.usesound, 50, 1)
-		user.visible_message("<span class='warning'>[user] disassembles the fan.</span>", \
-							 "<span class='notice'>You start to disassemble the fan...</span>", "You hear clanking and banging noises.")
-		if(do_after(user, 20 * W.toolspeed, target = src))
-			deconstruct()
-			return ..()
+/obj/structure/fans/wrench_act(mob/living/user, obj/item/I)
+	. = TRUE
+	user.visible_message("<span class='warning'>[user] starts to disassemble [src].</span>", \
+						"<span class='notice'>You start to disassemble [src]...</span>", "You hear clanking and banging noises.")
+	if(!I.use_tool(src, user, 2 SECONDS, volume = 50))
+		return
+	user.visible_message("<span class='warning'>[user] disassembles [src].</span>", \
+						"<span class='notice'>You disassemble [src].</span>", "You hear something fall on the floor.")
+	deconstruct()
 
 /obj/structure/fans/tiny
 	name = "tiny fan"
 	desc = "A tiny fan, releasing a thin gust of air."
 	layer = TURF_LAYER+0.1
-	density = 0
+	density = FALSE
 	icon_state = "fan_tiny"
 	buildstackamount = 2
+
+/obj/structure/fans/tiny/get_superconductivity(direction)
+	// Mostly for stuff on Lavaland.
+	return ZERO_HEAT_TRANSFER_COEFFICIENT
 
 /obj/structure/fans/tiny/invisible
 	name = "air flow blocker"
@@ -284,13 +331,12 @@
 /obj/structure/sign/mining
 	name = "nanotrasen mining corps sign"
 	desc = "A sign of relief for weary miners, and a warning for would-be competitors to Nanotrasen's mining claims."
-	icon = 'icons/turf/walls/survival_pod_walls.dmi'
 	icon_state = "ntpod"
+	layer = TABLE_LAYER // scuffed but it works
 
 /obj/structure/sign/mining/survival
 	name = "shelter sign"
 	desc = "A high visibility sign designating a safe shelter."
-	icon = 'icons/turf/walls/survival_pod_walls.dmi'
 	icon_state = "survival"
 
 //Fluff
@@ -298,19 +344,18 @@
 	icon_state = "tubes"
 	icon = 'icons/obj/lavaland/survival_pod.dmi'
 	name = "tubes"
-	anchored = 1
+	anchored = TRUE
 	layer = MOB_LAYER - 0.2
-	density = 0
+	density = FALSE
 
-/obj/structure/tubes/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/wrench))
-		playsound(loc, W.usesound, 50, 1)
-		user.visible_message("<span class='warning'>[user] disassembles [src].</span>", \
-							 "<span class='notice'>You start to disassemble [src]...</span>", "You hear clanking and banging noises.")
-		if(do_after(user, 20 * W.toolspeed, target = src))
-			new /obj/item/stack/rods(loc)
-			qdel(src)
-			return ..()
+/obj/structure/tubes/wrench_act(mob/living/user, obj/item/W)
+	. = TRUE
+	user.visible_message("<span class='warning'>[user] disassembles [src].</span>", \
+						"<span class='notice'>You start to disassemble [src]...</span>", "You hear clanking and banging noises.")
+	if(!W.use_tool(src, user, 2 SECONDS, volume = 50))
+		return
+	new /obj/item/stack/rods(loc)
+	qdel(src)
 
 /obj/item/fakeartefact
 	name = "expensive forgery"
@@ -326,13 +371,13 @@
 						/obj/item/his_grace,
 						/obj/item/gun/projectile/automatic/l6_saw,
 						/obj/item/gun/magic/staff/chaos,
-						/obj/item/gun/magic/staff/spellblade,
+						/obj/item/melee/spellblade,
 						/obj/item/gun/magic/wand/death,
 						/obj/item/gun/magic/wand/fireball,
 						/obj/item/stack/telecrystal/twenty,
 						/obj/item/banhammer)
 
-/obj/item/fakeartefact/New()
+/obj/item/fakeartefact/Initialize(mapload)
 	. = ..()
 	var/obj/item/I = pick(possible)
 	name = initial(I.name)
@@ -340,3 +385,7 @@
 	desc = initial(I.desc)
 	icon_state = initial(I.icon_state)
 	item_state = initial(I.item_state)
+	lefthand_file = initial(I.lefthand_file)
+	righthand_file = initial(I.righthand_file)
+	slot_flags = initial(I.slot_flags)
+	w_class = initial(I.w_class)

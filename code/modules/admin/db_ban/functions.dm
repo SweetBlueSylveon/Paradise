@@ -5,7 +5,7 @@
 	if(!check_rights(R_BAN))	return
 
 	if(!SSdbcore.IsConnected())
-		to_chat(usr, "<span class='boldannounce'>Database connection failure when attempting to make DB ban. Please freeze them and write their ckey in notepad, so they can be banned when the DB returns.</span>")
+		to_chat(usr, "<span class='boldannounceooc'>Database connection failure when attempting to make DB ban. Please freeze them and write their ckey in notepad, so they can be banned when the DB returns.</span>")
 		return
 
 	var/serverip = "[world.internet_address]:[world.port]"
@@ -37,10 +37,6 @@
 			bantype_str = "JOB_TEMPBAN"
 			bantype_pass = 1
 			isjobban = 1
-		if(BANTYPE_APPEARANCE)
-			bantype_str = "APPEARANCE_BAN"
-			duration = -1
-			bantype_pass = 1
 		if(BANTYPE_ADMIN_PERMA)
 			bantype_str = "ADMIN_PERMABAN"
 			duration = -1
@@ -57,16 +53,16 @@
 			blockselfban = 1
 			kickbannedckey = 1
 
-	if( !bantype_pass ) return
-	if( !istext(reason) ) return
-	if( !isnum(duration) ) return
+	if(!bantype_pass) return
+	if(!istext(reason)) return
+	if(!isnum(duration)) return
 
 	var/ckey
 	var/computerid
 	var/ip
 
-	if(ismob(banned_mob) && banned_mob.ckey)
-		ckey = banned_mob.ckey
+	if(ismob(banned_mob) && banned_mob.last_known_ckey)
+		ckey = banned_mob.last_known_ckey
 		if(banned_mob.client)
 			computerid = banned_mob.client.computer_id
 			ip = banned_mob.client.address
@@ -106,7 +102,7 @@
 	var/a_computerid
 	var/a_ip
 
-	if(src.owner && istype(src.owner, /client))
+	if(src.owner && isclient(src.owner))
 		a_ckey = src.owner:ckey
 		a_computerid = src.owner:computer_id
 		a_ip = src.owner:address
@@ -115,6 +111,12 @@
 		if(a_ckey == ckey)
 			to_chat(usr, "<span class='danger'>You cannot apply this ban type on yourself.</span>")
 			return
+
+	// Check validity of the CID. Some have a lot of collisions due to bad industry practices (thanks walmart)
+	if(computerid && (computerid in GLOB.configuration.admin.common_cid_map))
+		to_chat(usr, "<span class='notice'>You attempted to apply a ban that includes the CID [computerid]. This CID has been ignored for the following reason: [GLOB.configuration.admin.common_cid_map[computerid]]</span>")
+		// Cancel it out. DO NOT USE NULL HERE. IT MAKES THE DB CRY. USE AN EMPTY STRING.
+		computerid = ""
 
 	var/who
 	for(var/client/C in GLOB.clients)
@@ -158,10 +160,10 @@
 		"rounds" = (rounds ? "[rounds]" : "0"), // And here
 		"ckey" = ckey,
 		"computerid" = computerid,
-		"ip" = ip,
+		"ip" = "[ip ? ip : ""]", // This is important. NULL is not the same as "", and if you directly open the `.dmb` file, you get a NULL IP.
 		"a_ckey" = a_ckey,
 		"a_computerid" = a_computerid,
-		"a_ip" = a_ip,
+		"a_ip" = "[a_ip ? a_ip : ""]",
 		"who" = who,
 		"adminwho" = adminwho,
 		"roundid" = GLOB.round_id,
@@ -176,14 +178,18 @@
 	message_admins("[key_name_admin(usr)] has added a [bantype_str] for [ckey] [(job)?"([job])":""] [(duration > 0)?"([duration] minutes)":""] with the reason: \"[reason]\" to the ban database.",1)
 
 	if(announce_in_discord)
-		SSdiscord.send2discord_simple(DISCORD_WEBHOOK_ADMIN, "**\[Ban]** [a_ckey] applied a [bantype_str] on [ckey]")
+		GLOB.discord_manager.send2discord_simple(DISCORD_WEBHOOK_ADMIN, "**\[Ban]** [a_ckey] applied a [bantype_str] on [ckey]")
 
 	if(kickbannedckey)
 		if(banned_mob && banned_mob.client && banned_mob.client.ckey == banckey)
 			qdel(banned_mob.client)
 
 	if(isjobban)
-		jobban_client_fullban(ckey, job)
+		// See if they are online
+		var/client/C = GLOB.directory[ckey(ckey)]
+		if(C)
+			// Reload their job ban holder
+			C.jbh.reload_jobbans(C)
 	else
 		flag_account_for_forum_sync(ckey)
 
@@ -192,7 +198,7 @@
 	if(!check_rights(R_BAN))	return
 
 	if(!SSdbcore.IsConnected())
-		to_chat(usr, "<span class='boldannounce'>Database connection failure when attempting to remove DB ban. Please remember to unban them at a later date!.</span>")
+		to_chat(usr, "<span class='boldannounceooc'>Database connection failure when attempting to remove DB ban. Please remember to unban them at a later date!.</span>")
 		return
 
 	var/bantype_str
@@ -214,9 +220,6 @@
 				bantype_str = "JOB_TEMPBAN"
 				bantype_pass = 1
 				isjobban = 1
-			if(BANTYPE_APPEARANCE)
-				bantype_str = "APPEARANCE_BAN"
-				bantype_pass = 1
 			if(BANTYPE_ADMIN_PERMA)
 				bantype_str = "ADMIN_PERMABAN"
 				bantype_pass = 1
@@ -226,7 +229,7 @@
 			if(BANTYPE_ANY_FULLBAN)
 				bantype_str = "ANY"
 				bantype_pass = 1
-		if( !bantype_pass ) return
+		if(!bantype_pass) return
 
 	var/bantype_sql
 	if(bantype_str == "ANY")
@@ -272,7 +275,11 @@
 
 	DB_ban_unban_by_id(ban_id)
 	if(isjobban)
-		jobban_unban_client(ckey, job)
+		// See if they are online
+		var/client/C = GLOB.directory[ckey(ckey)]
+		if(C)
+			// Reload their job ban holder
+			C.jbh.reload_jobbans(C)
 	else
 		flag_account_for_forum_sync(ckey)
 
@@ -353,8 +360,27 @@
 			if(alert("Unban [pckey]?", "Unban?", "Yes", "No") == "Yes")
 				DB_ban_unban_by_id(banid)
 				if(job && length(job))
-					jobban_unban_client(pckey, job)
+					// See if they are online
+					var/client/C = GLOB.directory[ckey(pckey)]
+					if(C)
+						// Reload their job ban holder
+						C.jbh.reload_jobbans(C)
 				return
+			else
+				to_chat(usr, "Cancelled")
+				return
+		if("makepublic")
+			if(alert("Make this ban public? You cannot undo this action.", "Warning", "Yes", "No") == "Yes")
+				var/datum/db_query/make_public_query = SSdbcore.NewQuery("UPDATE ban SET exportable=1 WHERE id=:banid", list(
+					"banid" = banid
+				))
+				if(!make_public_query.warn_execute())
+					qdel(make_public_query)
+					return
+
+				qdel(make_public_query)
+				to_chat(usr, "Ban publicised")
+				log_admin("[usr.ckey] made ban #[banid] on [pckey] public.")
 			else
 				to_chat(usr, "Cancelled")
 				return
@@ -368,7 +394,7 @@
 		return
 
 	if(!SSdbcore.IsConnected())
-		to_chat(usr, "<span class='boldannounce'>Database connection failure when attempting to remove DB ban. Please remember to unban them at a later date!.</span>")
+		to_chat(usr, "<span class='boldannounceooc'>Database connection failure when attempting to remove DB ban. Please remember to unban them at a later date!.</span>")
 		return
 
 	var/ban_number = 0 //failsafe
@@ -394,7 +420,7 @@
 		to_chat(usr, "<span class='warning'>Database update failed due to multiple bans having the same ID. Contact the database admin.</span>")
 		return
 
-	if(!src.owner || !istype(src.owner, /client))
+	if(!src.owner || !isclient(src.owner))
 		return
 
 	var/unban_ckey = src.owner:ckey
@@ -417,17 +443,11 @@
 	message_admins("[key_name_admin(usr)] has lifted [pckey]'s ban.")
 	log_admin("[key_name(usr)] has lifted [pckey]'s ban.")
 	flag_account_for_forum_sync(pckey)
-
-
-/client/proc/DB_ban_panel()
-	set category = "Admin"
-	set name = "Banning Panel"
-	set desc = "DB Ban Panel"
-
-	if(!check_rights(R_BAN))
-		return
-
-	holder.DB_ban_panel()
+	// See if they are online
+	var/client/C = GLOB.directory[ckey(pckey)]
+	if(C)
+		// Reload their job ban holder
+		C.jbh.reload_jobbans(C)
 
 
 /datum/admins/proc/DB_ban_panel(playerckey = null, adminckey = null, playerip = null, playercid = null, dbbantype = null, match = null)
@@ -441,33 +461,28 @@
 	if(!SSdbcore.IsConnected())
 		to_chat(usr, "<span class='warning'>Failed to establish database connection</span>")
 		return
+	var/cached_UID = UID()
+	var/list/output = list()
 
-	var/output = "<div align='center'><table width='90%'><tr>"
-
-	output += "<td width='35%' align='center'>"
-	output += "<h1>Banning panel</h1>"
-	output += "</td>"
-
-	output += "<td width='65%' align='center' bgcolor='#f9f9f9'>"
-
-	output += "<form method='GET' action='?src=[UID()]'><b>Add custom ban:</b> (ONLY use this if you can't ban through any other method)"
-	output += "<input type='hidden' name='src' value='[UID()]'>"
+	output += "<div align='center'><table width='100%'><tr>"
+	output += "<td align='center'>"
+	output += "<form method='GET' action='?src=[cached_UID]'><b>(ONLY use this if you can't ban through any other method)</b>"
+	output += "<input type='hidden' name='src' value='[cached_UID]'>"
 	output += "<table width='100%'><tr>"
-	output += "<td width='50%' align='right'><b>Ban type:</b><select name='dbbanaddtype'>"
+	output += "<td width='50%' align='center'><b>Ban type:</b><br><select name='dbbanaddtype'>"
 	output += "<option value=''>--</option>"
 	output += "<option value='[BANTYPE_PERMA]'>PERMABAN</option>"
 	output += "<option value='[BANTYPE_TEMP]'>TEMPBAN</option>"
 	output += "<option value='[BANTYPE_JOB_PERMA]'>JOB PERMABAN</option>"
 	output += "<option value='[BANTYPE_JOB_TEMP]'>JOB TEMPBAN</option>"
-	output += "<option value='[BANTYPE_APPEARANCE]'>APPEARANCE BAN</option>"
 	output += "<option value='[BANTYPE_ADMIN_PERMA]'>ADMIN PERMABAN</option>"
 	output += "<option value='[BANTYPE_ADMIN_TEMP]'>ADMIN TEMPBAN</option>"
 	output += "</select></td>"
-	output += "<td width='50%' align='right'><b>Ckey:</b> <input type='text' name='dbbanaddckey'></td></tr>"
-	output += "<tr><td width='50%' align='right'><b>IP:</b> <input type='text' name='dbbanaddip'></td>"
-	output += "<td width='50%' align='right'><b>CID:</b> <input type='text' name='dbbanaddcid'></td></tr>"
-	output += "<tr><td width='50%' align='right'><b>Duration:</b> <input type='text' name='dbbaddduration'></td>"
-	output += "<td width='50%' align='right'><b>Job:</b><select name='dbbanaddjob'>"
+	output += "<td width='50%' align='center'><b>Ckey:</b><br><input type='text' name='dbbanaddckey'></td></tr>"
+	output += "<tr><td width='50%' align='center'><b>IP:</b><br><input type='text' name='dbbanaddip'></td>"
+	output += "<td width='50%' align='center'><b>CID:</b><br><input type='text' name='dbbanaddcid'></td></tr>"
+	output += "<tr><td width='50%' align='center'><b>Duration (minutes):</b><br><input type='text' name='dbbaddduration'></td>"
+	output += "<td width='50%' align='center'><b>Job:</b><br><select name='dbbanaddjob'>"
 	output += "<option value=''>--</option>"
 	for(var/j in get_all_jobs())
 		output += "<option value='[j]'>[j]</option>"
@@ -475,37 +490,37 @@
 		output += "<option value='[j]'>[j]</option>"
 	for(var/j in GLOB.other_roles)
 		output += "<option value='[j]'>[j]</option>"
-	for(var/j in list("commanddept","securitydept","engineeringdept","medicaldept","sciencedept","supportdept","nonhumandept"))
+	for(var/j in list("commanddept","securitydept","engineeringdept","medicaldept","sciencedept","servicedept","nonhumandept"))
 		output += "<option value='[j]'>[j]</option>"
 	for(var/j in list("Syndicate") + GLOB.antag_roles)
 		output += "<option value='[j]'>[j]</option>"
 	output += "</select></td></tr></table>"
-	output += "<b>Reason:<br></b><textarea name='dbbanreason' cols='50'></textarea><br>"
-	output += "<input type='checkbox' value='1' name='autopopulate' checked='1'>&nbsp;Auto populate CID & IP for online players<br>"
+	output += "<b>Reason:<br></b><textarea name='dbbanreason' cols='55' rows='10'></textarea><br>"
+	output += "<input type='checkbox' value='1' name='autopopulate' checked='1'>&nbsp;Auto populate CID & IP for players seen this round<br>"
 	output += "<input type='submit' value='Add ban'>"
 	output += "</form>"
 
 	output += "</td>"
 	output += "</tr>"
 	output += "</table>"
+	output += "<br><br><hr><br><br>"
 
-	output += "<form method='GET' action='?src=[UID()]'><table width='60%'><tr><td colspan='2' align='left'><b>Search:</b>"
-	output += "<input type='hidden' name='src' value='[UID()]'></td></tr>"
-	output += "<tr><td width='50%' align='right'><b>Ckey:</b> <input type='text' name='dbsearchckey' value='[playerckey]'></td>"
-	output += "<td width='50%' align='right'><b>Admin ckey:</b> <input type='text' name='dbsearchadmin' value='[adminckey]'></td></tr>"
-	output += "<tr><td width='50%' align='right'><b>IP:</b> <input type='text' name='dbsearchip' value='[playerip]'></td>"
-	output += "<td width='50%' align='right'><b>CID:</b> <input type='text' name='dbsearchcid' value='[playercid]'></td></tr>"
-	output += "<tr><td width='50%' align='right' colspan='2'><b>Ban type:</b><select name='dbsearchbantype'>"
+	output += "<form method='GET' action='?src=[cached_UID]'><table width='100%'><tr><td colspan='2' align='center'><b>Search:</b>"
+	output += "<input type='hidden' name='src' value='[cached_UID]'></td></tr>"
+	output += "<tr><td width='50%' align='center'><b>Ckey:</b><br><input type='text' name='dbsearchckey' value='[playerckey]'></td>"
+	output += "<td width='50%' align='center'><b>Admin ckey:</b><br><input type='text' name='dbsearchadmin' value='[adminckey]'></td></tr>"
+	output += "<tr><td width='50%' align='center'><b>IP:</b><br><input type='text' name='dbsearchip' value='[playerip]'></td>"
+	output += "<td width='50%' align='center'><b>CID:</b><br><input type='text' name='dbsearchcid' value='[playercid]'></td></tr>"
+	output += "<tr><td width='50%' align='center' colspan='2'><b>Ban type:</b><br><select name='dbsearchbantype'>"
 	output += "<option value=''>--</option>"
 	output += "<option value='[BANTYPE_PERMA]'>PERMABAN</option>"
 	output += "<option value='[BANTYPE_TEMP]'>TEMPBAN</option>"
 	output += "<option value='[BANTYPE_JOB_PERMA]'>JOB PERMABAN</option>"
 	output += "<option value='[BANTYPE_JOB_TEMP]'>JOB TEMPBAN</option>"
-	output += "<option value='[BANTYPE_APPEARANCE]'>APPEARANCE BAN</option>"
 	output += "<option value='[BANTYPE_ADMIN_PERMA]'>ADMIN PERMABAN</option>"
 	output += "<option value='[BANTYPE_ADMIN_TEMP]'>ADMIN TEMPBAN</option>"
 	output += "</select></td></tr></table>"
-	output += "<br><input type='submit' value='search'><br>"
+	output += "<br><input type='submit' value='Search'><br>"
 	output += "<input type='checkbox' value='[match]' name='dbmatch' [match? "checked=\"1\"" : null]> Match(min. 3 characters to search by key or ip, and 7 to search by cid)<br>"
 	output += "</form>"
 	output += "This search shows only last 100 bans."
@@ -517,12 +532,12 @@
 
 		if(adminckey || playerckey || playerip || playercid || dbbantype)
 
-			var/blcolor = "#ffeeee" //banned light
-			var/bdcolor = "#ffdddd" //banned dark
-			var/ulcolor = "#eeffee" //unbanned light
-			var/udcolor = "#ddffdd" //unbanned dark
+			var/blcolor = "#fc5f5f" //banned light
+			var/bdcolor = "#c72626" //banned dark
+			var/ulcolor = "#73b873" //unbanned light
+			var/udcolor = "#3faa3f" //unbanned dark
 
-			output += "<table width='90%' bgcolor='#e3e3e3' cellpadding='5' cellspacing='0' align='center'>"
+			output += "<table width='100%' bgcolor='#151515' cellpadding='5' cellspacing='0' align='center'>"
 			output += "<tr>"
 			output += "<th width='25%'><b>TYPE</b></th>"
 			output += "<th width='20%'><b>CKEY</b></th>"
@@ -576,8 +591,6 @@
 						bantypesearch += "'JOB_PERMABAN' "
 					if(BANTYPE_JOB_TEMP)
 						bantypesearch += "'JOB_TEMPBAN' "
-					if(BANTYPE_APPEARANCE)
-						bantypesearch += "'APPEARANCE_BAN' "
 					if(BANTYPE_ADMIN_PERMA)
 						bantypesearch = "'ADMIN_PERMABAN' "
 					if(BANTYPE_ADMIN_TEMP)
@@ -587,7 +600,7 @@
 
 
 			var/datum/db_query/select_query = SSdbcore.NewQuery({"
-				SELECT id, bantime, bantype, reason, job, duration, expiration_time, ckey, a_ckey, unbanned, unbanned_ckey, unbanned_datetime, edits, ip, computerid, ban_round_id, unbanned_round_id
+				SELECT id, bantime, bantype, reason, job, duration, expiration_time, ckey, a_ckey, unbanned, unbanned_ckey, unbanned_datetime, edits, ip, computerid, ban_round_id, unbanned_round_id, exportable
 				FROM ban WHERE 1 [playersearch] [adminsearch] [ipsearch] [cidsearch] [bantypesearch] ORDER BY bantime DESC LIMIT 100"}, sql_params)
 
 			if(!select_query.warn_execute())
@@ -612,6 +625,7 @@
 				var/cid = select_query.item[15]
 				var/ban_round_id = select_query.item[16]
 				var/unban_round_id = select_query.item[17]
+				var/public = select_query.item[18]
 
 				var/lcolor = blcolor
 				var/dcolor = bdcolor
@@ -622,33 +636,37 @@
 				var/typedesc =""
 				switch(bantype)
 					if("PERMABAN")
-						typedesc = "<font color='red'><b>PERMABAN</b></font>"
+						typedesc = "<b>PERMABAN</b>"
 					if("TEMPBAN")
-						typedesc = "<b>TEMPBAN</b><br><font size='2'>([duration] minutes [(unbanned) ? "" : "(<a href=\"byond://?src=[UID()];dbbanedit=duration;dbbanid=[banid]\">Edit</a>))"]<br>Expires [expiration]</font>"
+						typedesc = "<b>TEMPBAN</b><br><font size='2'>([duration] minutes [(unbanned) ? "" : "(<a href=\"byond://?src=[cached_UID];dbbanedit=duration;dbbanid=[banid]\">Edit</a>))"]<br>Expires<br>[expiration]</font>"
 					if("JOB_PERMABAN")
 						typedesc = "<b>JOBBAN</b><br><font size='2'>([job])"
 					if("JOB_TEMPBAN")
 						typedesc = "<b>TEMP JOBBAN</b><br><font size='2'>([job])<br>([duration] minutes<br>Expires [expiration]"
-					if("APPEARANCE_BAN")
-						typedesc = "<b>APPEARANCE/NAME BAN</b>"
 					if("ADMIN_PERMABAN")
 						typedesc = "<b>ADMIN PERMABAN</b>"
 					if("ADMIN_TEMPBAN")
-						typedesc = "<b>ADMIN TEMPBAN</b><br><font size='2'>([duration] minutes [(unbanned) ? "" : "(<a href=\"byond://?src=[UID()];dbbanedit=duration;dbbanid=[banid]\">Edit</a>))"]<br>Expires [expiration]</font>"
+						typedesc = "<b>ADMIN TEMPBAN</b><br><font size='2'>([duration] minutes [(unbanned) ? "" : "(<a href=\"byond://?src=[cached_UID];dbbanedit=duration;dbbanid=[banid]\">Edit</a>))"]<br>Expires<br>[expiration]</font>"
 
 				output += "<tr bgcolor='[dcolor]'>"
 				output += "<td align='center'>[typedesc]</td>"
 				output += "<td align='center'><b>[ckey]</b></td>"
 				output += "<td align='center'>[bantime][ban_round_id ? " (Round [ban_round_id])" : ""]</td>"
 				output += "<td align='center'><b>[ackey]</b></td>"
-				output += "<td align='center'>[(unbanned) ? "" : "<b><a href=\"byond://?src=[UID()];dbbanedit=unban;dbbanid=[banid]\">Unban</a></b>"]</td>"
+				output += "<td align='center'>"
+				// Unban button
+				output += unbanned ? "" : "<b><a href=\"byond://?src=[cached_UID];dbbanedit=unban;dbbanid=[banid]\">Unban</a></b><br>"
+				// Make public button
+				output += public ? "<i>Ban is public</i>" : "<b><a href=\"byond://?src=[cached_UID];dbbanedit=makepublic;dbbanid=[banid]\">Make public</a></b>"
+				output += "</td>"
+
 				output += "</tr>"
 				output += "<tr bgcolor='[dcolor]'>"
 				output += "<td align='center' colspan='2' bgcolor=''><b>IP:</b> [ip]</td>"
 				output += "<td align='center' colspan='3' bgcolor=''><b>CID:</b> [cid]</td>"
 				output += "</tr>"
 				output += "<tr bgcolor='[lcolor]'>"
-				output += "<td align='center' colspan='5'><b>Reason: [(unbanned) ? "" : "(<a href=\"byond://?src=[UID()];dbbanedit=reason;dbbanid=[banid]\">Edit</a>)"]</b> <cite>\"[reason]\"</cite></td>"
+				output += "<td align='center' colspan='5'><b>Reason: [(unbanned) ? "" : "(<a href=\"byond://?src=[cached_UID];dbbanedit=reason;dbbanid=[banid]\">Edit</a>)"]</b> <cite>\"[reason]\"</cite></td>"
 				output += "</tr>"
 				if(edits)
 					output += "<tr bgcolor='[dcolor]'>"
@@ -662,14 +680,17 @@
 					output += "<td align='center' colspan='5' bgcolor=''><b>UNBANNED by admin [unbanckey] on [unbantime][unban_round_id ? " (Round [unban_round_id])" : ""]</b></td>"
 					output += "</tr>"
 				output += "<tr>"
-				output += "<td colspan='5' bgcolor='white'>&nbsp</td>"
+				output += "<td colspan='5' bgcolor='#151515'>&nbsp</td>"
 				output += "</tr>"
 
 			output += "</table></div>"
 
 			qdel(select_query)
 
-	usr << browse(output,"window=lookupbans;size=900x700")
+	var/datum/browser/popup = new(usr, "ban_panel", "<div align='center'>Manual Ban Panel</div>", 700, 800)
+	popup.set_content(output.Join(""))
+	popup.open()
+	onclose(usr, "ban_panel")
 
 /proc/flag_account_for_forum_sync(ckey)
 	if(!SSdbcore.IsConnected())
@@ -681,3 +702,5 @@
 	adm_query.warn_execute()
 	qdel(adm_query)
 
+
+#undef MAX_ADMIN_BANS_PER_ADMIN

@@ -21,13 +21,13 @@
 		wormholes += new /obj/effect/portal/wormhole(T, null, null, -1)
 
 /datum/event/wormholes/announce()
-	GLOB.event_announcement.Announce("Space-time anomalies detected on the station. There is no additional data.", "Anomaly Alert", new_sound = 'sound/AI/spanomalies.ogg')
+	GLOB.minor_announcement.Announce("Space-time anomalies detected on the station. There is no additional data.", "Anomaly Alert", new_sound = 'sound/AI/spanomalies.ogg')
 
 /datum/event/wormholes/tick()
 	if(activeFor % shift_frequency == 0)
 		for(var/obj/effect/portal/wormhole/O in wormholes)
 			var/turf/T = pick(pick_turfs)
-			if(T)	O.loc = T
+			if(T)	O.forceMove(T)
 
 /datum/event/wormholes/end()
 	for(var/obj/effect/portal/wormhole/O in wormholes)
@@ -37,14 +37,14 @@
 /obj/effect/portal/wormhole
 	name = "wormhole"
 	desc = "It looks highly unstable; It could close at any moment."
-	icon = 'icons/obj/objects.dmi'
+	icon = 'icons/effects/effects.dmi'
 	icon_state = "anom"
 	failchance = 0
 
 /obj/effect/portal/wormhole/can_teleport(atom/movable/M)
 	. = ..()
 
-	if(istype(M, /obj/singularity))
+	if(istype(M, /obj/singularity) || istype(M, /obj/structure/transit_tube_pod))
 		. = FALSE
 
 /obj/effect/portal/wormhole/teleport(atom/movable/M)
@@ -52,7 +52,7 @@
 		return FALSE
 
 	var/turf/target
-	if(GLOB.portals.len)
+	if(length(GLOB.portals))
 		var/obj/effect/portal/P = pick(GLOB.portals)
 		if(P && isturf(P.loc))
 			target = P.loc

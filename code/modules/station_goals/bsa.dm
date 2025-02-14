@@ -16,53 +16,40 @@
 
 /datum/station_goal/bluespace_cannon/on_report()
 	//Unlock BSA parts
-	var/datum/supply_packs/misc/station_goal/bsa/P = SSshuttle.supply_packs["[/datum/supply_packs/misc/station_goal/bsa]"]
+	var/datum/supply_packs/misc/station_goal/bsa/P = SSeconomy.supply_packs["[/datum/supply_packs/misc/station_goal/bsa]"]
 	P.special_enabled = TRUE
 
 /datum/station_goal/bluespace_cannon/check_completion()
 	if(..())
 		return TRUE
-	for(var/obj/machinery/bsa/full/B)
+	for(var/obj/machinery/bsa/full/B in GLOB.machines)
 		if(B && !B.stat && is_station_contact(B.z))
 			return TRUE
 	return FALSE
 
 /obj/machinery/bsa
 	icon = 'icons/obj/machines/particle_accelerator.dmi'
-	density = 1
-	anchored = 1
+	density = TRUE
+	anchored = TRUE
+
+/obj/machinery/bsa/wrench_act(mob/living/user, obj/item/I)
+	default_unfasten_wrench(user, I, 1 SECONDS)
+	return TRUE
+
+/obj/machinery/bsa/multitool_act(mob/living/user, obj/item/multitool/M)
+	M.buffer = src
+	to_chat(user, "<span class='notice'>You store linkage information in [M]'s buffer.</span>")
+	return TRUE
 
 /obj/machinery/bsa/back
 	name = "Bluespace Artillery Generator"
 	desc = "Generates cannon pulse. Needs to be linked with a fusor. "
 	icon_state = "power_box"
 
-/obj/machinery/bsa/back/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/multitool))
-		var/obj/item/multitool/M = W
-		M.buffer = src
-		to_chat(user, "<span class='notice'>You store linkage information in [W]'s buffer.</span>")
-	else if(istype(W, /obj/item/wrench))
-		default_unfasten_wrench(user, W, 10)
-		return TRUE
-	else
-		return ..()
-
 /obj/machinery/bsa/front
 	name = "Bluespace Artillery Bore"
 	desc = "Do not stand in front of cannon during operation. Needs to be linked with a fusor."
 	icon_state = "emitter_center"
-
-/obj/machinery/bsa/front/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/multitool))
-		var/obj/item/multitool/M = W
-		M.buffer = src
-		to_chat(user, "<span class='notice'>You store linkage information in [W]'s buffer.</span>")
-	else if(istype(W, /obj/item/wrench))
-		default_unfasten_wrench(user, W, 10)
-		return TRUE
-	else
-		return ..()
 
 /obj/machinery/bsa/middle
 	name = "Bluespace Artillery Fusor"
@@ -71,23 +58,19 @@
 	var/obj/machinery/bsa/back/back
 	var/obj/machinery/bsa/front/front
 
-/obj/machinery/bsa/middle/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/multitool))
-		var/obj/item/multitool/M = W
-		if(M.buffer)
-			if(istype(M.buffer,/obj/machinery/bsa/back))
-				back = M.buffer
-				M.buffer = null
-				to_chat(user, "<span class='notice'>You link [src] with [back].</span>")
-			else if(istype(M.buffer,/obj/machinery/bsa/front))
-				front = M.buffer
-				M.buffer = null
-				to_chat(user, "<span class='notice'>You link [src] with [front].</span>")
-	else if(istype(W, /obj/item/wrench))
-		default_unfasten_wrench(user, W, 10)
-		return TRUE
-	else
-		return ..()
+/obj/machinery/bsa/middle/multitool_act(mob/living/user, obj/item/multitool/M)
+	. = TRUE
+	if(!M.buffer)
+		to_chat(user, "<span class='warning'>[M]'s buffer is empty!</span>")
+		return
+	if(istype(M.buffer,/obj/machinery/bsa/back))
+		back = M.buffer
+		M.buffer = null
+		to_chat(user, "<span class='notice'>You link [src] with [back].</span>")
+	else if(istype(M.buffer,/obj/machinery/bsa/front))
+		front = M.buffer
+		M.buffer = null
+		to_chat(user, "<span class='notice'>You link [src] with [front].</span>")
 
 /obj/machinery/bsa/middle/proc/check_completion()
 	if(!front || !back)
@@ -132,9 +115,13 @@
 	var/cannon_direction = WEST
 	var/static/image/top_layer = null
 	var/ex_power = 3
-	var/power_used_per_shot = 2000000 //enough to kil standard apc - todo : make this use wires instead and scale explosion power with it
-	var/last_fire_time = 0 // The time at which the gun was last fired
-	var/reload_cooldown = 600 // The gun's cooldown
+	/// Amount of energy required to reload the BSA (Joules)
+	var/energy_used_per_shot = 2 MJ //enough to kil standard apc - todo : make this use wires instead and scale explosion power with it
+	/// The gun's cooldown
+	var/reload_cooldown_time = 10 MINUTES
+	/// Are we trying to reload? Should only be true if we failed to reload due to lack of power.
+	var/try_reload = FALSE
+	COOLDOWN_DECLARE(firing_cooldown)
 
 	pixel_y = -32
 	pixel_x = -192
@@ -152,8 +139,8 @@
 	cannon_direction = EAST
 
 /obj/machinery/bsa/full/admin
-	power_used_per_shot = 0
-	reload_cooldown = 100
+	energy_used_per_shot = 0
+	reload_cooldown_time = 100 SECONDS
 
 /obj/machinery/bsa/full/admin/east
 	icon_state = "cannon_east"
@@ -162,9 +149,9 @@
 /obj/machinery/bsa/full/proc/get_front_turf()
 	switch(dir)
 		if(WEST)
-			return locate(x - 6,y,z)
+			return locate(x - 7,y,z)
 		if(EAST)
-			return locate(x + 4,y,z)
+			return locate(x + 5,y,z)
 	return get_turf(src)
 
 /obj/machinery/bsa/full/proc/get_back_turf()
@@ -202,30 +189,56 @@
 			top_layer.layer = 4.1
 			icon_state = "cannon_east"
 	overlays += top_layer
-	reload()
 
-/obj/machinery/bsa/full/proc/fire(mob/user, turf/bullseye)
+/obj/machinery/bsa/full/Initialize(mapload)
+	. = ..()
+	return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/bsa/full/LateInitialize(mapload)
+	. = ..()
+	reload() // so we don't try and use the powernet before it initializes
+
+
+/obj/machinery/bsa/full/proc/fire(mob/user, turf/bullseye, target)
+	if(!COOLDOWN_FINISHED(src, firing_cooldown))
+		return
 	var/turf/point = get_front_turf()
-	for(var/turf/T in getline(get_step(point,dir),get_target_turf()))
-		T.ex_act(1)
+	for(var/turf/T in get_line(get_step(point,dir),get_target_turf()))
+		T.ex_act(EXPLODE_DEVASTATE)
 		for(var/atom/A in T)
-			A.ex_act(1)
+			A.ex_act(EXPLODE_DEVASTATE)
 
 	point.Beam(get_target_turf(), icon_state = "bsa_beam", time = 50, maxdistance = world.maxx, beam_type = /obj/effect/ebeam/deadly) //ZZZAP
+	new /obj/effect/temp_visual/bsa_splash(point, dir)
 	playsound(src, 'sound/machines/bsa_fire.ogg', 100, 1)
+	if(istype(target, /obj/item/gps))
+		var/obj/item/gps/G = target
+		message_admins("[key_name_admin(user)] has launched an artillery strike at GPS named [G.gpstag].")
 
-	message_admins("[key_name_admin(user)] has launched an artillery strike.")
+	else
+		message_admins("[key_name_admin(user)] has launched an artillery strike.")//Admin BSA firing, just targets a room, which the explosion says
+
 	log_admin("[key_name(user)] has launched an artillery strike.") // Line below handles logging the explosion to disk
 	explosion(bullseye,ex_power,ex_power*2,ex_power*4)
 
 	reload()
 
 /obj/machinery/bsa/full/proc/reload()
-	use_power(power_used_per_shot)
-	last_fire_time = world.time / 10
+	if(machine_powernet?.powernet_apc?.cell?.charge KJ >= energy_used_per_shot)
+		try_reload = FALSE
+		use_power(energy_used_per_shot)
+		COOLDOWN_START(src, firing_cooldown, reload_cooldown_time)
+	else
+		try_reload = TRUE
+
+/// If we failed a reload keep trying until the APC has enough energy available.
+/obj/machinery/bsa/full/process()
+	if(try_reload)
+		reload()
 
 /obj/item/circuitboard/machine/bsa/back
 	board_name = "Bluespace Artillery Generator"
+	icon_state = "command"
 	build_path = /obj/machinery/bsa/back
 	origin_tech = "engineering=2;combat=2;bluespace=2" //No freebies!
 	req_components = list(
@@ -234,6 +247,7 @@
 
 /obj/item/circuitboard/machine/bsa/middle
 	board_name = "Bluespace Artillery Fusor"
+	icon_state = "command"
 	build_path = /obj/machinery/bsa/middle
 	origin_tech = "engineering=2;combat=2;bluespace=2"
 	req_components = list(
@@ -242,6 +256,7 @@
 
 /obj/item/circuitboard/machine/bsa/front
 	board_name = "Bluespace Artillery Bore"
+	icon_state = "command"
 	build_path = /obj/machinery/bsa/front
 	origin_tech = "engineering=2;combat=2;bluespace=2"
 	req_components = list(
@@ -250,6 +265,7 @@
 
 /obj/item/circuitboard/computer/bsa_control
 	board_name = "Bluespace Artillery Controls"
+	icon_state = "command"
 	build_path = /obj/machinery/computer/bsa_control
 	origin_tech = "engineering=2;combat=2;bluespace=2"
 
@@ -258,7 +274,7 @@
 	var/obj/machinery/bsa/full/cannon
 	var/notice
 	var/target
-	use_power = NO_POWER_USE
+	power_state = NO_POWER_USE
 	circuit = /obj/item/circuitboard/computer/bsa_control
 	icon = 'icons/obj/machines/particle_accelerator.dmi'
 	icon_state = "control_boxp"
@@ -275,8 +291,8 @@
 	area_aim = TRUE
 	target_all_areas = TRUE
 
-/obj/machinery/computer/bsa_control/admin/Initialize()
-	..()
+/obj/machinery/computer/bsa_control/admin/Initialize(mapload)
+	. = ..()
 	if(!cannon)
 		cannon = deploy()
 
@@ -288,29 +304,35 @@
 
 /obj/machinery/computer/bsa_control/process()
 	..()
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 
-/obj/machinery/computer/bsa_control/update_icon()
+/obj/machinery/computer/bsa_control/update_icon_state()
 	if(stat & BROKEN)
 		icon_state = icon_state_broken
 	else if(stat & NOPOWER)
 		icon_state = icon_state_nopower
-	else if(cannon && (cannon.last_fire_time + cannon.reload_cooldown) > (world.time / 10))
+	else if(cannon && (!COOLDOWN_FINISHED(cannon, firing_cooldown)))
 		icon_state = icon_state_reloading
 	else if(cannon)
 		icon_state = icon_state_active
 	else
 		icon_state = initial(icon_state)
 
+/obj/machinery/computer/bsa_control/update_overlays()
+	return list()
+
 /obj/machinery/computer/bsa_control/attack_hand(mob/user)
 	if(..())
 		return 1
 	ui_interact(user)
 
-/obj/machinery/computer/bsa_control/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/obj/machinery/computer/bsa_control/ui_state(mob/user)
+	return GLOB.default_state
+
+/obj/machinery/computer/bsa_control/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "BlueSpaceArtilleryControl", name, 400, 155, master_ui, state)
+		ui = new(user, src, "BlueSpaceArtilleryControl", name)
 		ui.open()
 
 /obj/machinery/computer/bsa_control/ui_data(mob/user)
@@ -320,14 +342,8 @@
 	if(target)
 		data["target"] = get_target_name()
 	if(cannon)
-		var/reload_cooldown = cannon.reload_cooldown
-		var/last_fire_time = cannon.last_fire_time
-		var/time_to_wait = max(0, round(reload_cooldown - ((world.time / 10) - last_fire_time)))
-		var/minutes = max(0, round(time_to_wait / 60))
-		var/seconds = max(0, time_to_wait - (60 * minutes))
-		var/seconds2 = (seconds < 10) ? "0[seconds]" : seconds
-		data["reloadtime_text"] = "[minutes]:[seconds2]"
-		data["ready"] = minutes == 0 && seconds == 0
+		data["reloadtime_text"] = cannon.try_reload ? "Insufficient Energy For Reloading" : seconds_to_clock(round(COOLDOWN_TIMELEFT(cannon, firing_cooldown) / 10))
+		data["ready"] = !cannon.try_reload && COOLDOWN_FINISHED(cannon, firing_cooldown)
 	else
 		data["ready"] = FALSE
 	return data
@@ -342,7 +358,7 @@
 			fire(usr)
 		if("recalibrate")
 			calibrate(usr)
-	update_icon()
+	update_icon(UPDATE_ICON_STATE)
 	return TRUE
 
 /obj/machinery/computer/bsa_control/proc/calibrate(mob/user)
@@ -353,11 +369,13 @@
 	var/list/options = gps_locators
 	if(area_aim)
 		options += target_all_areas ? SSmapping.ghostteleportlocs : SSmapping.teleportlocs
-	var/V = input(user,"Select target", "Select target",null) in options|null
-	target = options[V]
+	var/choose = tgui_input_list(user, "Select target", "Target",  options)
+	if(!choose)
+		return
+	target = options[choose]
 
 /obj/machinery/computer/bsa_control/proc/get_target_name()
-	if(istype(target,/area))
+	if(isarea(target))
 		var/area/A = target
 		return A.name
 	else if(istype(target,/obj/item/gps))
@@ -365,7 +383,7 @@
 		return G.gpstag
 
 /obj/machinery/computer/bsa_control/proc/get_impact_turf()
-	if(istype(target,/area))
+	if(isarea(target))
 		return pick(get_area_turfs(target))
 	else if(istype(target,/obj/item/gps))
 		return get_turf(target)
@@ -377,7 +395,7 @@
 		notice = "Cannon unpowered!"
 		return
 	notice = null
-	cannon.fire(user, get_impact_turf())
+	cannon.fire(user, get_impact_turf(), target)
 
 /obj/machinery/computer/bsa_control/proc/deploy()
 	var/obj/machinery/bsa/full/prebuilt = locate() in range(7, src) //In case of adminspawn
@@ -394,7 +412,7 @@
 		return null
 	//Totally nanite construction system not an immersion breaking spawning
 	var/datum/effect_system/smoke_spread/s = new
-	s.set_up(4, 0, get_turf(centerpiece))
+	s.set_up(4, FALSE, centerpiece)
 	s.start()
 	var/obj/machinery/bsa/full/cannon = new(get_turf(centerpiece),centerpiece.get_cannon_direction())
 	cannon.controller = src

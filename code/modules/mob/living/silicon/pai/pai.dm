@@ -3,11 +3,10 @@
 	icon = 'icons/mob/pai.dmi'//
 	icon_state = "repairbot"
 
-	robot_talk_understand = 0
 	emote_type = 2		// pAIs emotes are heard, not seen, so they can be seen through a container (eg. person)
 	mob_size = MOB_SIZE_TINY
 	pass_flags = PASSTABLE
-	density = 0
+	density = FALSE
 	holder_type = /obj/item/holder/pai
 
 	var/ram = 100	// Used as currency to purchase different abilities
@@ -57,8 +56,9 @@
 
 	var/obj/item/pda/silicon/pai/pda = null
 
-	var/secHUD = 0			// Toggles whether the Security HUD is active or not
-	var/medHUD = 0			// Toggles whether the Medical  HUD is active or not
+	var/secHUD = FALSE			// Toggles whether the Security HUD is active or not
+	var/medHUD = FALSE			// Toggles whether the Medical  HUD is active or not
+	var/dHUD = FALSE			// Toggles whether the Diagnostic HUD is active or not
 
 	/// Currently active software
 	var/datum/pai_software/active_software
@@ -66,36 +66,45 @@
 	/// List of all installed software
 	var/list/datum/pai_software/installed_software = list()
 
-	var/obj/item/integrated_radio/signal/sradio // AI's signaller
+	/// Integrated remote signaler for signalling
+	var/obj/item/assembly/signaler/integ_signaler
 
-	var/translator_on = 0 // keeps track of the translator module
+	var/translator_on = FALSE // keeps track of the translator module
 	var/flashlight_on = FALSE //keeps track of the flashlight module
 
 	var/current_pda_messaging = null
-	var/custom_sprite = 0
+	var/custom_sprite = FALSE
 	var/slowdown = 0
+	var/speech_state = "Robotic" // Needed for TGUI shit
 
-/mob/living/silicon/pai/New(obj/item/paicard)
-	loc = paicard
-	card = paicard
+/mob/living/silicon/pai/Initialize(mapload)
+	. = ..()
+
+	if(istype(loc, /obj/item/paicard))
+		card = loc
+	else
+		card = new(get_turf(src))
+		forceMove(card)
+		card.setPersonality(src)
+
 	if(card)
 		faction = card.faction.Copy()
-	sradio = new(src)
+
+	integ_signaler = new(src)
+
 	if(card)
 		if(!card.radio)
 			card.radio = new /obj/item/radio(card)
 		radio = card.radio
 
 	//Default languages without universal translator software
-	add_language("Galactic Common", 1)
-	add_language("Sol Common", 1)
-	add_language("Tradeband", 1)
-	add_language("Gutter", 1)
-	add_language("Trinary", 1)
+	add_language("Sol Common")
+	add_language("Tradeband")
+	add_language("Gutter")
+	add_language("Trinary")
 
-	//Verbs for pAI mobile form, chassis and Say flavor text
-	verbs += /mob/living/silicon/pai/proc/choose_chassis
-	verbs += /mob/living/silicon/pai/proc/choose_verbs
+	AddSpell(new /datum/spell/access_software_pai)
+	AddSpell(new /datum/spell/unfold_chassis_pai)
 
 	//PDA
 	pda = new(src)
@@ -105,6 +114,10 @@
 	var/datum/data/pda/app/messenger/M = pda.find_program(/datum/data/pda/app/messenger)
 	M.toff = TRUE
 
+	if(has_ahudded())
+		message_admins("[key_name(src)] has joined as a pAI, having previously enabled antag hud.")
+		log_admin("[key_name(src)] has joined as a pAI, having previously enabled antag hud.")
+
 	// Software modules. No these var names have nothing to do with photoshop
 	for(var/PS in subtypesof(/datum/pai_software))
 		var/datum/pai_software/PSD = new PS(src)
@@ -112,7 +125,6 @@
 			installed_software[PSD.id] = PSD
 
 	active_software = installed_software["mainmenu"] // Default us to the main menu
-	..()
 
 /mob/living/silicon/pai/can_unbuckle()
 	return FALSE
@@ -131,23 +143,27 @@
 		icon_state = "[chassis]_dead"
 	else
 		icon_state = resting ? "[chassis]_rest" : "[chassis]"
+	update_icon(UPDATE_OVERLAYS)
+
+/mob/living/silicon/pai/update_fire()
+	update_icon(UPDATE_OVERLAYS)
+
+/mob/living/silicon/pai/update_overlays()
+	. = ..()
+	if(on_fire)
+		. += image("icon" = 'icons/mob/OnFire.dmi', "icon_state" = "Generic_mob_burning")
 
 // this function shows the information about being silenced as a pAI in the Status panel
 /mob/living/silicon/pai/proc/show_silenced()
 	if(silence_time)
 		var/timeleft = round((silence_time - world.timeofday)/10 ,1)
-		stat(null, "Communications system reboot in -[(timeleft / 60) % 60]:[add_zero(num2text(timeleft % 60), 2)]")
+		return list("Communications system reboot in:", "-[(timeleft / 60) % 60]:[add_zero(num2text(timeleft % 60), 2)]")
 
 
-/mob/living/silicon/pai/Stat()
-	..()
-	statpanel("Status")
-	if(client.statpanel == "Status")
-		show_silenced()
-
-	if(proc_holder_list.len)//Generic list for proc_holder objects.
-		for(var/obj/effect/proc_holder/P in proc_holder_list)
-			statpanel("[P.panel]","",P)
+/mob/living/silicon/pai/get_status_tab_items()
+	var/list/status_tab_data = ..()
+	. = status_tab_data
+	status_tab_data[++status_tab_data.len] = show_silenced()
 
 /mob/living/silicon/pai/blob_act()
 	if(stat != DEAD)
@@ -160,9 +176,6 @@
 		return 0
 	..()
 
-/mob/living/silicon/pai/MouseDrop(atom/over_object)
-	return
-
 /mob/living/silicon/pai/emp_act(severity)
 	// Silence for 2 minutes
 	// 20% chance to kill
@@ -173,16 +186,17 @@
 	silence_time = world.timeofday + 120 * 10		// Silence for 2 minutes
 	to_chat(src, "<font color=green><b>Communication circuit overload. Shutting down and reloading communication circuits - speech and messaging functionality will be unavailable until the reboot is complete.</b></font>")
 	if(prob(20))
-		var/turf/T = get_turf_or_move(loc)
+		var/turf/T = get_turf(loc)
 		for(var/mob/M in viewers(T))
 			M.show_message("<span class='warning'>A shower of sparks spray from [src]'s inner workings.</span>", 3, "<span class='warning'>You hear and smell the ozone hiss of electrical sparks being expelled violently.</span>", 2)
 		return death(0)
 
-	switch(pick(1,2,3))
+	switch(pick(1, 2, 3))
 		if(1)
 			master = null
 			master_dna = null
 			to_chat(src, "<font color=green>You feel unbound.</font>")
+
 		if(2)
 			var/command
 			if(severity  == 1)
@@ -191,6 +205,7 @@
 				command = pick("Serve", "Kill", "Love", "Hate", "Disobey", "Devour", "Fool", "Enrage", "Entice", "Observe", "Judge", "Respect", "Disrespect", "Consume", "Educate", "Destroy", "Disgrace", "Amuse", "Entertain", "Ignite", "Glorify", "Memorialize", "Analyze")
 			pai_law0 = "[command] your master."
 			to_chat(src, "<font color=green>Pr1m3 d1r3c71v3 uPd473D.</font>")
+
 		if(3)
 			to_chat(src, "<font color=green>You feel an electric surge run through your circuitry and become acutely aware at how lucky you are that you can still feel at all.</font>")
 
@@ -199,19 +214,16 @@
 
 	switch(severity)
 		if(1.0)
-			if(stat != 2)
+			if(stat != DEAD)
 				adjustBruteLoss(100)
 				adjustFireLoss(100)
 		if(2.0)
-			if(stat != 2)
+			if(stat != DEAD)
 				adjustBruteLoss(60)
 				adjustFireLoss(60)
 		if(3.0)
-			if(stat != 2)
+			if(stat != DEAD)
 				adjustBruteLoss(30)
-
-	return
-
 
 // See software.dm for ui_act()
 
@@ -226,32 +238,33 @@
 // mobile pai mob. This also includes handling some of the general shit that can occur
 // to it. Really this deserves its own file, but for the moment it can sit here. ~ Z
 
-/mob/living/silicon/pai/verb/fold_out()
-	set category = "pAI Commands"
-	set name = "Unfold Chassis"
+/datum/spell/unfold_chassis_pai
+	name = "Unfold/Fold Chassis"
+	desc = "Allows you to fold in/out of your mobile form."
+	clothes_req = FALSE
+	antimagic_flags = NONE
+	base_cooldown = 20 SECONDS
+	action_icon_state = "repairbot"
+	action_background_icon_state = "bg_tech_blue"
 
-	if(stat || sleeping || paralysis || IsWeakened())
-		return
+/datum/spell/unfold_chassis_pai/create_new_targeting()
+	return new /datum/spell_targeting/self
 
-	if(loc != card)
-		to_chat(src, "<span class='warning'>You are already in your mobile form!</span>")
-		return
+/datum/spell/unfold_chassis_pai/cast(list/targets, mob/living/user = usr)
+	var/mob/living/silicon/pai/pai_user = user
 
-	if(world.time <= last_special)
-		to_chat(src, "<span class='warning'>You must wait before folding your chassis out again!</span>")
-		return
+	if(pai_user.loc != pai_user.card)
+		pai_user.close_up()
+		return TRUE
+	pai_user.force_fold_out()
 
-	last_special = world.time + 200
-
-	//I'm not sure how much of this is necessary, but I would rather avoid issues.
-	force_fold_out()
-
-	visible_message("<span class='notice'>[src] folds outwards, expanding into a mobile form.</span>", "<span class='notice'>You fold outwards, expanding into a mobile form.</span>")
+	pai_user.visible_message("<span class='notice'>[pai_user] folds outwards, expanding into a mobile form.</span>", "<span class='notice'>You fold outwards, expanding into a mobile form.</span>")
+	return TRUE
 
 /mob/living/silicon/pai/proc/force_fold_out()
-	if(istype(card.loc, /mob))
+	if(ismob(card.loc))
 		var/mob/holder = card.loc
-		holder.unEquip(card)
+		holder.drop_item_to_ground(card)
 	else if(istype(card.loc, /obj/item/pda))
 		var/obj/item/pda/holder = card.loc
 		holder.pai = null
@@ -261,89 +274,22 @@
 	card.forceMove(src)
 	card.screen_loc = null
 
-/mob/living/silicon/pai/verb/fold_up()
-	set category = "pAI Commands"
-	set name = "Collapse Chassis"
-
-	if(stat || sleeping || paralysis || IsWeakened())
-		return
-
-	if(loc == card)
-		to_chat(src, "<span class='warning'>You are already in your card form!</span>")
-		return
-
-	if(world.time <= last_special)
-		to_chat(src, "<span class='warning'>You must wait before returning to your card form!</span>")
-		return
-
-	close_up()
-
-/mob/living/silicon/pai/proc/choose_chassis()
-	set category = "pAI Commands"
-	set name = "Choose Chassis"
-
-	var/list/my_choices = list()
-	var/choice
-	var/finalized = "No"
-
-	//check for custom_sprite
-	if(!custom_sprite)
-		if(ckey in GLOB.configuration.custom_sprites.pai_holoform_ckeys)
-			custom_sprite = TRUE
-			my_choices["Custom"] = "[ckey]-pai"
-
-	my_choices = possible_chassis.Copy()
-	if(custom_sprite)
-		my_choices["Custom"] = "[ckey]-pai"
-
-	if(loc == card)		//don't let them continue in card form, since they won't be able to actually see their new mobile form sprite.
-		to_chat(src, "<span class='warning'>You must be in your mobile form to reconfigure your chassis.</span>")
-		return
-
-	while(finalized == "No" && client)
-		choice = input(usr,"What would you like to use for your mobile chassis icon? This decision can only be made once.") as null|anything in my_choices
-		if(!choice) return
-		if(choice == "Custom")
-			icon = 'icons/mob/custom_synthetic/custom-synthetic.dmi'
-		else
-			icon = 'icons/mob/pai.dmi'
-		icon_state = my_choices[choice]
-		finalized = alert("Look at your sprite. Is this what you wish to use?",,"No","Yes")
-
-	chassis = my_choices[choice]
-	verbs -= /mob/living/silicon/pai/proc/choose_chassis
-
-/mob/living/silicon/pai/proc/choose_verbs()
-	set category = "pAI Commands"
-	set name = "Choose Speech Verbs"
-
-	var/choice = input(usr,"What theme would you like to use for your speech verbs? This decision can only be made once.") as null|anything in possible_say_verbs
-	if(!choice) return
-
-	var/list/sayverbs = possible_say_verbs[choice]
-	speak_statement = sayverbs[1]
-	speak_exclamation = sayverbs[(sayverbs.len>1 ? 2 : sayverbs.len)]
-	speak_query = sayverbs[(sayverbs.len>2 ? 3 : sayverbs.len)]
-
-	verbs -= /mob/living/silicon/pai/proc/choose_verbs
-
-
-/mob/living/silicon/pai/lay_down()
+/mob/living/silicon/pai/rest()
 	set name = "Rest"
 	set category = "IC"
 
-	// Pass lying down or getting up to our pet human, if we're in a rig.
-	if(stat == CONSCIOUS && istype(loc,/obj/item/paicard))
-		resting = 0
+	resting = !resting
+	if(resting)
+		ADD_TRAIT(src, TRAIT_IMMOBILIZED, LYING_DOWN_TRAIT)
 	else
-		resting = !resting
-		to_chat(src, "<span class='notice'>You are now [resting ? "resting" : "getting up"]</span>")
+		REMOVE_TRAIT(src, TRAIT_IMMOBILIZED, LYING_DOWN_TRAIT)
+
+	to_chat(src, "<span class='notice'>You are now [resting ? "resting" : "getting up"]</span>")
 
 	update_icons()
-	update_canmove()
 
 //Overriding this will stop a number of headaches down the track.
-/mob/living/silicon/pai/attackby(obj/item/W as obj, mob/user as mob, params)
+/mob/living/silicon/pai/attackby__legacy__attackchain(obj/item/W as obj, mob/user as mob, params)
 	if(istype(W, /obj/item/stack/nanopaste))
 		var/obj/item/stack/nanopaste/N = W
 		if(stat == DEAD)
@@ -375,7 +321,7 @@
 		return
 	if(user.a_intent == INTENT_HELP)
 		user.visible_message("<span class='notice'>[user] pets [src].</span>")
-		playsound(loc, 'sound/weapons/thudswoosh.ogg', 50, 1, -1)
+		playsound(loc, 'sound/weapons/thudswoosh.ogg', 50, TRUE, -1)
 	else
 		visible_message("<span class='danger'>[user.name] boops [src] on the head.</span>")
 		spawn(1)
@@ -383,9 +329,7 @@
 
 //I'm not sure how much of this is necessary, but I would rather avoid issues.
 /mob/living/silicon/pai/proc/close_up()
-
-	last_special = world.time + 200
-	resting = 0
+	stand_up()
 	if(loc == card)
 		return
 
@@ -399,7 +343,7 @@
 	if(istype(H))
 		var/mob/living/M = H.loc
 		if(istype(M))
-			M.unEquip(H)
+			M.drop_item_to_ground(H)
 		H.loc = get_turf(src)
 		loc = get_turf(H)
 
@@ -420,14 +364,10 @@
 /mob/living/silicon/pai/start_pulling(atom/movable/AM, state, force = pull_force, show_message = FALSE)
 	return FALSE
 
-/mob/living/silicon/pai/update_canmove(delay_action_updates = 0)
-	. = ..()
-	density = 0 //this is reset every canmove update otherwise
-
 /mob/living/silicon/pai/examine(mob/user)
 	. = ..()
 
-	var/msg = "<span class='info'>"
+	var/msg = "<span class='notice'>"
 
 	switch(stat)
 		if(CONSCIOUS)
@@ -442,10 +382,10 @@
 		msg += "\n[print_flavor_text()]"
 
 	if(pose)
-		if( findtext(pose,".",length(pose)) == 0 && findtext(pose,"!",length(pose)) == 0 && findtext(pose,"?",length(pose)) == 0 )
+		if(findtext(pose,".",length(pose)) == 0 && findtext(pose,"!",length(pose)) == 0 && findtext(pose,"?",length(pose)) == 0)
 			pose = addtext(pose,".") //Makes sure all emotes end with a period.
 		msg += "\nIt is [pose]"
-	msg += "\n*---------*</span>"
+	msg += "\n</span>"
 
 	. += msg
 
@@ -473,7 +413,8 @@
 		return
 	if(resting)
 		icon_state = "[chassis]"
-		resting = 0
+		resting = FALSE
+		REMOVE_TRAIT(src, TRAIT_IMMOBILIZED, LYING_DOWN_TRAIT)
 	if(custom_sprite)
 		H.icon = 'icons/mob/custom_synthetic/custom-synthetic.dmi'
 		H.icon_override = 'icons/mob/custom_synthetic/custom_head.dmi'
@@ -492,9 +433,10 @@
 
 /mob/living/silicon/pai/MouseDrop(atom/over_object)
 	var/mob/living/carbon/human/H = over_object //changed to human to avoid stupid issues like xenos holding pAIs.
-	if(!istype(H) || !Adjacent(H))  return ..()
+	if(!istype(H) || !Adjacent(H))
+		return ..()
 	if(usr == src)
-		switch(alert(H, "[src] wants you to pick [p_them()] up. Do it?",,"Yes","No"))
+		switch(tgui_alert(H, "[src] wants you to pick [p_them()] up. Do it?", "Pick up", list("Yes", "No")))
 			if("Yes")
 				if(Adjacent(H))
 					get_scooped(H)
@@ -502,11 +444,10 @@
 					to_chat(src, "<span class='warning'>You need to stay in reaching distance to be picked up.</span>")
 			if("No")
 				to_chat(src, "<span class='warning'>[H] decided not to pick you up.</span>")
+	else if(Adjacent(H))
+		get_scooped(H)
 	else
-		if(Adjacent(H))
-			get_scooped(H)
-		else
-			return ..()
+		return ..()
 
 /mob/living/silicon/pai/on_forcemove(atom/newloc)
 	if(card)
@@ -515,7 +456,7 @@
 		CRASH("pAI without card")
 	loc = card
 
-/mob/living/silicon/pai/extinguish_light()
+/mob/living/silicon/pai/extinguish_light(force = FALSE)
 	flashlight_on = FALSE
 	set_light(0)
 	card.set_light(0)

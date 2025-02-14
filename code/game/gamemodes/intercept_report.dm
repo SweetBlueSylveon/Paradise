@@ -93,7 +93,7 @@
 		if(!man.mind) continue
 		if(man.mind.assigned_role == man.mind.special_role) continue
 		dudes += man
-	if(dudes.len==0)
+	if(length(dudes)==0)
 		return null
 	return pick(dudes)
 
@@ -116,10 +116,10 @@
 				if((man.mind.assigned_role in SSticker.mode.protected_jobs) || (man.mind.assigned_role in SSticker.mode.restricted_jobs))
 					return
 			//don't include suspects who can't possibly be the antag based on their species (no suspecting the machines of being sneaky changelings)
-			if(man.dna.species.name in SSticker.mode.protected_species)
+			if(man.dna.species.name in SSticker.mode.species_to_mindflayer)
 				return
 			dudes += man
-	for(var/i = 0, i < max(GLOB.player_list.len/10,2), i++)
+	for(var/i = 0, i < max(length(GLOB.player_list)/10,2), i++)
 		dudes += pick(GLOB.player_list)
 	return pick(dudes)
 
@@ -194,7 +194,7 @@
 	src.text += "Known attributes include: Brown sandals, a large blue hat, a voluptous white beard, and an inclination to cast spells."
 
 /datum/intercept_text/proc/build_nuke(datum/mind/correct_person)
-	src.text += "<BR><BR>Cent. Com recently recieved a report of a plot to destroy one of our stations in your area. We believe the Nuclear Authentication Disc "
+	src.text += "<BR><BR>Cent. Com recently received a report of a plot to destroy one of our stations in your area. We believe the Nuclear Authentication Disc "
 	src.text += "that is standard issue aboard your vessel may be a target. We recommend removal of this object, and it's storage in a safe "
 	src.text += "environment. As this may cause panic among the crew, all efforts should be made to keep this information a secret from all but "
 	src.text += "the most trusted crew-members."
@@ -230,5 +230,5 @@
 	src.text += "Our intelligence suggests a [prob_right_job]% chance that a [changeling_job] on board your station has been replaced by the alien.  "
 	src.text += "Additionally, the report indicates a [prob_right_dude]% chance that [changeling_name] may have been in contact with the lifeform at a recent social gathering.  "
 	*/
-	src.text += "These lifeforms are assosciated with the [orgname1] [orgname2] and may be attempting to acquire sensitive materials on their behalf.  "
+	src.text += "These lifeforms are associated with the [orgname1] [orgname2] and may be attempting to acquire sensitive materials on their behalf. "
 	src.text += "Please take care not to alarm the crew, as [cname] may take advantage of a panic situation. Remember, they can be anybody, suspect everybody!"

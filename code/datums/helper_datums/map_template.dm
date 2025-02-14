@@ -51,19 +51,28 @@
 	// if given a multi-z template
 	// it might need to be adapted for that when that time comes
 	GLOB.space_manager.add_dirt(placement.z)
-	var/list/bounds = GLOB.maploader.load_map(get_file(), min_x, min_y, placement.z, shouldCropMap = TRUE)
-	if(!bounds)
-		return 0
-	if(bot_left == null || top_right == null)
-		log_runtime(EXCEPTION("One of the late setup corners is bust"), src)
+	var/datum/milla_safe/freeze_z_level/milla_freeze = new()
+	milla_freeze.invoke_async(T.z)
+	UNTIL(milla_freeze.done)
+	try
+		var/list/bounds = GLOB.maploader.load_map(get_file(), min_x, min_y, placement.z, shouldCropMap = TRUE)
+		if(!bounds)
+			return 0
+		if(bot_left == null || top_right == null)
+			stack_trace("One of the late setup corners is bust")
 
-	if(ST_bot_left == null || ST_top_right == null)
-		log_runtime(EXCEPTION("One of the smoothing corners is bust"), src)
-
+		if(ST_bot_left == null || ST_top_right == null)
+			stack_trace("One of the smoothing corners is bust")
+	catch(var/exception/e)
+		GLOB.space_manager.remove_dirt(placement.z)
+		var/datum/milla_safe_must_sleep/late_setup_level/milla = new()
+		milla.invoke_async(bot_left, top_right, block(ST_bot_left, ST_top_right))
+		message_admins("Map template [name] threw an error while loading. Safe exit attempted, but check for errors at [ADMIN_COORDJMP(placement)].")
+		log_admin("Map template [name] threw an error while loading. Safe exit attempted.")
+		throw e
 	GLOB.space_manager.remove_dirt(placement.z)
-	late_setup_level(
-		block(bot_left, top_right),
-		block(ST_bot_left, ST_top_right))
+	var/datum/milla_safe_must_sleep/late_setup_level/milla = new()
+	milla.invoke_async(bot_left, top_right, block(ST_bot_left, ST_top_right))
 
 	log_game("[name] loaded at [min_x],[min_y],[placement.z]")
 	return 1
@@ -72,12 +81,18 @@
 	if(mapfile)
 		. = mapfile
 	else if(mappath)
-		. = file(mappath)
+		. = wrap_file(mappath)
 
 	if(!.)
-		log_runtime(EXCEPTION("  The file of [src] appears to be empty/non-existent."), src)
+		stack_trace("  The file of [src] appears to be empty/non-existent.")
 
 /datum/map_template/proc/get_affected_turfs(turf/T, centered = 0)
+	var/list/coordinate_bounds = get_coordinate_bounds(T, centered)
+	var/datum/coords/bottom_left = coordinate_bounds["bottom_left"]
+	var/datum/coords/top_right = coordinate_bounds["top_right"]
+	return block(max(bottom_left.x_pos, 1), max(bottom_left.y_pos, 1), T.z, min(top_right.x_pos, world.maxx), min(top_right.y_pos, world.maxy), T.z)
+
+/datum/map_template/proc/get_coordinate_bounds(turf/T, centered = FALSE)
 	var/turf/placement = T
 	var/min_x = placement.x
 	var/min_y = placement.y
@@ -87,8 +102,10 @@
 
 	var/max_x = min_x + width-1
 	var/max_y = min_y + height-1
-	placement = locate(max(min_x,1), max(min_y,1), placement.z)
-	return block(placement, locate(min(max_x, world.maxx), min(max_y, world.maxy), placement.z))
+
+	var/datum/coords/bottom_left = new(min_x, min_y, 1)
+	var/datum/coords/top_right = new(max_x, max_y, 1)
+	return list("bottom_left" = bottom_left, "top_right" = top_right)
 
 /datum/map_template/proc/fits_in_map_bounds(turf/T, centered = 0)
 	var/turf/placement = T
@@ -101,9 +118,9 @@
 	var/max_x = min_x + width-1
 	var/max_y = min_y + height-1
 	if(min_x < 1 || min_y < 1 || max_x > world.maxx || max_y > world.maxy)
-		return 0
+		return FALSE
 	else
-		return 1
+		return TRUE
 
 
 /proc/preloadTemplates(path = "_maps/map_files/templates/") //see master controller setup
@@ -116,6 +133,7 @@
 		preloadRuinTemplates()
 	preloadShelterTemplates()
 	preloadShuttleTemplates()
+	preloadEventTemplates()
 
 /proc/preloadRuinTemplates()
 	// Merge the active lists together
@@ -135,7 +153,6 @@
 			continue
 
 		GLOB.map_templates[R.name] = R
-		GLOB.ruins_templates[R.name] = R
 
 		if(istype(R, /datum/map_template/ruin/lavaland))
 			GLOB.lava_ruins_templates[R.name] = R
@@ -162,3 +179,13 @@
 
 		GLOB.shuttle_templates[S.shuttle_id] = S
 		GLOB.map_templates[S.shuttle_id] = S
+
+/proc/preloadEventTemplates()
+	for(var/item in subtypesof(/datum/map_template/event))
+		var/datum/map_template/event/event_type = item
+		if(!initial(event_type.mappath))
+			continue
+
+		var/datum/map_template/event/E = new event_type()
+
+		GLOB.map_templates[E.event_id] = E

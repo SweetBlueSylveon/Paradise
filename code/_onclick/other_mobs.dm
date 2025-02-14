@@ -22,10 +22,14 @@
 		if(S.prevents_buckled_mobs_attacking())
 			return
 
+	if(SEND_SIGNAL(A, COMSIG_HUMAN_MELEE_UNARMED_ATTACKBY, src) & COMPONENT_CANCEL_ATTACK_CHAIN)
+		return
+
 	A.attack_hand(src)
 
 /atom/proc/attack_hand(mob/user as mob)
-	return
+	if(SEND_SIGNAL(src, COMSIG_ATOM_ATTACK_HAND, user) & COMPONENT_CANCEL_ATTACK_CHAIN)
+		return TRUE
 
 /*
 /mob/living/carbon/human/RestrainedClickOn(atom/A) -- Handled by carbons
@@ -37,6 +41,8 @@
 
 /mob/living/carbon/human/RangedAttack(atom/A, params)
 	. = ..()
+	if(.)
+		return
 	if(gloves)
 		var/obj/item/clothing/gloves/G = gloves
 		if(istype(G) && G.Touch(A, 0)) // for magic gloves
@@ -45,12 +51,11 @@
 	if(HAS_TRAIT(src, TRAIT_LASEREYES) && a_intent == INTENT_HARM)
 		LaserEyes(A)
 
-	if(HAS_TRAIT(src, TRAIT_TELEKINESIS))
+	if(HAS_TRAIT(src, TRAIT_TELEKINESIS) && telekinesis_range_check(src, A))
 		A.attack_tk(src)
 
 	if(isturf(A) && get_dist(src, A) <= 1)
 		Move_Pulled(A)
-
 /*
 	Animals & All Unspecified
 */
@@ -107,6 +112,9 @@
 */
 /mob/new_player/ClickOn()
 	return
+
+/mob/new_player/can_use_clickbinds()
+	return FALSE
 
 // pAIs are not intended to interact with anything in the world
 /mob/living/silicon/pai/UnarmedAttack(atom/A)

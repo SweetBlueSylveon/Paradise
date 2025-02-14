@@ -1,79 +1,40 @@
-#define HALLUCINATE_COOLDOWN_MIN 20 SECONDS
-#define HALLUCINATE_COOLDOWN_MAX 50 SECONDS
-/// This is multiplied with [/mob/var/hallucination] to determine the final cooldown. A higher hallucination value means shorter cooldown.
-#define HALLUCINATE_COOLDOWN_FACTOR 0.03
-/// Percentage defining the chance at which an hallucination may spawn past the cooldown.
-#define HALLUCINATE_CHANCE 80
-// Severity weights, should sum up to 100!
-#define HALLUCINATE_MINOR_WEIGHT 60
-#define HALLUCINATE_MODERATE_WEIGHT 30
-#define HALLUCINATE_MAJOR_WEIGHT 10
-
 GLOBAL_LIST_INIT(hallucinations, list(
 	HALLUCINATE_MINOR = list(
 		/obj/effect/hallucination/bolts = 10,
 		/obj/effect/hallucination/fake_danger = 10,
 		/obj/effect/hallucination/fake_health = 15,
 		/obj/effect/hallucination/speech = 15,
-		/obj/effect/hallucination/audio = 25,
 		/obj/effect/hallucination/audio/localized = 25,
+		/obj/effect/hallucination/trait_applier/medical_machinery = 25,
+		/obj/effect/hallucination/examine_hallucination = 25,
 	),
 	HALLUCINATE_MODERATE = list(
 		/obj/effect/hallucination/delusion = 5,
+		/obj/effect/hallucination/fake_grenade/flashbang = 5,
 		/obj/effect/hallucination/self_delusion = 5,
 		/obj/effect/hallucination/bolts/moderate = 10,
-		/obj/effect/hallucination/chasms = 10,
 		/obj/effect/hallucination/fake_alert = 10,
+		/obj/effect/hallucination/fake_grenade = 10,
 		/obj/effect/hallucination/gunfire = 10,
 		/obj/effect/hallucination/plasma_flood = 10,
 		/obj/effect/hallucination/stunprodding = 10,
-		/obj/effect/hallucination/delamination_alarm = 15,
-		/obj/effect/hallucination/fake_item = 15,
+		/obj/effect/hallucination/doppelganger = 10,
 		/obj/effect/hallucination/fake_weapon = 15,
-		/obj/effect/hallucination/husks = 15,
+		/obj/effect/hallucination/ventpeek = 15,
 	),
 	HALLUCINATE_MAJOR = list(
 		/obj/effect/hallucination/abduction = 10,
 		/obj/effect/hallucination/assault = 10,
-		/obj/effect/hallucination/terror_infestation = 10,
+		/obj/effect/hallucination/fake_grenade/spawner = 10,
 		/obj/effect/hallucination/loose_energy_ball = 10,
+		/datum/hallucination_manager/xeno_pounce = 10,
+		/datum/hallucination_manager/backrooms = 1,
+		/datum/hallucination_manager/blind_rush = 1,
+		/datum/hallucination_manager/waves = 2,
+		/obj/effect/hallucination/blob = 10,
+		/obj/effect/hallucination/sniper = 10
 	)
 ))
-
-/**
-  * Called as part of [/mob/living/proc/handle_status_effects] to handle hallucinations.
-  */
-/mob/living/carbon/proc/handle_hallucinations()
-	if(!hallucination || next_hallucination > world.time)
-		return
-
-	next_hallucination = world.time + rand(HALLUCINATE_COOLDOWN_MIN, HALLUCINATE_COOLDOWN_MAX) / (hallucination * HALLUCINATE_COOLDOWN_FACTOR)
-	if(!prob(HALLUCINATE_CHANCE))
-		return
-
-	// Pick a severity
-	var/severity = HALLUCINATE_MINOR
-	switch(rand(100))
-		if(0 to HALLUCINATE_MINOR_WEIGHT)
-			severity = HALLUCINATE_MINOR
-		if((HALLUCINATE_MINOR_WEIGHT + 1) to HALLUCINATE_MODERATE_WEIGHT)
-			severity = HALLUCINATE_MODERATE
-		if((HALLUCINATE_MINOR_WEIGHT + HALLUCINATE_MODERATE_WEIGHT + 1) to 100)
-			severity = HALLUCINATE_MAJOR
-
-	hallucinate(pickweight(GLOB.hallucinations[severity]))
-
-/**
-  * Spawns an hallucination for the mob.
-  *
-  * Arguments:
-  * * H - The type path of the hallucination to spawn.
-  */
-/mob/living/carbon/proc/hallucinate(obj/effect/hallucination/H)
-	ASSERT(ispath(H))
-	if(ckey)
-		add_attack_logs(null, src, "Received hallucination [H]", ATKLOG_ALL)
-	return new H(get_turf(src), src)
 
 /**
   * # Hallucination
@@ -91,25 +52,38 @@ GLOBAL_LIST_INIT(hallucinations, list(
 	var/hallucination_icon_state
 	/// Hallucination override.
 	var/hallucination_override = FALSE
+	/// Hallucination color
+	var/hallucination_color
 	/// Hallucination layer.
 	var/hallucination_layer = MOB_LAYER
+	///Hallucination plane.
+	var/hallucination_plane = AREA_PLANE
 	/// The mob that sees this hallucination.
 	var/mob/living/carbon/target = null
 	/// Lazy list of images created as part of the hallucination. Cleared on destruction.
 	var/list/image/images = null
+	/// Should this hallucination delete itself
+	var/should_delete = TRUE
 
-/obj/effect/hallucination/Initialize(mapload, mob/living/carbon/target)
+/obj/effect/hallucination/Initialize(mapload, mob/living/carbon/hallucination_target)
 	. = ..()
-	src.target = target
+	if(QDELETED(hallucination_target))
+		qdel(src)
+		return
+	target = hallucination_target
 	if(hallucination_icon && hallucination_icon_state)
 		var/image/I = image(hallucination_icon, hallucination_override ? src : get_turf(src), hallucination_icon_state)
+		if(hallucination_color)
+			I.color = hallucination_color
 		I.override = hallucination_override
 		I.layer = hallucination_layer
+		I.plane = hallucination_plane
 		add_icon(I)
 	// Lifetime
 	if(islist(duration))
 		duration = rand(duration[1], duration[2])
-	QDEL_IN(src, duration)
+	if(should_delete)
+		QDEL_IN(src, duration)
 
 /obj/effect/hallucination/Destroy()
 	clear_icons()
@@ -160,7 +134,7 @@ GLOBAL_LIST_INIT(hallucinations, list(
   * * delay - Delay in deciseconds.
   */
 /obj/effect/hallucination/proc/clear_icon_in(image/I, delay)
-	addtimer(CALLBACK(src, .proc/clear_icon, I), delay)
+	addtimer(CALLBACK(src, PROC_REF(clear_icon), I), delay)
 
 /**
   * Clears all images from the hallucination.
@@ -169,7 +143,7 @@ GLOBAL_LIST_INIT(hallucinations, list(
 	if(!images)
 		return
 	target?.client?.images -= images
-	QDEL_LIST(images)
+	QDEL_LIST_CONTENTS(images)
 
 /**
   * Plays a sound to the target only.
@@ -187,12 +161,9 @@ GLOBAL_LIST_INIT(hallucinations, list(
 	if(time == 0) // whatever
 		target?.playsound_local(source, snd, volume, vary, frequency)
 		return
-	addtimer(CALLBACK(target, /mob/.proc/playsound_local, source, snd, volume, vary, frequency), time)
+	addtimer(CALLBACK(target, TYPE_PROC_REF(/mob, playsound_local), source, snd, volume, vary, frequency), time)
 
-#undef HALLUCINATE_COOLDOWN_MIN
-#undef HALLUCINATE_COOLDOWN_MAX
-#undef HALLUCINATE_COOLDOWN_FACTOR
-#undef HALLUCINATE_CHANCE
-#undef HALLUCINATE_MINOR_WEIGHT
-#undef HALLUCINATE_MODERATE_WEIGHT
-#undef HALLUCINATE_MAJOR_WEIGHT
+/// Subtype that doesn't delete itself.
+/// Mostly used for hallucination managers because they delete the hallucinations when required
+/obj/effect/hallucination/no_delete
+	should_delete = FALSE

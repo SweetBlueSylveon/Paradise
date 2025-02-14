@@ -7,11 +7,32 @@
 	// DO NOT add slots with matching names to different zones - it will break internal_organs_slot list!
 	var/non_primary = 0
 	var/unremovable = FALSE //Whether it shows up as an option to remove during surgery.
+	/// An associated list of organ datums that this organ has.
+	var/list/datum/organ/organ_datums
 
 /obj/item/organ/internal/New(mob/living/carbon/holder)
 	..()
 	if(istype(holder))
 		insert(holder)
+
+/obj/item/organ/internal/Initialize(mapload)
+	. = ..()
+	if(!organ_datums)
+		return
+	var/list/temp_list = organ_datums.Copy()
+	organ_datums = list()
+	for(var/path in temp_list)
+		var/datum/organ/organ_datum = new path(src)
+		if(!organ_datum.organ_tag)
+			stack_trace("There was an organ datum [organ_datum] ([organ_datum.type]), that had no organ tag.")
+			continue
+		organ_datums[organ_datum.organ_tag] = organ_datum
+
+/obj/item/organ/internal/Destroy()
+	if(owner) // we have to remove BEFORE organ_datums are qdel'd, or we can just live even if our heart organ got deleted
+		remove(owner, TRUE)
+	QDEL_LIST_ASSOC_VAL(organ_datums) // The removal from internal_organ_datums should be handled when the organ is removed
+	. = ..()
 
 /obj/item/organ/internal/proc/insert(mob/living/carbon/M, special = 0, dont_remove_slot = 0)
 	if(!iscarbon(M) || owner == M)
@@ -28,12 +49,19 @@
 
 	M.internal_organs |= src
 	M.internal_organs_slot[slot] = src
+
+	for(var/organ_tag in organ_datums)
+		var/datum/organ/new_organ = organ_datums[organ_tag]
+		M.internal_organ_datums[new_organ.organ_tag] = new_organ
+		new_organ.on_insert(M)
+
 	var/obj/item/organ/external/parent
-	if(istype(M, /mob/living/carbon/human))
+	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		parent = H.get_organ(check_zone(parent_organ))
+		H.update_int_organs()
 		if(!istype(parent))
-			log_runtime(EXCEPTION("[src] attempted to insert into a [parent_organ], but [parent_organ] wasn't an organ! [atom_loc_line(M)]"), src)
+			stack_trace("[src] attempted to insert into a [parent_organ], but [parent_organ] wasn't an organ! [atom_loc_line(M)]")
 		else
 			parent.internal_organs |= src
 	loc = null
@@ -43,27 +71,52 @@
 	if(vital)
 		M.update_stat("Vital organ inserted")
 	STOP_PROCESSING(SSobj, src)
+	if(owner.stat == DEAD)
+		ADD_TRAIT(src, TRAIT_ORGAN_INSERTED_WHILE_DEAD, "[UID()]")
+		RegisterSignal(owner, COMSIG_LIVING_DEFIBBED, PROC_REF(on_revival))
+
 
 // Removes the given organ from its owner.
 // Returns the removed object, which is usually just itself
 // However, you MUST set the object's positiion yourself when you call this!
 /obj/item/organ/internal/remove(mob/living/carbon/M, special = 0)
 	if(!owner)
-		log_runtime(EXCEPTION("\'remove\' called on [src] without an owner! Mob: [M], [atom_loc_line(M)]"), src)
+		stack_trace("\'remove\' called on [src] without an owner! Mob: [M], [atom_loc_line(M)]")
+	SEND_SIGNAL(owner, COMSIG_CARBON_LOSE_ORGAN)
+	REMOVE_TRAIT(src, TRAIT_ORGAN_INSERTED_WHILE_DEAD, "[UID()]")
+	UnregisterSignal(owner, COMSIG_LIVING_DEFIBBED)
+
 	owner = null
 	if(M)
 		M.internal_organs -= src
 		if(M.internal_organs_slot[slot] == src)
 			M.internal_organs_slot.Remove(slot)
+
+
+		for(var/removal_tag in organ_datums)
+			if(M.internal_organ_datums[removal_tag] == organ_datums[removal_tag])
+				M.internal_organ_datums -= removal_tag
+				var/datum/organ/removed = organ_datums[removal_tag]
+				removed.on_remove(M)
+
+		// Lets see if we have any backup organ datums from other internal organs.
+		for(var/obj/item/organ/internal/backup_organ in M.internal_organs)
+			for(var/replacement_tag in backup_organ.organ_datums)
+				if(M.internal_organ_datums[replacement_tag]) // some other organ is already covering it
+					continue
+				var/datum/organ/replacement_organ = backup_organ.organ_datums[replacement_tag]
+				M.internal_organ_datums[replacement_organ.organ_tag] = replacement_organ
+				replacement_organ.on_replace(M)
+
 		if(vital && !special)
 			if(M.stat != DEAD)//safety check!
 				M.death()
 
-	if(istype(M, /mob/living/carbon/human))
+	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		var/obj/item/organ/external/parent = H.get_organ(check_zone(parent_organ))
 		if(!istype(parent))
-			log_runtime(EXCEPTION("[src] attempted to remove from a [parent_organ], but [parent_organ] didn't exist! [atom_loc_line(M)]"), src)
+			stack_trace("[src] attempted to remove from a [parent_organ], but [parent_organ] didn't exist! [atom_loc_line(M)]")
 		else
 			parent.internal_organs -= src
 		H.update_int_organs()
@@ -72,19 +125,41 @@
 		var/datum/action/A = X
 		A.Remove(M)
 	START_PROCESSING(SSobj, src)
+	if(destroy_on_removal && !QDELETED(src))
+		qdel(src)
+		return
 	return src
 
 /obj/item/organ/internal/emp_act(severity)
 	if(!is_robotic() || emp_proof)
 		return
+
+	var/we_done = FALSE
+	for(var/organ_tag in organ_datums)
+		var/datum/organ/borgan = organ_datums[organ_tag]
+		if(borgan.on_successful_emp())
+			we_done = TRUE
+
+	if(we_done)
+		return
+
+	// No EMP handling was done, lets just give em damage
 	switch(severity)
-		if(1)
+		if(EMP_HEAVY)
 			receive_damage(20, 1)
-		if(2)
+		if(EMP_LIGHT)
 			receive_damage(7, 1)
+		if(EMP_WEAKENED)
+			receive_damage(3, 1)
 
 /obj/item/organ/internal/replaced(mob/living/carbon/human/target)
-    insert(target)
+	insert(target)
+
+/obj/item/organ/internal/necrotize(update_sprite, ignore_vital_death = FALSE)
+	for(var/organ_tag in organ_datums) // let the organ datums handle first
+		var/datum/organ/dead_organ = organ_datums[organ_tag]
+		dead_organ.on_necrotize()
+	return ..()
 
 /obj/item/organ/internal/item_action_slot_check(slot, mob/user)
 	return
@@ -95,14 +170,17 @@
 /obj/item/organ/internal/proc/on_life()
 	return
 
+/obj/item/organ/internal/proc/dead_process()
+	return
+
 //abstract proc called by carbon/death()
 /obj/item/organ/internal/proc/on_owner_death()
- 	return
+	return
 
 /obj/item/organ/internal/proc/prepare_eat()
 	if(is_robotic())
 		return //no eating cybernetic implants!
-	var/obj/item/reagent_containers/food/snacks/organ/S = new
+	var/obj/item/food/organ/S = new
 	S.name = name
 	S.desc = desc
 	S.icon = icon
@@ -110,36 +188,30 @@
 	S.origin_tech = origin_tech
 	S.w_class = w_class
 
+	for(var/organ_tag in organ_datums)
+		var/datum/organ/delicious = organ_datums[organ_tag]
+		delicious.on_prepare_eat(S)
+
 	return S
 
 /obj/item/organ/internal/attempt_become_organ(obj/item/organ/external/parent,mob/living/carbon/human/H)
 	if(parent_organ != parent.limb_name)
-		return 0
+		return FALSE
 	insert(H)
-	return 1
+	return TRUE
 
 // Rendering!
 /obj/item/organ/internal/proc/render()
 	return
 
-/obj/item/reagent_containers/food/snacks/organ
-	name = "appendix"
-	icon_state = "appendix"
-	icon = 'icons/obj/surgery.dmi'
-
-/obj/item/reagent_containers/food/snacks/organ/New()
-	..()
-
-	reagents.add_reagent("nutriment", 5)
-
-/obj/item/organ/internal/attack(mob/living/carbon/M, mob/user)
+/obj/item/organ/internal/attack__legacy__attackchain(mob/living/carbon/M, mob/user)
 	if(M == user && ishuman(user))
 		var/mob/living/carbon/human/H = user
-		var/obj/item/reagent_containers/food/snacks/S = prepare_eat()
+		var/obj/item/food/S = prepare_eat()
 		if(S)
 			H.drop_item()
 			H.put_in_active_hand(S)
-			S.attack(H, H)
+			S.attack__legacy__attackchain(H, H)
 			qdel(src)
 	else
 		..()
@@ -157,7 +229,7 @@
 		if(slot == "heart" && ("[slot]-c-on" in states) && ("[slot]-c-off" in states)) //Give the robotic heart its robotic heart icons if they exist.
 			var/obj/item/organ/internal/heart/H = src
 			H.icon = icon('icons/obj/surgery.dmi')
-			H.icon_base = "[slot]-c"
+			H.base_icon_state = "[slot]-c"
 			H.dead_icon = "[slot]-c-off"
 			H.update_icon()
 		else if("[slot]-c" in states) //Give the robotic organ its robotic organ icons if they exist.
@@ -192,36 +264,6 @@
 		S.reagents.add_reagent("????", 5)
 	return S
 
-//shadowling tumor
-/obj/item/organ/internal/shadowtumor
-	name = "black tumor"
-	desc = "A tiny black mass with red tendrils trailing from it. It seems to shrivel in the light."
-	icon_state = "blacktumor"
-	origin_tech = "biotech=5"
-	w_class = WEIGHT_CLASS_TINY
-	parent_organ = "head"
-	slot = "brain_tumor"
-	max_integrity = 3
-
-/obj/item/organ/internal/shadowtumor/New()
-	..()
-	START_PROCESSING(SSobj, src)
-
-/obj/item/organ/internal/shadowtumor/Destroy()
-	STOP_PROCESSING(SSobj, src)
-	return ..()
-
-/obj/item/organ/internal/shadowtumor/process()
-	if(isturf(loc))
-		var/turf/T = loc
-		var/light_count = T.get_lumcount()*10
-		if(light_count > 4 && obj_integrity > 0) //Die in the light
-			obj_integrity--
-		else if(light_count < 2 && obj_integrity < max_integrity) //Heal in the dark
-			obj_integrity++
-		if(obj_integrity <= 0)
-			visible_message("<span class='warning'>[src] collapses in on itself!</span>")
-			qdel(src)
 
 //debug and adminbus....
 
@@ -233,6 +275,8 @@
 	w_class = WEIGHT_CLASS_TINY
 	parent_organ = "head"
 	slot = "brain_tumor"
+	destroy_on_removal = TRUE
+
 	var/organhonked = 0
 	var/suffering_delay = 900
 	var/datum/component/squeak
@@ -248,39 +292,38 @@
 	squeak = M.AddComponent(/datum/component/squeak, list('sound/items/bikehorn.ogg' = 1), 50, falloff_exponent = 20)
 
 /obj/item/organ/internal/honktumor/remove(mob/living/carbon/M, special = 0)
-	. = ..()
 	M.dna.SetSEState(GLOB.clumsyblock, FALSE)
 	M.dna.SetSEState(GLOB.comicblock, FALSE)
 	singlemutcheck(M, GLOB.clumsyblock, MUTCHK_FORCED)
 	singlemutcheck(M, GLOB.comicblock, MUTCHK_FORCED)
 	M.RemoveElement(/datum/element/waddling)
 	QDEL_NULL(squeak)
-	qdel(src)
+	return ..()
 
 /obj/item/organ/internal/honktumor/on_life()
 	if(organhonked < world.time)
 		organhonked = world.time + suffering_delay
 		to_chat(owner, "<font color='red' size='7'>HONK</font>")
 		owner.SetSleeping(0)
-		owner.Stuttering(20)
-		owner.AdjustEarDamage(0, 30)
-		owner.Weaken(3)
+		owner.Stuttering(40 SECONDS)
+		owner.Deaf(30 SECONDS)
+		owner.Weaken(6 SECONDS)
 		SEND_SOUND(owner, sound('sound/items/airhorn.ogg'))
 		if(prob(30))
-			owner.Stun(10)
-			owner.Paralyse(4)
+			owner.Stun(20 SECONDS)
+			owner.Paralyse(8 SECONDS)
 		else
-			owner.Jitter(500)
+			owner.Jitter(1000 SECONDS)
 
 		if(ishuman(owner))
 			var/mob/living/carbon/human/H = owner
 			if(isobj(H.shoes))
 				var/thingy = H.shoes
-				if(H.unEquip(H.shoes))
-					walk_away(thingy,H,15,2)
+				if(H.drop_item_to_ground(H.shoes))
+					GLOB.move_manager.move_away(thingy, H, 15, 2)
 					spawn(20)
 						if(thingy)
-							walk(thingy,0)
+							GLOB.move_manager.stop_looping(thingy)
 
 /obj/item/organ/internal/honktumor/cursed
 	unremovable = TRUE
@@ -300,6 +343,8 @@
 	w_class = WEIGHT_CLASS_TINY
 	parent_organ = "groin"
 	slot = "honk_bladder"
+	destroy_on_removal = TRUE
+
 	var/datum/component/squeak
 
 /obj/item/organ/internal/honkbladder/insert(mob/living/carbon/M, special = 0)
@@ -307,10 +352,8 @@
 	squeak = M.AddComponent(/datum/component/squeak, list('sound/effects/clownstep1.ogg'=1,'sound/effects/clownstep2.ogg'=1), 50, falloff_exponent = 20)
 
 /obj/item/organ/internal/honkbladder/remove(mob/living/carbon/M, special = 0)
-	. = ..()
-
 	QDEL_NULL(squeak)
-	qdel(src)
+	return ..()
 
 /obj/item/organ/internal/beard
 	name = "beard organ"
@@ -326,9 +369,9 @@
 	if(!owner)
 		return
 
-	if(istype(owner, /mob/living/carbon/human))
+	if(ishuman(owner))
 		var/mob/living/carbon/human/H = owner
-		var/obj/item/organ/external/head/head_organ = H.get_organ("head")
+		var/obj/item/organ/external/head/head_organ = H.get_organ("head")  // damn well better have a head if you have a beard
 		if(!(head_organ.h_style == "Very Long Hair" || head_organ.h_style == "Mohawk"))
 			if(prob(10))
 				head_organ.h_style = "Mohawk"
@@ -341,17 +384,13 @@
 			head_organ.facial_colour = "#D8C078"
 			H.update_fhair()
 
-/obj/item/organ/internal/emp_act(severity)
-	if(!is_robotic() || emp_proof)
-		return
-	switch(severity)
-		if(1)
-			receive_damage(20, 1)
-		if(2)
-			receive_damage(7, 1)
-
 /obj/item/organ/internal/handle_germs()
 	..()
 	if(germ_level >= INFECTION_LEVEL_TWO)
 		if(prob(3))	//about once every 30 seconds
 			receive_damage(1, silent = prob(30))
+
+/obj/item/organ/internal/proc/on_revival() //The goal of this proc / trait is to prevent one implanting organs in a corpse, in order to remove them with the organ extractor. Has to be legitimently implanted, or on just a living person, which has risk
+	SIGNAL_HANDLER
+	REMOVE_TRAIT(src, TRAIT_ORGAN_INSERTED_WHILE_DEAD, "[UID()]")
+	UnregisterSignal(owner, COMSIG_LIVING_DEFIBBED)

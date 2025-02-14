@@ -1,13 +1,26 @@
-GLOBAL_LIST_INIT(VVlocked, list("vars", "var_edited", "client", "firemut", "ishulk", "telekinesis", "xray", "ka", "virus", "viruses", "cuffed", "last_eaten", "unlock_content")) // R_DEBUG
+GLOBAL_LIST_INIT(VVlocked, list("client", "firemut", "ishulk", "telekinesis", "xray", "ka", "virus", "viruses", "cuffed", "last_eaten", "unlock_content")) // R_DEBUG
 GLOBAL_LIST_INIT(VVicon_edit_lock, list("icon", "icon_state", "overlays", "underlays", "resize")) // R_EVENT | R_DEBUG
 GLOBAL_LIST_INIT(VVckey_edit, list("key", "ckey")) // R_EVENT | R_DEBUG
 GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_height", "bound_width", "bound_x", "bound_y")) // R_DEBUG + warning
-/client/proc/vv_get_class(var_value)
+// Stuff that can break the server in weird ways and shouldnt be messed with unless you actually know what you are doing
+GLOBAL_LIST_INIT(VVmaint_only, list("vars", "var_edited", "contents"))
+
+// Protect ALL these
+GLOBAL_PROTECT(VVlocked)
+GLOBAL_PROTECT(VVicon_edit_lock)
+GLOBAL_PROTECT(VVckey_edit)
+GLOBAL_PROTECT(VVpixelmovement)
+GLOBAL_PROTECT(VVmaint_only)
+
+/client/proc/vv_get_class(var_name, var_value)
 	if(isnull(var_value))
 		. = VV_NULL
 
 	else if(isnum(var_value))
-		. = VV_NUM
+		if(var_name in GLOB.bitfields)
+			. = VV_BITFIELD
+		else
+			. = VV_NUM
 
 	else if(istext(var_value))
 		if(findtext(var_value, "\n"))
@@ -21,13 +34,13 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 	else if(ismob(var_value))
 		. = VV_MOB_REFERENCE
 
-	else if(isloc(var_value))
+	else if(isatom(var_value))
 		. = VV_ATOM_REFERENCE
 
 	else if(istype(var_value, /matrix))
 		. = VV_MATRIX
 
-	else if(istype(var_value,/client))
+	else if(isclient(var_value))
 		. = VV_CLIENT
 
 	else if(istype(var_value, /datum))
@@ -51,7 +64,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 	else
 		. = VV_NULL
 
-/client/proc/vv_get_value(class, default_class, current_value, list/restricted_classes, list/extra_classes, list/classes)
+/client/proc/vv_get_value(class, default_class, current_value, list/restricted_classes, list/extra_classes, list/classes, var_name)
 	. = list("class" = class, "value" = null)
 	if(!class)
 		if(!classes)
@@ -74,6 +87,9 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 				VV_NEW_DATUM,
 				VV_NEW_TYPE,
 				VV_NEW_LIST,
+				VV_VISIBLE_ATOM,
+				VV_INSIDE_VISIBLE_ATOM,
+				VV_VISIBLE_TURF,
 				VV_NULL,
 				VV_RESTORE_DEFAULT
 				)
@@ -110,6 +126,11 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 				.["class"] = null
 				return
 
+		if(VV_BITFIELD)
+			.["value"] = input_bitfield(usr, var_name, current_value)
+			if(.["value"] == null)
+				.["class"] = null
+				return
 
 		if(VV_ATOM_TYPE)
 			.["value"] = pick_closest_path(FALSE)
@@ -139,7 +160,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 			.["value"] = type
 
 		if(VV_MATRIX)
-			.["value"] = text2matrix(input("Enter a, b, c, d, e, and f, seperated by a space.", "Matrix", "1 0 0 0 1 0") as null|text)
+			.["value"] = text2matrix(input("Enter a, b, c, d, e, and f, separated by a space.", "Matrix", "1 0 0 0 1 0") as null|text)
 			if(.["value"] == null)
 				.["class"] = null
 				return
@@ -192,6 +213,45 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 				return
 			.["value"] = things[value]
 
+
+		if(VV_VISIBLE_ATOM)
+			var/atom/clicked = prompt_for_atom_click("Click an atom.")
+			if(!clicked)
+				.["class"] = null
+				return
+			.["value"] = clicked
+		if(VV_INSIDE_VISIBLE_ATOM)
+			var/atom/clicked = prompt_for_atom_click("Click an atom to search inside.")
+			if(!clicked)
+				.["class"] = null
+				return
+
+			// Collect everything inside the atom.
+			var/list/ancestors = list(clicked)
+			var/list/descendants = list()
+			while(length(ancestors) > 0 && length(descendants) < 100)
+				var/atom/ancestor = ancestors[length(ancestors)]
+				ancestors.len--
+				for(var/atom/child in ancestor)
+					ancestors += child
+					descendants += child
+
+			// Prompt for which to pick.
+			var/descendant = input("Pick an atom:", "Inside a Visible Atom", src) in descendants
+			if(!descendant)
+				.["class"] = null
+				return
+			.["value"] = descendant
+		if(VV_VISIBLE_TURF)
+			var/atom/clicked = prompt_for_atom_click("Pick a turf (or any atom on it).")
+			if(!clicked)
+				.["class"] = null
+				return
+			var/turf/where = get_turf(clicked)
+			if(!where)
+				.["class"] = null
+				return
+			.["value"] = where
 
 
 		if(VV_CLIENT)
@@ -272,9 +332,9 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 	if(!ispath(type))
 		return
 	var/list/subtypes = subtypesof(type)
-	if(!subtypes || !subtypes.len)
+	if(!subtypes || !length(subtypes))
 		return FALSE
-	if(subtypes && subtypes.len)
+	if(subtypes && length(subtypes))
 		switch(alert("Strict object type detection?", "Type detection", "Strictly this type","This type and subtypes", "Cancel"))
 			if("Strictly this type")
 				return FALSE
@@ -346,7 +406,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 
 	L += var_value
 
-	switch(alert("Would you like to associate a value with the list entry?",,"Yes","No"))
+	switch(alert("Would you like to associate a value with the list entry?", null,"Yes","No"))
 		if("Yes")
 			L[var_value] = mod_list_add_ass(O) //hehe
 	if(O)
@@ -364,7 +424,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 		to_chat(src, "Not a List.")
 		return
 
-	if(L.len > 1000)
+	if(length(L) > 1000)
 		var/confirm = alert(src, "The list you're trying to edit is very long, continuing may crash the server.", "Warning", "Continue", "Abort")
 		if(confirm != "Continue")
 			return
@@ -372,7 +432,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 
 
 	var/list/names = list()
-	for(var/i in 1 to L.len)
+	for(var/i in 1 to length(L))
 		var/key = L[i]
 		var/value
 		if(IS_NORMAL_LIST(L) && !isnum(key))
@@ -441,7 +501,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 	else
 		variable = L[index]
 
-	default = vv_get_class(variable)
+	default = vv_get_class(objectvar, variable)
 
 	to_chat(src, "Variable appears to be <b>[uppertext(default)]</b>.")
 
@@ -532,7 +592,30 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 		var/prompt = alert(usr, "Editing this var may irreparably break tile gliding for the rest of the round. THIS CAN'T BE UNDONE", "DANGER", "ABORT ", "Continue", " ABORT")
 		if(prompt != "Continue")
 			return FALSE
+	if(param_var_name in GLOB.VVmaint_only)
+		if(!check_rights(R_MAINTAINER))
+			alert(usr, "Editing this variable is restricted to Maintainers only.", "Error", "Ok")
+			return FALSE
+
 	return TRUE
+
+/datum/click_intercept/pick_atom
+	var/picked = null
+
+/datum/click_intercept/pick_atom/InterceptClickOn(user, params, atom/object)
+	picked = object
+
+/client/proc/prompt_for_atom_click(prompt = "Click something!")
+	to_chat(src, "<span class='notice big'>[prompt]</span>")
+	var/datum/click_intercept/pick_atom/picker = new(src)
+	while(isnull(picker.picked))
+		if(isnull(src) || click_intercept != picker)
+			return null
+		sleep(1)
+
+	click_intercept = null
+	return picker.picked
+	
 
 /client/proc/modify_variables(atom/O, param_var_name = null, autodetect_class = 0)
 	if(!check_rights(R_VAREDIT))
@@ -567,14 +650,14 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 
 	var_value = O.vars[variable]
 
-	var/default = vv_get_class(var_value)
+	var/default = vv_get_class(variable, var_value)
 
 	if(isnull(default))
 		to_chat(src, "Unable to determine variable type.")
 	else
 		to_chat(src, "Variable appears to be <b>[uppertext(default)]</b>.")
 
-	to_chat(src, "Variable contains: [var_value]")
+	to_chat(src, "Variable contains: [translate_bitfield(default, variable, var_value)]")
 
 	if(default == VV_NUM)
 		var/dir_text = ""
@@ -596,7 +679,7 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 			default = VV_MESSAGE
 		class = default
 
-	var/list/value = vv_get_value(class, default, var_value, extra_classes = list(VV_LIST))
+	var/list/value = vv_get_value(class, default, var_value, extra_classes = list(VV_LIST), var_name = variable)
 	class = value["class"]
 
 	if(!class)
@@ -628,7 +711,6 @@ GLOBAL_LIST_INIT(VVpixelmovement, list("step_x", "step_y", "step_size", "bound_h
 		to_chat(src, "Your edit was rejected by the object.")
 		return
 	SEND_GLOBAL_SIGNAL(COMSIG_GLOB_VAR_EDIT, args)
-	log_world("### VarEdit by [src]: [O.type] [variable]=[html_encode("[var_new]")]")
-	log_admin("[key_name(src)] modified [original_name]'s [variable] to [var_new]")
-	var/msg = "[key_name_admin(src)] modified [original_name]'s [variable] to [html_encode("[var_new]")]"
-	message_admins(msg)
+	log_world("### VarEdit by [src]: [O.type] [variable]=[html_encode("[var_new]")] (Type: [class])")
+	log_admin("[key_name(src)] modified [original_name]'s [variable] to [var_new] (Type: [class])")
+	message_admins("[key_name_admin(src)] modified [original_name]'s [variable] to [html_encode(translate_bitfield(default, variable, var_new))] (Type: [class])")

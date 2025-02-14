@@ -8,26 +8,24 @@
 	var/janitor_slots = 0
 	var/paranormal_slots = 0
 	var/cyborg_slots = 0
+	/// The below is a toggle for if sec cyborgs are enabled or not
+	var/cyborg_security = FALSE
 
-/datum/ui_module/ert_manager/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.admin_state)
-	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+/datum/ui_module/ert_manager/ui_state(mob/user)
+	return GLOB.admin_state
+
+/datum/ui_module/ert_manager/ui_interact(mob/user, datum/tgui/ui = null)
+	ui = SStgui.try_update_ui(user, src, ui)
 	if(!ui)
-		ui = new(user, src, ui_key, "ERTManager", name, 350, 430, master_ui, state)
+		ui = new(user, src, "ERTManager", name)
 		ui.autoupdate = TRUE
 		ui.open()
 
 /datum/ui_module/ert_manager/ui_data(mob/user)
 	var/list/data = list()
-	data["str_security_level"] = capitalize(get_security_level())
-	switch(GLOB.security_level)
-		if(SEC_LEVEL_GREEN)
-			data["security_level_color"] = "green"
-		if(SEC_LEVEL_BLUE)
-			data["security_level_color"] = "blue"
-		if(SEC_LEVEL_RED)
-			data["security_level_color"] = "red"
-		else
-			data["security_level_color"] = "purple"
+	data["str_security_level"] = capitalize(SSsecurity_level.get_current_level_as_text())
+	data["security_level_color"] = SSsecurity_level.current_security_level.color
+	data["ert_request_answered"] = GLOB.ert_request_answered
 	data["ert_type"] = ert_type
 	data["com"] = commander_slots
 	data["sec"] = security_slots
@@ -36,17 +34,24 @@
 	data["jan"] = janitor_slots
 	data["par"] = paranormal_slots
 	data["cyb"] = cyborg_slots
+	data["secborg"] = cyborg_security
 	data["total"] = commander_slots + security_slots + medical_slots + engineering_slots + janitor_slots + paranormal_slots + cyborg_slots
-	data["spawnpoints"] = GLOB.emergencyresponseteamspawn.len
+	data["spawnpoints"] = length(GLOB.emergencyresponseteamspawn)
+
+	data["ert_request_messages"] = GLOB.ert_request_messages
 	return data
 
-/datum/ui_module/ert_manager/ui_act(action, params)
+/datum/ui_module/ert_manager/ui_act(action, params, datum/tgui/ui)
 	if(..())
 		return
 	. = TRUE
 	switch(action)
+		if("toggle_ert_request_answered")
+			GLOB.ert_request_answered = !GLOB.ert_request_answered
 		if("ert_type")
 			ert_type = params["ert_type"]
+			if(ert_type != "Red")
+				cyborg_security = FALSE
 		if("toggle_com")
 			commander_slots = commander_slots ? 0 : 1
 		if("set_sec")
@@ -61,6 +66,10 @@
 			paranormal_slots = text2num(params["set_par"])
 		if("set_cyb")
 			cyborg_slots = text2num(params["set_cyb"])
+			if(!cyborg_slots)
+				cyborg_security = FALSE
+		if("toggle_secborg")
+			cyborg_security = !cyborg_security
 		if("dispatch_ert")
 			var/datum/response_team/D
 			switch(ert_type)
@@ -89,11 +98,26 @@
 				slots_list += "paranormal: [paranormal_slots]"
 			if(cyborg_slots > 0)
 				slots_list += "cyborg: [cyborg_slots]"
+
+			var/silenced = (params["silent"])
+			D.silent = silenced
+
 			var/slot_text = english_list(slots_list)
-			notify_ghosts("An ERT is being dispatched. Open positions: [slot_text]")
-			message_admins("[key_name_admin(usr)] dispatched a [ert_type] ERT. Slots: [slot_text]", 1)
-			log_admin("[key_name(usr)] dispatched a [ert_type] ERT. Slots: [slot_text]")
-			GLOB.event_announcement.Announce("Attention, [station_name()]. We are attempting to assemble an ERT. Standby.", "ERT Protocol Activated")
-			trigger_armed_response_team(D, commander_slots, security_slots, medical_slots, engineering_slots, janitor_slots, paranormal_slots, cyborg_slots)
+			notify_ghosts("An ERT is being dispatched. Type: [ert_type]. Open positions: [slot_text]")
+			message_admins("[key_name_admin(usr)] dispatched a [silenced ? "silent " : ""][ert_type] ERT. Slots: [slot_text]", 1)
+			log_admin("[key_name(usr)] dispatched a [silenced ? "silent " : ""][ert_type] ERT. Slots: [slot_text]")
+			if(!silenced)
+				GLOB.major_announcement.Announce("Attention, [station_name()]. We are attempting to assemble an ERT. Standby.", "ERT Protocol Activated")
+			trigger_armed_response_team(D, commander_slots, security_slots, medical_slots, engineering_slots, janitor_slots, paranormal_slots, cyborg_slots, cyborg_security)
+
+		if("view_player_panel")
+			ui.user.client.holder.show_player_panel(locate(params["uid"]))
+
+		if("deny_ert")
+			GLOB.ert_request_answered = TRUE
+			var/message = "[station_name()], we are unfortunately unable to send you an Emergency Response Team at this time."
+			if(params["reason"])
+				message += " Your ERT request has been denied for the following reasons:\n\n[params["reason"]]"
+			GLOB.major_announcement.Announce(message, "ERT Unavailable")
 		else
 			return FALSE

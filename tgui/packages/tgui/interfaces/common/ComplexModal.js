@@ -1,5 +1,5 @@
-import { useBackend } from "../../backend";
-import { Box, Button, Dropdown, Flex, Input, Modal } from '../../components';
+import { useBackend } from '../../backend';
+import { Box, Button, Dropdown, Stack, Input, Modal } from '../../components';
 
 let bodyOverrides = {};
 
@@ -73,30 +73,22 @@ export const ComplexModal = (props, context) => {
     return;
   }
 
-  const {
-    id,
-    text,
-    type,
-  } = data.modal;
+  const { id, text, type } = data.modal;
 
   let modalOnEnter;
-  let modalBody;
-  let modalFooter = (
-    <Button
-      icon="arrow-left"
-      content="Cancel"
-      color="grey"
-      onClick={() => modalClose(context)}
-    />
+  let modalHeader = (
+    <Button className="Button--modal" icon="arrow-left" content="Cancel" onClick={() => modalClose(context)} />
   );
-  let overflowY = "auto";
+  let modalBody;
+  let modalFooter;
+  let overflowY = 'auto';
 
   // Different contents depending on the type
   if (bodyOverrides[id]) {
     modalBody = bodyOverrides[id](data.modal, context);
-  } else if (type === "input") {
+  } else if (type === 'input') {
     let curValue = data.modal.value;
-    modalOnEnter = e => modalAnswer(context, id, curValue);
+    modalOnEnter = (e) => modalAnswer(context, id, curValue);
     modalBody = (
       <Input
         value={data.modal.value}
@@ -111,15 +103,10 @@ export const ComplexModal = (props, context) => {
     );
     modalFooter = (
       <Box mt="0.5rem">
-        <Button
-          icon="arrow-left"
-          content="Cancel"
-          color="grey"
-          onClick={() => modalClose(context)}
-        />
+        <Button icon="arrow-left" content="Cancel" color="grey" onClick={() => modalClose(context)} />
         <Button
           icon="check"
-          content={"Confirm"}
+          content={'Confirm'}
           color="good"
           float="right"
           m="0"
@@ -128,39 +115,31 @@ export const ComplexModal = (props, context) => {
         <Box clear="both" />
       </Box>
     );
-  } else if (type === "choice") {
-    const realChoices = (typeof data.modal.choices === "object")
-      ? Object.values(data.modal.choices)
-      : data.modal.choices;
+  } else if (type === 'choice') {
+    const realChoices = typeof data.modal.choices === 'object' ? Object.values(data.modal.choices) : data.modal.choices;
     modalBody = (
       <Dropdown
         options={realChoices}
         selected={data.modal.value}
         width="100%"
         my="0.5rem"
-        onSelected={val => modalAnswer(context, id, val)}
+        onSelected={(val) => modalAnswer(context, id, val)}
       />
     );
-    overflowY = "initial";
-  } else if (type === "bento") {
+    overflowY = 'initial';
+  } else if (type === 'bento') {
     modalBody = (
-      <Flex
-        spacingPrecise="1"
-        wrap="wrap"
-        my="0.5rem"
-        maxHeight="1%">
+      <Stack spacingPrecise="1" wrap="wrap" my="0.5rem" maxHeight="1%">
         {data.modal.choices.map((c, i) => (
-          <Flex.Item key={i} flex="1 1 auto">
-            <Button
-              selected={(i + 1) === parseInt(data.modal.value, 10)}
-              onClick={() => modalAnswer(context, id, i + 1)}>
+          <Stack.Item key={i} flex="1 1 auto">
+            <Button selected={i + 1 === parseInt(data.modal.value, 10)} onClick={() => modalAnswer(context, id, i + 1)}>
               <img src={c} />
             </Button>
-          </Flex.Item>
+          </Stack.Item>
         ))}
-      </Flex>
+      </Stack>
     );
-  } else if (type === "boolean") {
+  } else if (type === 'boolean') {
     modalFooter = (
       <Box mt="0.5rem">
         <Button
@@ -186,14 +165,15 @@ export const ComplexModal = (props, context) => {
 
   return (
     <Modal
-      maxWidth={props.maxWidth || (window.innerWidth / 2 + "px")}
-      maxHeight={props.maxHeight || (window.innerHeight / 2 + "px")}
+      maxWidth={props.maxWidth || window.innerWidth / 2 + 'px'}
+      maxHeight={props.maxHeight || window.innerHeight / 2 + 'px'}
       onEnter={modalOnEnter}
       mx="auto"
-      overflowY={overflowY}>
-      <Box display="inline">
-        {text}
-      </Box>
+      overflowY={overflowY}
+      padding-bottom="5px"
+    >
+      {text && <Box inline>{text}</Box>}
+      {bodyOverrides[id] && modalHeader}
       {modalBody}
       {modalFooter}
     </Modal>

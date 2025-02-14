@@ -52,18 +52,18 @@
 /datum/fish/shrimp
 	fish_name = "shrimp"
 	egg_item = /obj/item/fish_eggs/shrimp
-	fish_item = /obj/item/reagent_containers/food/snacks/shrimp
+	fish_item = /obj/item/food/shrimp
 	crossbreeder = 0
 
 /datum/fish/feederfish
 	fish_name = "feeder fish"
 	egg_item = /obj/item/fish_eggs/feederfish
-	fish_item = /obj/item/reagent_containers/food/snacks/feederfish
+	fish_item = /obj/item/food/feederfish
 
 /datum/fish/feederfish/special_interact(obj/machinery/fishtank/my_tank)
 	if(!my_tank || !istype(my_tank))
 		return
-	if(my_tank.fish_count < 2)
+	if(my_tank.get_num_fish() < 2)
 		return
 	if(my_tank.food_level <= 5 && prob(25))
 		my_tank.adjust_food_level(1)

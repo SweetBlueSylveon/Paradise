@@ -1,9 +1,3 @@
-/obj/machinery/camera
-	var/list/localMotionTargets = list()
-	var/detectTime = 0
-	var/area/ai_monitored/area_motion = null
-	var/alarm_delay = 30 // Don't forget, there's another 3 seconds in queueAlarm()
-
 /obj/machinery/camera/process()
 	// motion camera event loop
 	if(!isMotion())
@@ -18,7 +12,7 @@
 	else if(detectTime == -1)
 		for(var/thing in getTargetList())
 			var/mob/target = locateUID(thing)
-			if(QDELETED(target) || target.stat == DEAD || (!area_motion && !in_range(src, target)))
+			if(QDELETED(target) || target.stat == DEAD || (!area_motion && (!(get_dist(src, target) <= view_range) || !(target in hearers(view_range, get_turf(src))))))
 				//If not part of a monitored area and the camera is not in range or the target is dead
 				lostTargetRef(thing)
 
@@ -28,7 +22,11 @@
 	return localMotionTargets
 
 /obj/machinery/camera/proc/newTarget(mob/target)
-	if(isAI(target))
+	if(is_ai(target))
+		return FALSE
+	if(isbot(target)) //No armsky, you don't get to set off the motion alarm constantly
+		return FALSE
+	if(!area_motion && (!(get_dist(src, target) <= view_range) || !(target in hearers(view_range, get_turf(src)))))
 		return FALSE
 	if(detectTime == 0)
 		detectTime = world.time // start the clock
@@ -39,13 +37,13 @@
 /obj/machinery/camera/proc/lostTargetRef(uid)
 	var/list/targets = getTargetList()
 	targets -= uid
-	if(length(targets))
+	if(!length(targets))
 		cancelAlarm()
 
 /obj/machinery/camera/proc/cancelAlarm()
 	if(detectTime == -1)
 		if(status)
-			SSalarm.cancelAlarm("Motion", get_area(src), src)
+			GLOB.alarm_manager.cancel_alarm("Motion", get_area(src), src)
 	detectTime = 0
 	return TRUE
 
@@ -53,7 +51,8 @@
 	if(!detectTime)
 		return FALSE
 	if(status)
-		SSalarm.triggerAlarm("Motion", get_area(src), list(UID()), src)
+		var/area/A = get_area(src)
+		GLOB.alarm_manager.trigger_alarm("Motion", A, A.cameras, src)
 		visible_message("<span class='warning'>A red light flashes on [src]!</span>")
 	detectTime = -1
 	return TRUE

@@ -10,29 +10,33 @@
 	emote_see = list("clacks")
 	speak_chance = 1
 	turns_per_move = 5
-	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat = 1)
+	butcher_results = list(/obj/item/food/meat = 1)
 	response_help  = "pets"
 	response_disarm = "gently pushes aside"
 	response_harm   = "stomps"
-	stop_automated_movement = 1
+	stop_automated_movement = TRUE
 	friendly = "pinches"
-	ventcrawler = 2
-	can_hide = 1
-	can_collar = 1
+	ventcrawler = VENTCRAWLER_ALWAYS
+	can_hide = TRUE
+	can_collar = TRUE
 	gold_core_spawnable = FRIENDLY_SPAWN
 
 /mob/living/simple_animal/crab/handle_automated_movement()
 	//CRAB movement
-	if(!stat)
-		if(isturf(src.loc) && !resting && !buckled)		//This is so it only moves if it's not inside a closet, gentics machine, etc.
-			turns_since_move++
-			if(turns_since_move >= turns_per_move)
-				var/east_vs_west = pick(4, 8)
-				if(Process_Spacemove(east_vs_west))
-					Move(get_step(src, east_vs_west), east_vs_west)
+	if(stat == CONSCIOUS || !isturf(loc) || IS_HORIZONTAL(src) || buckled)
+		return
+
+	turns_since_move++
+	if(turns_since_move >= turns_per_move)
+		var/east_vs_west = pick(4, 8)
+		if(Process_Spacemove(east_vs_west))
+			Move(get_step(src, east_vs_west), east_vs_west)
+
+/mob/living/simple_animal/crab/npc_safe(mob/user)
+	return TRUE
 
 //COFFEE! SQUEEEEEEEEE!
-/mob/living/simple_animal/crab/Coffee
+/mob/living/simple_animal/crab/coffee
 	name = "Coffee"
 	real_name = "Coffee"
 	desc = "It's Coffee, the other pet!"
